@@ -17,7 +17,7 @@ services:
       - GIN_MODE=release
       - REDIS_URL=redis:6379
       - DB_HOST=postgres
-      - DB_JWT_KEY_ENCRYPTION_KEY=supersecretkeyforproduction32bytes # PRODUCTION_SECRET
+      - DB_JWT_KEY_ENCRYPTION_KEY=a1b2c3d4e5f60718293a4b5c6d7e8f90112233445566778899aabbccddeeff00 # Valid 64-char hex key
       - DATABASE_PASSWORD=123456
       # Add other necessary env vars here or use .env file
     volumes:

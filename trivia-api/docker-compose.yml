@@ -18,6 +18,7 @@ services:
       - REDIS_URL=redis:6379
       - DB_HOST=postgres
       - DB_JWT_KEY_ENCRYPTION_KEY=supersecretkeyforproduction32bytes # PRODUCTION_SECRET
+      - DATABASE_PASSWORD=123456
       # Add other necessary env vars here or use .env file
     volumes:
       - ./config:/root/config

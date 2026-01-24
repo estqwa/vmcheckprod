@@ -251,7 +251,7 @@ func main() {
 
 	// Настройка CORS
 	router.Use(cors.New(cors.Config{
-		AllowOrigins:     []string{"https://triviafront.vercel.app", "https://triviafrontadmin.vercel.app", "http://localhost:5173", "http://localhost:8000", "http://localhost:3000"},
+		AllowOrigins:     []string{"https://triviafront.vercel.app", "https://triviafrontadmin.vercel.app", "http://localhost:5173", "http://localhost:8000", "http://localhost:3000", "http://34.159.126.18", "http://34.159.126.18:80"},
 		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
 		AllowHeaders:     []string{"Origin", "Content-Type", "Accept", "Authorization", "X-CSRF-Token"},
 		ExposeHeaders:    []string{"Content-Length"},

@@ -42,7 +42,7 @@ services:
       context: ../trivia-apinewfront
       dockerfile: Dockerfile
       args:
-        NEXT_PUBLIC_API_URL: /api
+        NEXT_PUBLIC_API_URL: https://qazaquiz.duckdns.org
         NEXT_PUBLIC_WS_URL: wss://qazaquiz.duckdns.org
     expose:
       - "3000"

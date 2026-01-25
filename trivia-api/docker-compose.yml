@@ -22,10 +22,11 @@ services:
       context: .
       dockerfile: Dockerfile
     # ports:
-    #   - "8080:8080" # Access via Nginx only
+    #   - "8080:8080" # Internal only, accessed via Nginx
     depends_on:
       - postgres
       - redis
+    restart: always
     networks:
       - app-network
     environment:

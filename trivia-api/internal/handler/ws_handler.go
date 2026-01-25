@@ -65,6 +65,8 @@ var upgrader = gorillaws.Upgrader{
 			"http://localhost:3000",
 			"http://34.159.126.18",
 			"http://34.159.126.18:80",
+			"https://qazaquiz.duckdns.org",
+			"http://qazaquiz.duckdns.org",
 		}
 
 		for _, allowed := range allowedOrigins {

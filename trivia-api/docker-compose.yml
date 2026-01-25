@@ -2,12 +2,27 @@ version: '3.8'
 
 services:
   # Backend API
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/conf.d:/etc/nginx/conf.d
+      - /etc/letsencrypt:/etc/letsencrypt
+    depends_on:
+      - app
+      - frontend
+    restart: always
+    networks:
+      - app-network
+
   app:
     build:
       context: .
       dockerfile: Dockerfile
-    ports:
-      - "8080:8080"
+    # ports:
+    #   - "8080:8080" # Access via Nginx only
     depends_on:
       - postgres
       - redis

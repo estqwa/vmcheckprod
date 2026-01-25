@@ -5,7 +5,17 @@ import { useAuth } from '@/providers/AuthProvider';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 
-const WS_URL = process.env.NEXT_PUBLIC_WS_URL || 'wss://triviabackend-jp8r.onrender.com';
+const getWSUrl = () => {
+    if (process.env.NEXT_PUBLIC_WS_URL) return process.env.NEXT_PUBLIC_WS_URL;
+    if (typeof window !== 'undefined') {
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        return `${protocol}//${window.location.host}`;
+    }
+    // Fallback for server-side rendering or when window is not defined and no env var is set
+    return 'wss://qazaquiz.duckdns.org';
+};
+
+const WS_URL = getWSUrl();
 
 interface WSMessage {
     type: string;

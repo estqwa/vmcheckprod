@@ -1,19 +1,18 @@
-version: '3.8'
+version: "3.8"
 
 services:
-  # Backend API
   nginx:
     image: nginx:alpine
     ports:
       - "80:80"
       - "443:443"
     volumes:
-      - ./nginx/conf.d:/etc/nginx/conf.d
-      - /etc/letsencrypt:/etc/letsencrypt
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - /etc/letsencrypt:/etc/letsencrypt:ro
     depends_on:
       - app
       - frontend
-    restart: always
+    restart: unless-stopped
     networks:
       - app-network
 
@@ -21,44 +20,41 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    # ports:
-    #   - "8080:8080" # Internal only, accessed via Nginx
+    expose:
+      - "8080"
     depends_on:
       - postgres
       - redis
-    restart: always
     networks:
       - app-network
     environment:
       - GIN_MODE=release
       - REDIS_URL=redis:6379
       - DB_HOST=postgres
-      - DB_JWT_KEY_ENCRYPTION_KEY=a1b2c3d4e5f60718293a4b5c6d7e8f90112233445566778899aabbccddeeff00 # Valid 64-char hex key
+      - DB_JWT_KEY_ENCRYPTION_KEY=a1b2c3d4e5f60718293a4b5c6d7e8f90112233445566778899aabbccddeeff00
       - DATABASE_PASSWORD=123456
-      # Add other necessary env vars here or use .env file
     volumes:
-      - ./config:/root/config
+      - ./config:/root/config:ro
+    restart: unless-stopped
 
-  # Frontend Next.js
   frontend:
     build:
-      context: ../trivia-apinewfront # Assuming folder structure
+      context: ../trivia-apinewfront
       dockerfile: Dockerfile
       args:
-        NEXT_PUBLIC_API_URL: http://34.159.126.18:8080
-    ports:
-      - "80:3000" # Expose Frontend on port 80 (HTTP standard)
+        NEXT_PUBLIC_API_URL: /api
+    expose:
+      - "3000"
     networks:
       - app-network
     environment:
-      # Client-side env vars must start with NEXT_PUBLIC_
-      - NEXT_PUBLIC_API_URL=http://34.159.126.18:8080 # User's External IP
-    restart: always
+      - NEXT_PUBLIC_API_URL=/api
+    restart: unless-stopped
 
   postgres:
     image: postgres:13-alpine
-    ports:
-      - "5432:5432"
+    expose:
+      - "5432"
     environment:
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=123456
@@ -67,15 +63,17 @@ services:
       - postgres-data:/var/lib/postgresql/data
     networks:
       - app-network
+    restart: unless-stopped
 
   redis:
     image: redis:alpine
-    ports:
-      - "6379:6379"
+    expose:
+      - "6379"
     volumes:
       - redis-data:/data
     networks:
       - app-network
+    restart: unless-stopped
 
 networks:
   app-network:

@@ -220,6 +220,43 @@ func (h *WSHandler) registerMessageHandlers() {
 		}
 		return nil // Никогда не закрываем соединение из-за heartbeat
 	})
+
+	// Обработчик для resync (восстановление состояния после reconnect)
+	h.wsManager.RegisterHandler("user:resync", func(data json.RawMessage, client *websocket.Client) error {
+		var resyncEvent struct {
+			QuizID uint `json:"quiz_id"`
+		}
+		if err := json.Unmarshal(data, &resyncEvent); err != nil {
+			log.Printf("[WSHandler] Ошибка парсинга user:resync: %v, Data: %s", err, string(data))
+			h.wsManager.SendErrorToClient(client, "invalid_format", "Failed to parse user:resync event")
+			return nil // Не закрываем соединение
+		}
+
+		log.Printf("[WSHandler] Resync запрос от пользователя %s для викторины %d", client.UserID, resyncEvent.QuizID)
+
+		// Получаем UserID
+		userID, err := h.parseUserID(client)
+		if err != nil {
+			return nil // Ошибка уже залогирована
+		}
+
+		// Получаем текущее состояние викторины для пользователя
+		state, err := h.quizManager.GetCurrentState(userID, resyncEvent.QuizID)
+		if err != nil {
+			log.Printf("[WSHandler] Ошибка при получении состояния для resync: %v", err)
+			h.wsManager.SendErrorToClient(client, "resync_error", "Failed to get current state")
+			return nil
+		}
+
+		// Отправляем состояние клиенту
+		if err := h.wsManager.SendEventToUser(client.UserID, "quiz:state", state); err != nil {
+			log.Printf("[WSHandler] Ошибка при отправке quiz:state пользователю %s: %v", client.UserID, err)
+		} else {
+			log.Printf("[WSHandler] Успешно отправлен resync для пользователя %s, quiz %d", client.UserID, resyncEvent.QuizID)
+		}
+
+		return nil
+	})
 }
 
 // --- Вспомогательные методы ---

@@ -316,6 +316,117 @@ func (qm *QuizManager) AutoFillQuizQuestions(quizID uint) error {
 	return qm.questionManager.AutoFillQuizQuestions(qm.ctx, quizID)
 }
 
+// QuizStateResponse представляет состояние викторины для resync
+type QuizStateResponse struct {
+	QuizID            uint           `json:"quiz_id"`
+	Status            string         `json:"status"` // "waiting", "in_progress", "completed"
+	CurrentQuestion   *QuestionState `json:"current_question,omitempty"`
+	TimeRemaining     int            `json:"time_remaining"`
+	IsEliminated      bool           `json:"is_eliminated"`
+	EliminationReason string         `json:"elimination_reason,omitempty"`
+	Score             int            `json:"score"`
+	CorrectCount      int            `json:"correct_count"`
+}
+
+// QuestionState представляет текущий вопрос для resync
+type QuestionState struct {
+	QuestionID     uint     `json:"question_id"`
+	Number         int      `json:"number"`
+	TotalQuestions int      `json:"total_questions"`
+	Text           string   `json:"text"`
+	Options        []Option `json:"options"`
+	TimeLimit      int      `json:"time_limit"`
+}
+
+// Option представляет вариант ответа
+type Option struct {
+	ID   int    `json:"id"`
+	Text string `json:"text"`
+}
+
+// GetCurrentState возвращает текущее состояние викторины для клиента (resync после reconnect)
+func (qm *QuizManager) GetCurrentState(userID uint, quizID uint) (*QuizStateResponse, error) {
+	qm.stateMutex.RLock()
+	state := qm.activeQuizState
+	qm.stateMutex.RUnlock()
+
+	// Нет активной викторины
+	if state == nil || state.Quiz == nil || state.Quiz.ID != quizID {
+		// Проверяем, существует ли викторина и её статус
+		quiz, err := qm.quizRepo.GetByID(quizID)
+		if err != nil {
+			return nil, fmt.Errorf("quiz not found: %w", err)
+		}
+
+		response := &QuizStateResponse{
+			QuizID: quizID,
+			Status: string(quiz.Status),
+		}
+
+		// Если викторина завершена, получаем результаты пользователя
+		if quiz.Status == entity.QuizStatusCompleted {
+			result, err := qm.resultService.GetUserResult(userID, quizID)
+			if err == nil && result != nil {
+				response.Score = result.Score
+				response.CorrectCount = result.CorrectAnswers
+				response.IsEliminated = result.IsEliminated
+			}
+		}
+
+		return response, nil
+	}
+
+	// Есть активная викторина
+	question, questionNumber := state.GetCurrentQuestion()
+	startTimeMs := state.GetCurrentQuestionStartTime()
+
+	response := &QuizStateResponse{
+		QuizID: quizID,
+		Status: "in_progress",
+	}
+
+	// Получаем статус пользователя (выбыл или нет)
+	ctx := context.Background()
+	result, err := qm.answerProcessor.GetUserQuizStatus(ctx, userID, quizID)
+	if err == nil && result != nil {
+		response.IsEliminated = result.IsEliminated
+		response.EliminationReason = result.EliminationReason
+		response.Score = result.Score
+		response.CorrectCount = result.CorrectCount
+	}
+
+	// Если есть текущий вопрос
+	if question != nil {
+		// Рассчитываем оставшееся время
+		elapsedMs := time.Now().UnixMilli() - startTimeMs
+		remainingSec := question.TimeLimitSec - int(elapsedMs/1000)
+		if remainingSec < 0 {
+			remainingSec = 0
+		}
+		response.TimeRemaining = remainingSec
+
+		// Формируем опции ответов
+		options := make([]Option, len(question.Options))
+		for i, opt := range question.Options {
+			options[i] = Option{
+				ID:   i,
+				Text: opt,
+			}
+		}
+
+		response.CurrentQuestion = &QuestionState{
+			QuestionID:     question.ID,
+			Number:         questionNumber,
+			TotalQuestions: len(state.Quiz.Questions),
+			Text:           question.Text,
+			Options:        options,
+			TimeLimit:      question.TimeLimitSec,
+		}
+	}
+
+	return response, nil
+}
+
 // Shutdown корректно завершает работу менеджера викторин
 func (qm *QuizManager) Shutdown() {
 	log.Println("[QuizManager] Завершение работы менеджера викторин...")

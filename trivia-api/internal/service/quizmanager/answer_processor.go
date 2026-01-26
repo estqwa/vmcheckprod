@@ -231,3 +231,47 @@ func (ap *AnswerProcessor) sendEliminationNotification(userID uint, quizID uint,
 		log.Printf("[AnswerProcessor] Ошибка при отправке уведомления о выбывании пользователю #%d: %v", userID, err)
 	}
 }
+
+// UserQuizStatus содержит статус пользователя в викторине для resync
+type UserQuizStatus struct {
+	IsEliminated      bool
+	EliminationReason string
+	Score             int
+	CorrectCount      int
+}
+
+// GetUserQuizStatus возвращает текущий статус пользователя в викторине (для resync)
+func (ap *AnswerProcessor) GetUserQuizStatus(ctx context.Context, userID uint, quizID uint) (*UserQuizStatus, error) {
+	status := &UserQuizStatus{}
+
+	// Проверяем статус выбывания в Redis (быстрее, чем БД)
+	eliminationKey := fmt.Sprintf("quiz:%d:eliminated:%d", quizID, userID)
+	isEliminated, err := ap.deps.CacheRepo.Exists(eliminationKey)
+	if err != nil {
+		log.Printf("[AnswerProcessor] Ошибка Redis при проверке выбывания для resync: %v", err)
+		// Продолжаем, попробуем получить из БД
+	} else {
+		status.IsEliminated = isEliminated
+	}
+
+	// Получаем ответы пользователя из БД для подсчёта очков
+	answers, err := ap.deps.ResultRepo.GetUserAnswers(userID, quizID)
+	if err != nil {
+		log.Printf("[AnswerProcessor] Ошибка при получении ответов пользователя #%d для resync: %v", userID, err)
+		return status, nil // Возвращаем частичные данные
+	}
+
+	for _, answer := range answers {
+		status.Score += answer.Score
+		if answer.IsCorrect {
+			status.CorrectCount++
+		}
+		// Если какой-то ответ привёл к выбыванию
+		if answer.IsEliminated {
+			status.IsEliminated = true
+			status.EliminationReason = answer.EliminationReason
+		}
+	}
+
+	return status, nil
+}

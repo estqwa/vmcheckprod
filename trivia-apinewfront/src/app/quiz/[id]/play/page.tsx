@@ -1,10 +1,9 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/providers/AuthProvider';
-import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
-import { useQuizWS } from '@/lib/hooks/useQuizWS';
+import { useQuizWebSocket, WSMessage } from '@/providers/QuizWebSocketProvider';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -23,11 +22,12 @@ interface QuizState {
     eliminationReason: string;
 }
 
-function PlayContent() {
+export default function QuizPlayPage() {
     const params = useParams();
     const router = useRouter();
     const quizId = Number(params.id);
     const { user } = useAuth();
+    const { isConnected, connectionState, subscribe, sendAnswer } = useQuizWebSocket();
 
     const [quizState, setQuizState] = useState<QuizState>({
         status: 'waiting',
@@ -42,7 +42,7 @@ function PlayContent() {
     });
 
     // Handle WebSocket messages
-    const handleMessage = useCallback((msg: { type: string; data: Record<string, unknown> }) => {
+    const handleMessage = useCallback((msg: WSMessage) => {
         console.log('[Play] WS message:', msg.type, msg.data);
 
         switch (msg.type) {
@@ -82,7 +82,6 @@ function PlayContent() {
             }
 
             case 'quiz:answer_reveal': {
-                // Show correct answer - handle null lastResult safely
                 const correctOption = msg.data.correct_option as number;
                 setQuizState(prev => ({
                     ...prev,
@@ -128,19 +127,42 @@ function PlayContent() {
                 router.push(`/quiz/${quizId}/results`);
                 break;
             }
+
+            // Handle resync - restore state after reconnect
+            case 'quiz:state': {
+                console.log('[Play] Received state resync:', msg.data);
+                const state = msg.data as {
+                    status?: string;
+                    current_question?: QuizQuestionEvent;
+                    time_remaining?: number;
+                    is_eliminated?: boolean;
+                    elimination_reason?: string;
+                    score?: number;
+                    correct_count?: number;
+                };
+
+                if (state.current_question) {
+                    setQuizState(prev => ({
+                        ...prev,
+                        status: state.is_eliminated ? 'eliminated' : 'question',
+                        currentQuestion: state.current_question!,
+                        timeRemaining: state.time_remaining ?? 0,
+                        isEliminated: state.is_eliminated ?? false,
+                        eliminationReason: state.elimination_reason ?? '',
+                        score: state.score ?? prev.score,
+                        correctCount: state.correct_count ?? prev.correctCount,
+                    }));
+                }
+                break;
+            }
         }
     }, [quizId, router]);
 
-    // Use WebSocket hook with reconnect
-    const { isConnected, isConnecting, connect, sendAnswer } = useQuizWS({
-        quizId,
-        onMessage: handleMessage,
-    });
-
-    // Connect on mount
+    // Subscribe to messages
     useEffect(() => {
-        connect();
-    }, [connect]);
+        const unsubscribe = subscribe(handleMessage);
+        return () => unsubscribe();
+    }, [subscribe, handleMessage]);
 
     // Handle answer selection
     const handleAnswer = useCallback((optionId: number) => {
@@ -178,11 +200,14 @@ function PlayContent() {
                     <p className="font-bold">Score: {score} | Correct: {correctCount}</p>
                 </div>
                 <div className="flex items-center gap-2">
-                    {!isConnected && !isConnecting && (
+                    {connectionState === 'disconnected' && (
                         <Badge variant="destructive">Disconnected</Badge>
                     )}
-                    {isConnecting && (
+                    {connectionState === 'connecting' && (
                         <Badge variant="secondary">Connecting...</Badge>
+                    )}
+                    {connectionState === 'reconnecting' && (
+                        <Badge variant="secondary">Reconnecting...</Badge>
                     )}
                     {isEliminated && (
                         <Badge variant="destructive">Spectator Mode</Badge>
@@ -271,13 +296,5 @@ function PlayContent() {
                 </Card>
             )}
         </main>
-    );
-}
-
-export default function QuizPlayPage() {
-    return (
-        <ProtectedRoute>
-            <PlayContent />
-        </ProtectedRoute>
     );
 }

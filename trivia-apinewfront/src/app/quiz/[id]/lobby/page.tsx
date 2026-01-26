@@ -4,24 +4,23 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/providers/AuthProvider';
 import { getQuiz, Quiz } from '@/lib/api';
-import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
-import { useQuizWS } from '@/lib/hooks/useQuizWS';
+import { useQuizWebSocket, WSMessage } from '@/providers/QuizWebSocketProvider';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from 'sonner';
 
-function LobbyContent() {
+export default function QuizLobbyPage() {
     const params = useParams();
     const router = useRouter();
     const quizId = Number(params.id);
     const { user } = useAuth();
+    const { isConnected, connectionState, subscribe } = useQuizWebSocket();
 
     const [quiz, setQuiz] = useState<Quiz | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [timeRemaining, setTimeRemaining] = useState<string>('');
-    const [isReady, setIsReady] = useState(false);
 
     const timerRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -75,34 +74,29 @@ function LobbyContent() {
     }, [quiz?.scheduled_time]);
 
     // Handle WebSocket messages
-    const handleMessage = useCallback((msg: { type: string; data: Record<string, unknown> }) => {
+    const handleMessage = useCallback((msg: WSMessage) => {
         console.log('[Lobby] WS message:', msg.type);
 
         switch (msg.type) {
             case 'quiz:start':
                 toast.success('Quiz is starting!');
+                // Navigate to play page - WS stays connected via layout!
                 router.push(`/quiz/${quizId}/play`);
                 break;
+            case 'quiz:countdown':
+                // Could show countdown overlay
+                break;
             case 'quiz:user_ready':
-                // Another user joined - could show participant count
+                // Another user joined
                 break;
         }
     }, [quizId, router]);
 
-    // WebSocket with reconnect
-    const { isConnected, isConnecting, connect } = useQuizWS({
-        quizId,
-        onMessage: handleMessage,
-        onConnect: () => setIsReady(true),
-        onDisconnect: () => setIsReady(false),
-    });
-
-    // Connect when quiz is loaded and scheduled
+    // Subscribe to messages
     useEffect(() => {
-        if (quiz && quiz.status === 'scheduled') {
-            connect();
-        }
-    }, [quiz, connect]);
+        const unsubscribe = subscribe(handleMessage);
+        return () => unsubscribe();
+    }, [subscribe, handleMessage]);
 
     if (isLoading) {
         return (
@@ -117,9 +111,12 @@ function LobbyContent() {
     }
 
     const getConnectionStatus = () => {
-        if (isConnected) return { icon: '🟢', text: 'Connected' };
-        if (isConnecting) return { icon: '🟡', text: 'Connecting...' };
-        return { icon: '🔴', text: 'Disconnected' };
+        switch (connectionState) {
+            case 'connected': return { icon: '🟢', text: 'Connected' };
+            case 'connecting': return { icon: '🟡', text: 'Connecting...' };
+            case 'reconnecting': return { icon: '🟠', text: 'Reconnecting...' };
+            default: return { icon: '🔴', text: 'Disconnected' };
+        }
     };
 
     const connectionStatus = getConnectionStatus();
@@ -152,7 +149,7 @@ function LobbyContent() {
                         </div>
                     </div>
 
-                    {isReady && (
+                    {isConnected && (
                         <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-4">
                             <p className="text-green-500 font-medium">✓ You&apos;re ready!</p>
                             <p className="text-sm text-muted-foreground">
@@ -161,10 +158,13 @@ function LobbyContent() {
                         </div>
                     )}
 
-                    {!isConnected && !isConnecting && (
-                        <Button onClick={connect} className="w-full">
-                            Reconnect
-                        </Button>
+                    {!isConnected && connectionState === 'disconnected' && (
+                        <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-4">
+                            <p className="text-red-500 font-medium">Connection lost</p>
+                            <p className="text-sm text-muted-foreground">
+                                Attempting to reconnect...
+                            </p>
+                        </div>
                     )}
 
                     <p className="text-xs text-muted-foreground">
@@ -179,13 +179,5 @@ function LobbyContent() {
                 </Button>
             </div>
         </main>
-    );
-}
-
-export default function QuizLobbyPage() {
-    return (
-        <ProtectedRoute>
-            <LobbyContent />
-        </ProtectedRoute>
     );
 }

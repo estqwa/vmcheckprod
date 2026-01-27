@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"strconv"
 	"sync"
 	"time"
 
@@ -25,6 +26,7 @@ type QuizManager struct {
 	quizRepo      repository.QuizRepository
 	resultService *ResultService
 	wsManager     *websocket.Manager
+	cacheRepo     repository.CacheRepository
 
 	// Состояние активной викторины
 	activeQuizState *quizmanager.ActiveQuizState
@@ -75,6 +77,7 @@ func NewQuizManager(
 		quizRepo:        quizRepo,
 		resultService:   resultService,
 		wsManager:       wsManager,
+		cacheRepo:       cacheRepo,
 		ctx:             ctx,
 		cancel:          cancel,
 	}
@@ -213,17 +216,30 @@ func (qm *QuizManager) finishQuiz(quizID uint) {
 	}
 
 	// --- Расчет индивидуальных результатов для ВСЕХ участников ---
-	log.Printf("[QuizManager] Получение списка участников для викторины #%d для расчета результатов...", quizID)
-	participantIDs, err := qm.wsManager.GetActiveSubscribers(quizID) // Исправлено: Используем GetActiveSubscribers
+	// FIX: Используем Redis Set вместо WebSocket sync.Map,
+	// чтобы отключившиеся участники тоже получили результаты
+	participantsKey := fmt.Sprintf("quiz:%d:participants", quizID)
+	log.Printf("[QuizManager] Получение списка участников из Redis Set %s для викторины #%d...", participantsKey, quizID)
+	participantStrings, err := qm.cacheRepo.SMembers(participantsKey)
 	if err != nil {
-		log.Printf("[QuizManager] КРИТИЧЕСКАЯ ОШИБКА: Не удалось получить участников викторины #%d: %v. Результаты не будут рассчитаны!", quizID, err)
-		// Сбрасываем активную викторину и выходим, т.к. дальнейшие шаги бессмысленны
+		log.Printf("[QuizManager] КРИТИЧЕСКАЯ ОШИБКА: Не удалось получить участников викторины #%d из Redis: %v. Результаты не будут рассчитаны!", quizID, err)
 		qm.activeQuizState = nil
 		return
 	}
 
+	// Конвертируем строки в uint
+	var participantIDs []uint
+	for _, userIDStr := range participantStrings {
+		userID, parseErr := strconv.ParseUint(userIDStr, 10, 64)
+		if parseErr != nil {
+			log.Printf("[QuizManager] Ошибка парсинга userID '%s': %v", userIDStr, parseErr)
+			continue
+		}
+		participantIDs = append(participantIDs, uint(userID))
+	}
+
 	log.Printf("[QuizManager] Расчет и сохранение итоговых результатов для %d участников викторины #%d...", len(participantIDs), quizID)
-	var calculationWg sync.WaitGroup // Используем WaitGroup для ожидания завершения всех горутин расчета
+	var calculationWg sync.WaitGroup
 	calculationWg.Add(len(participantIDs))
 
 	for _, userID := range participantIDs {

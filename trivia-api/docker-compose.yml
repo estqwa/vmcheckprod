@@ -35,6 +35,7 @@ services:
       - DATABASE_PASSWORD=123456
     volumes:
       - ./config:/root/config:ro
+      - ./uploads:/app/uploads
     restart: unless-stopped
 
   frontend:

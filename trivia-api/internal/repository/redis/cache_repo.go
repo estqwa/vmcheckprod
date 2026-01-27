@@ -97,3 +97,34 @@ func (r *CacheRepo) ExpireAt(key string, expiration time.Time) error {
 func (r *CacheRepo) SetNX(key string, value interface{}, expiration time.Duration) (bool, error) {
 	return r.client.SetNX(r.ctx, key, value, expiration).Result()
 }
+
+// ============================================================================
+// Redis Set Operations (для персистентного учёта участников викторины)
+// ============================================================================
+
+// SAdd добавляет один или несколько элементов в Set.
+// Используется для регистрации участников викторины.
+func (r *CacheRepo) SAdd(key string, members ...interface{}) error {
+	return r.client.SAdd(r.ctx, key, members...).Err()
+}
+
+// SMembers возвращает все элементы Set.
+// Используется для получения списка всех участников викторины.
+func (r *CacheRepo) SMembers(key string) ([]string, error) {
+	return r.client.SMembers(r.ctx, key).Result()
+}
+
+// SRem удаляет один или несколько элементов из Set.
+func (r *CacheRepo) SRem(key string, members ...interface{}) error {
+	return r.client.SRem(r.ctx, key, members...).Err()
+}
+
+// SIsMember проверяет, является ли значение членом Set.
+func (r *CacheRepo) SIsMember(key string, member interface{}) (bool, error) {
+	return r.client.SIsMember(r.ctx, key, member).Result()
+}
+
+// Expire устанавливает TTL для ключа (duration-based).
+func (r *CacheRepo) Expire(key string, expiration time.Duration) error {
+	return r.client.Expire(r.ctx, key, expiration).Err()
+}

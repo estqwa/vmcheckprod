@@ -196,6 +196,24 @@ func (ap *AnswerProcessor) HandleReadyEvent(ctx context.Context, userID uint, qu
 		return fmt.Errorf("failed to save ready status: %w", err)
 	}
 
+	// ============================================================================
+	// ZOMBIE FIX: Добавляем участника в персистентный Redis Set
+	// Этот Set используется для проверки выбывания ВМЕСТО WebSocket sync.Map,
+	// чтобы участники не "убегали" от выбывания при потере соединения.
+	// ============================================================================
+	participantsKey := fmt.Sprintf("quiz:%d:participants", quizID)
+	if err := ap.deps.CacheRepo.SAdd(participantsKey, userID); err != nil {
+		log.Printf("[AnswerProcessor] WARNING: Не удалось добавить пользователя #%d в participants Set для викторины #%d: %v",
+			userID, quizID, err)
+		// Не прерываем — это не критическая ошибка, но логируем для отладки
+	} else {
+		log.Printf("[AnswerProcessor] Пользователь #%d добавлен в participants Set викторины #%d", userID, quizID)
+	}
+	// Устанавливаем TTL на Set (24 часа) — обновляем при каждом добавлении
+	if err := ap.deps.CacheRepo.Expire(participantsKey, 24*time.Hour); err != nil {
+		log.Printf("[AnswerProcessor] WARNING: Не удалось установить TTL на participants Set: %v", err)
+	}
+
 	// Отправляем информацию о готовности пользователя всем участникам
 	fullEvent := map[string]interface{}{
 		"type": "quiz:user_ready",

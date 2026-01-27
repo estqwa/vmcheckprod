@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"strconv"
 	"sync"
 	"time"
 
@@ -225,16 +226,25 @@ func (qm *QuestionManager) RunQuizQuestions(ctx context.Context, quizState *Acti
 		}
 
 		// ===>>> ЛОГИКА ВЫБЫВАНИЯ ПРИ ОТСУТСТВИИ ОТВЕТА <<<===
-		// Получаем список всех активных (не выбывших) пользователей на данный момент
-		log.Printf("[QuestionManager][DEBUG] Викторина #%d, Вопрос #%d: Вызов GetActiveSubscribers...", quizState.Quiz.ID, question.ID)
-		activeUserIDs, err := qm.deps.WSManager.GetActiveSubscribers(quizState.Quiz.ID)
-		log.Printf("[QuestionManager][DEBUG] Викторина #%d, Вопрос #%d: GetActiveSubscribers вернул %d ID, ошибка: %v", quizState.Quiz.ID, question.ID, len(activeUserIDs), err)
+		// ZOMBIE FIX: Используем Redis Set вместо WebSocket sync.Map
+		// Это гарантирует, что даже отключенные игроки будут проверены на выбывание
+		participantsKey := fmt.Sprintf("quiz:%d:participants", quizState.Quiz.ID)
+		log.Printf("[QuestionManager][DEBUG] Викторина #%d, Вопрос #%d: Получение участников из Redis Set %s...", quizState.Quiz.ID, question.ID, participantsKey)
 
+		participantStrings, err := qm.deps.CacheRepo.SMembers(participantsKey)
 		if err != nil {
-			log.Printf("[QuestionManager] WARNING: Не удалось получить список активных подписчиков для викторины #%d: %v", quizState.Quiz.ID, err)
+			log.Printf("[QuestionManager] WARNING: Не удалось получить список участников из Redis для викторины #%d: %v", quizState.Quiz.ID, err)
 		} else {
-			// Для каждого активного пользователя проверяем, ответил ли он
-			for _, userID := range activeUserIDs {
+			log.Printf("[QuestionManager][DEBUG] Викторина #%d, Вопрос #%d: SMembers вернул %d участников", quizState.Quiz.ID, question.ID, len(participantStrings))
+
+			// Для каждого участника (из Redis Set, а не из WebSocket!) проверяем, ответил ли он
+			for _, userIDStr := range participantStrings {
+				userID, parseErr := strconv.ParseUint(userIDStr, 10, 64)
+				if parseErr != nil {
+					log.Printf("[QuestionManager][WARN] Не удалось распарсить userID '%s': %v", userIDStr, parseErr)
+					continue
+				}
+
 				answerKey := fmt.Sprintf("quiz:%d:user:%d:question:%d", quizState.Quiz.ID, userID, question.ID)
 				eliminationKey := fmt.Sprintf("quiz:%d:eliminated:%d", quizState.Quiz.ID, userID)
 
@@ -264,9 +274,8 @@ func (qm *QuestionManager) RunQuizQuestions(ctx context.Context, quizState *Acti
 							log.Printf("[QuestionManager][DEBUG] Успешно установлен ключ выбывания %s для User #%d", eliminationKey, userID)
 						}
 
-						// Отправляем уведомление о выбывании (используем метод из AnswerProcessor или создаем аналогичный)
-						// Нужно убедиться, что метод sendEliminationNotification доступен или перенести/дублировать логику
-						qm.sendEliminationNotification(userID, quizState.Quiz.ID, eliminationReason) // Потребуется добавить этот метод в QuestionManager или сделать его общим
+						// Отправляем уведомление о выбывании
+						qm.sendEliminationNotification(uint(userID), quizState.Quiz.ID, eliminationReason)
 
 					} else {
 						log.Printf("[QuestionManager][DEBUG] Викторина #%d, Вопрос #%d: User #%d не ответил, но УЖЕ был выбывший (ключ %s существует).", quizState.Quiz.ID, question.ID, userID, eliminationKey)

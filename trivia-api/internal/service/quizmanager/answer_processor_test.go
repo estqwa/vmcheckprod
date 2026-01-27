@@ -66,6 +66,32 @@ func (m *MockCacheRepoForAnswerProcessor) SetNX(key string, value interface{}, e
 	return args.Bool(0), args.Error(1)
 }
 
+// Redis Set operations (mock implementations)
+func (m *MockCacheRepoForAnswerProcessor) SAdd(key string, members ...interface{}) error {
+	args := m.Called(key, members)
+	return args.Error(0)
+}
+
+func (m *MockCacheRepoForAnswerProcessor) SMembers(key string) ([]string, error) {
+	args := m.Called(key)
+	return args.Get(0).([]string), args.Error(1)
+}
+
+func (m *MockCacheRepoForAnswerProcessor) SRem(key string, members ...interface{}) error {
+	args := m.Called(key, members)
+	return args.Error(0)
+}
+
+func (m *MockCacheRepoForAnswerProcessor) SIsMember(key string, member interface{}) (bool, error) {
+	args := m.Called(key, member)
+	return args.Bool(0), args.Error(1)
+}
+
+func (m *MockCacheRepoForAnswerProcessor) Expire(key string, expiration time.Duration) error {
+	args := m.Called(key, expiration)
+	return args.Error(0)
+}
+
 // MockResultRepoForAnswerProcessor реализует repository.ResultRepository (минимально)
 type MockResultRepoForAnswerProcessor struct {
 	mock.Mock

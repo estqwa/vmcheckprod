@@ -35,7 +35,7 @@ export default function QuizPlayPage() {
     const router = useRouter();
     const quizId = Number(params.id);
     const { user } = useAuth();
-    const { isConnected, connectionState, subscribe, sendAnswer } = useQuizWebSocket();
+    const { isConnected, connectionState, subscribe, sendAnswer, send } = useQuizWebSocket();
 
     const [quizState, setQuizState] = useState<QuizState>({
         status: 'waiting',
@@ -191,6 +191,15 @@ export default function QuizPlayPage() {
         const unsubscribe = subscribe(handleMessage);
         return () => unsubscribe();
     }, [subscribe, handleMessage]);
+
+    // Send resync request when Play page mounts to get current state
+    // This fixes the race condition where quiz:question arrives during navigation from Lobby
+    useEffect(() => {
+        if (isConnected && quizId) {
+            console.log('[Play] Requesting initial state sync...');
+            send('user:resync', { quiz_id: quizId });
+        }
+    }, [isConnected, quizId, send]);
 
     // Handle answer selection
     const handleAnswer = useCallback((optionId: number) => {

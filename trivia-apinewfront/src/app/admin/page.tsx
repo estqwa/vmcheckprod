@@ -56,6 +56,9 @@ function AdminDashboard() {
                     <Link href="/">
                         <Button variant="ghost">← Back to App</Button>
                     </Link>
+                    <Link href="/admin/ads">
+                        <Button variant="outline">📺 Реклама</Button>
+                    </Link>
                     <Link href="/admin/quizzes/new">
                         <Button>+ Create Quiz</Button>
                     </Link>

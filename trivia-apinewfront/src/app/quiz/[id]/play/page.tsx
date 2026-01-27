@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { QuizQuestionEvent, AnswerResultEvent, QuizFinishEvent } from '@/lib/api/types';
+import { AdBreakOverlay } from '@/components/game/AdBreakOverlay';
 
 interface QuizState {
     status: 'waiting' | 'question' | 'result' | 'eliminated' | 'finished';
@@ -20,6 +21,13 @@ interface QuizState {
     correctCount: number;
     isEliminated: boolean;
     eliminationReason: string;
+}
+
+interface AdBreakData {
+    quiz_id: number;
+    media_type: 'image' | 'video';
+    media_url: string;
+    duration_sec: number;
 }
 
 export default function QuizPlayPage() {
@@ -40,6 +48,10 @@ export default function QuizPlayPage() {
         isEliminated: false,
         eliminationReason: '',
     });
+
+    // State for ad break
+    const [adBreak, setAdBreak] = useState<AdBreakData | null>(null);
+    const [showAdOverlay, setShowAdOverlay] = useState(false);
 
     // Handle WebSocket messages
     const handleMessage = useCallback((msg: WSMessage) => {
@@ -155,6 +167,22 @@ export default function QuizPlayPage() {
                 }
                 break;
             }
+
+            // Handle ad break
+            case 'quiz:ad_break': {
+                console.log('[Play] Ad break started:', msg.data);
+                const adData = msg.data as unknown as AdBreakData;
+                setAdBreak(adData);
+                setShowAdOverlay(true);
+                break;
+            }
+
+            case 'quiz:ad_break_end': {
+                console.log('[Play] Ad break ended');
+                setShowAdOverlay(false);
+                setAdBreak(null);
+                break;
+            }
         }
     }, [quizId, router]);
 
@@ -192,109 +220,121 @@ export default function QuizPlayPage() {
     };
 
     return (
-        <main className="container max-w-xl mx-auto px-4 py-8 min-h-screen">
-            {/* Header */}
-            <div className="flex items-center justify-between mb-6">
-                <div>
-                    <p className="text-sm text-muted-foreground">Playing as {user?.username}</p>
-                    <p className="font-bold">Score: {score} | Correct: {correctCount}</p>
-                </div>
-                <div className="flex items-center gap-2">
-                    {connectionState === 'disconnected' && (
-                        <Badge variant="destructive">Disconnected</Badge>
-                    )}
-                    {connectionState === 'connecting' && (
-                        <Badge variant="secondary">Connecting...</Badge>
-                    )}
-                    {connectionState === 'reconnecting' && (
-                        <Badge variant="secondary">Reconnecting...</Badge>
-                    )}
-                    {isEliminated && (
-                        <Badge variant="destructive">Spectator Mode</Badge>
-                    )}
-                </div>
-            </div>
+        <>
+            {/* Ad Break Overlay */}
+            <AdBreakOverlay
+                adData={adBreak}
+                isVisible={showAdOverlay}
+                onAdEnd={() => {
+                    setShowAdOverlay(false);
+                    setAdBreak(null);
+                }}
+            />
 
-            {/* Waiting state */}
-            {status === 'waiting' && (
-                <Card className="text-center py-16">
-                    <CardContent>
-                        <div className="animate-pulse">
-                            <p className="text-xl font-bold mb-2">Waiting for next question...</p>
-                            <p className="text-muted-foreground">Get ready!</p>
-                        </div>
-                    </CardContent>
-                </Card>
-            )}
-
-            {/* Question state */}
-            {(status === 'question' || status === 'result') && currentQuestion && (
-                <Card>
-                    <CardHeader>
-                        <div className="flex items-center justify-between">
-                            <Badge variant="outline">
-                                Q{currentQuestion.number} of {currentQuestion.total_questions}
-                            </Badge>
-                            <div className={`text-2xl font-mono font-bold ${timeRemaining <= 5 ? 'text-red-500 animate-pulse' : ''}`}>
-                                {timeRemaining}s
-                            </div>
-                        </div>
-                        <CardTitle className="text-xl mt-4">{currentQuestion.text}</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-3">
-                        {currentQuestion.options.map((option) => (
-                            <Button
-                                key={option.id}
-                                variant="outline"
-                                className={`w-full h-auto py-4 px-4 text-left justify-start ${getOptionStyle(option.id)}`}
-                                onClick={() => handleAnswer(option.id)}
-                                disabled={selectedAnswer !== null || isEliminated}
-                            >
-                                <span className="font-medium mr-3">{String.fromCharCode(65 + option.id)}.</span>
-                                {option.text}
-                            </Button>
-                        ))}
-
-                        {/* Result feedback */}
-                        {lastResult && (
-                            <div className={`mt-4 p-4 rounded-lg border ${lastResult.is_correct ? 'border-green-500 bg-green-500/10' : 'border-red-500 bg-red-500/10'}`}>
-                                <p className={`font-bold ${lastResult.is_correct ? 'text-green-500' : 'text-red-500'}`}>
-                                    {lastResult.is_correct ? '✓ Correct!' : '✗ Wrong!'}
-                                </p>
-                                <p className="text-sm text-muted-foreground mt-1">
-                                    +{lastResult.points_earned} points • {lastResult.time_taken_ms}ms
-                                </p>
-                            </div>
+            <main className="container max-w-xl mx-auto px-4 py-8 min-h-screen">
+                {/* Header */}
+                <div className="flex items-center justify-between mb-6">
+                    <div>
+                        <p className="text-sm text-muted-foreground">Playing as {user?.username}</p>
+                        <p className="font-bold">Score: {score} | Correct: {correctCount}</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        {connectionState === 'disconnected' && (
+                            <Badge variant="destructive">Disconnected</Badge>
                         )}
-                    </CardContent>
-                </Card>
-            )}
+                        {connectionState === 'connecting' && (
+                            <Badge variant="secondary">Connecting...</Badge>
+                        )}
+                        {connectionState === 'reconnecting' && (
+                            <Badge variant="secondary">Reconnecting...</Badge>
+                        )}
+                        {isEliminated && (
+                            <Badge variant="destructive">Spectator Mode</Badge>
+                        )}
+                    </div>
+                </div>
 
-            {/* Eliminated state */}
-            {status === 'eliminated' && !currentQuestion && (
-                <Card className="text-center py-16 border-red-500/50">
-                    <CardContent>
-                        <p className="text-4xl mb-4">💀</p>
-                        <p className="text-xl font-bold text-red-500 mb-2">You&apos;ve been eliminated!</p>
-                        <p className="text-muted-foreground">You can continue watching as a spectator.</p>
-                    </CardContent>
-                </Card>
-            )}
+                {/* Waiting state */}
+                {status === 'waiting' && (
+                    <Card className="text-center py-16">
+                        <CardContent>
+                            <div className="animate-pulse">
+                                <p className="text-xl font-bold mb-2">Waiting for next question...</p>
+                                <p className="text-muted-foreground">Get ready!</p>
+                            </div>
+                        </CardContent>
+                    </Card>
+                )}
 
-            {/* Finished state */}
-            {status === 'finished' && (
-                <Card className="text-center py-16">
-                    <CardContent>
-                        <p className="text-4xl mb-4">🎉</p>
-                        <p className="text-xl font-bold mb-2">Quiz Complete!</p>
-                        <p className="text-muted-foreground">Final Score: {score}</p>
-                        <p className="text-muted-foreground">Correct Answers: {correctCount}</p>
-                        <Button className="mt-6" onClick={() => router.push(`/quiz/${quizId}/results`)}>
-                            View Results
-                        </Button>
-                    </CardContent>
-                </Card>
-            )}
-        </main>
+                {/* Question state */}
+                {(status === 'question' || status === 'result') && currentQuestion && (
+                    <Card>
+                        <CardHeader>
+                            <div className="flex items-center justify-between">
+                                <Badge variant="outline">
+                                    Q{currentQuestion.number} of {currentQuestion.total_questions}
+                                </Badge>
+                                <div className={`text-2xl font-mono font-bold ${timeRemaining <= 5 ? 'text-red-500 animate-pulse' : ''}`}>
+                                    {timeRemaining}s
+                                </div>
+                            </div>
+                            <CardTitle className="text-xl mt-4">{currentQuestion.text}</CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-3">
+                            {currentQuestion.options.map((option) => (
+                                <Button
+                                    key={option.id}
+                                    variant="outline"
+                                    className={`w-full h-auto py-4 px-4 text-left justify-start ${getOptionStyle(option.id)}`}
+                                    onClick={() => handleAnswer(option.id)}
+                                    disabled={selectedAnswer !== null || isEliminated}
+                                >
+                                    <span className="font-medium mr-3">{String.fromCharCode(65 + option.id)}.</span>
+                                    {option.text}
+                                </Button>
+                            ))}
+
+                            {/* Result feedback */}
+                            {lastResult && (
+                                <div className={`mt-4 p-4 rounded-lg border ${lastResult.is_correct ? 'border-green-500 bg-green-500/10' : 'border-red-500 bg-red-500/10'}`}>
+                                    <p className={`font-bold ${lastResult.is_correct ? 'text-green-500' : 'text-red-500'}`}>
+                                        {lastResult.is_correct ? '✓ Correct!' : '✗ Wrong!'}
+                                    </p>
+                                    <p className="text-sm text-muted-foreground mt-1">
+                                        +{lastResult.points_earned} points • {lastResult.time_taken_ms}ms
+                                    </p>
+                                </div>
+                            )}
+                        </CardContent>
+                    </Card>
+                )}
+
+                {/* Eliminated state */}
+                {status === 'eliminated' && !currentQuestion && (
+                    <Card className="text-center py-16 border-red-500/50">
+                        <CardContent>
+                            <p className="text-4xl mb-4">💀</p>
+                            <p className="text-xl font-bold text-red-500 mb-2">You&apos;ve been eliminated!</p>
+                            <p className="text-muted-foreground">You can continue watching as a spectator.</p>
+                        </CardContent>
+                    </Card>
+                )}
+
+                {/* Finished state */}
+                {status === 'finished' && (
+                    <Card className="text-center py-16">
+                        <CardContent>
+                            <p className="text-4xl mb-4">🎉</p>
+                            <p className="text-xl font-bold mb-2">Quiz Complete!</p>
+                            <p className="text-muted-foreground">Final Score: {score}</p>
+                            <p className="text-muted-foreground">Correct Answers: {correctCount}</p>
+                            <Button className="mt-6" onClick={() => router.push(`/quiz/${quizId}/results`)}>
+                                View Results
+                            </Button>
+                        </CardContent>
+                    </Card>
+                )}
+            </main>
+        </>
     );
 }

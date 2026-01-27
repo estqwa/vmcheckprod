@@ -70,13 +70,14 @@ type ResultService interface {
 
 // Dependencies содержит зависимости для QuizManager
 type Dependencies struct {
-	QuizRepo      repository.QuizRepository
-	QuestionRepo  repository.QuestionRepository
-	ResultRepo    repository.ResultRepository
-	ResultService ResultService // Используем интерфейс
-	CacheRepo     repository.CacheRepository
-	WSManager     *websocket.Manager
-	Config        *Config // Добавляем конфиг в зависимости
+	QuizRepo       repository.QuizRepository
+	QuestionRepo   repository.QuestionRepository
+	ResultRepo     repository.ResultRepository
+	ResultService  ResultService // Используем интерфейс
+	CacheRepo      repository.CacheRepository
+	WSManager      *websocket.Manager
+	Config         *Config                         // Добавляем конфиг в зависимости
+	QuizAdSlotRepo repository.QuizAdSlotRepository // Для рекламных слотов
 }
 
 // ActiveQuizState хранит состояние активной викторины

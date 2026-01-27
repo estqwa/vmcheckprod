@@ -11,6 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
+import { AdSlotsEditor } from '@/components/admin/AdSlotsEditor';
 import { toast } from 'sonner';
 
 const statusColors: Record<string, string> = {
@@ -354,6 +355,13 @@ function QuizDetailsContent() {
                         </div>
                     </CardContent>
                 </Card>
+            )}
+
+            {/* Ad Slots Editor */}
+            {(quiz.questions?.length ?? 0) > 0 && (
+                <div className="mb-6">
+                    <AdSlotsEditor quizId={quizId} questionCount={quiz.questions?.length ?? 0} />
+                </div>
             )}
 
             {/* Existing Questions */}

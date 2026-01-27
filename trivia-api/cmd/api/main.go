@@ -72,6 +72,10 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Инициализируем репозитории для рекламы
+	adAssetRepo := pgRepo.NewAdAssetRepository(db)
+	quizAdSlotRepo := pgRepo.NewQuizAdSlotRepository(db)
+
 	// Инициализируем репозиторий для инвалидированных токенов
 	invalidTokenRepo := pgRepo.NewInvalidTokenRepo(db)
 
@@ -218,13 +222,18 @@ func main() {
 	quizService := service.NewQuizService(quizRepo, questionRepo, cacheRepo, quizConfig, db)
 	resultService := service.NewResultService(resultRepo, userRepo, quizRepo, questionRepo, cacheRepo, db, wsManager, quizConfig)
 	userService := service.NewUserService(userRepo)
-	quizManagerService := service.NewQuizManager(quizRepo, questionRepo, resultRepo, resultService, cacheRepo, wsManager, db)
+	quizManagerService := service.NewQuizManager(quizRepo, questionRepo, resultRepo, resultService, cacheRepo, wsManager, db, quizAdSlotRepo)
+
+	// Инициализируем сервисы рекламы
+	adService := service.NewAdService(adAssetRepo, "./uploads/ads")
+	quizAdSlotService := service.NewQuizAdSlotService(quizAdSlotRepo, adAssetRepo, quizRepo)
 
 	// Инициализируем обработчики
 	authHandler := handler.NewAuthHandler(authService, tokenManager, wsHub)
 	quizHandler := handler.NewQuizHandler(quizService, resultService, quizManagerService)
 	wsHandler := handler.NewWSHandler(wsHub, wsManager, quizManagerService, jwtService)
 	userHandler := handler.NewUserHandler(userService)
+	adHandler := handler.NewAdHandler(adService, quizAdSlotService)
 
 	// Инициализируем middleware
 	authMiddleware := middleware.NewAuthMiddlewareWithManager(jwtService, tokenManager)
@@ -261,6 +270,9 @@ func main() {
 
 	// Статические файлы для админ-панели
 	router.StaticFS("/admin", http.Dir("./static/admin"))
+
+	// Статические файлы для загруженных реклам
+	router.Static("/uploads/ads", "./uploads/ads")
 
 	// Настраиваем маршруты API
 	api := router.Group("/api")
@@ -347,6 +359,12 @@ func main() {
 					adminQuizzes.PUT("/schedule", quizHandler.ScheduleQuiz)
 					adminQuizzes.PUT("/cancel", quizHandler.CancelQuiz)
 					adminQuizzes.POST("/duplicate", quizHandler.DuplicateQuiz)
+
+					// Рекламные слоты викторины
+					adminQuizzes.POST("/ad-slots", adHandler.CreateAdSlot)
+					adminQuizzes.GET("/ad-slots", adHandler.ListAdSlots)
+					adminQuizzes.PUT("/ad-slots/:slotId", adHandler.UpdateAdSlot)
+					adminQuizzes.DELETE("/ad-slots/:slotId", adHandler.DeleteAdSlot)
 				}
 			}
 
@@ -357,6 +375,16 @@ func main() {
 			{
 				adminCreateQuiz.POST("", quizHandler.CreateQuiz)
 			}
+		}
+
+		// Управление рекламой (админ)
+		adminAds := api.Group("/admin/ads")
+		adminAds.Use(authMiddleware.RequireAuth(), authMiddleware.AdminOnly())
+		adminAds.Use(authMiddleware.RequireCSRF())
+		{
+			adminAds.POST("", adHandler.UploadAdAsset)
+			adminAds.GET("", adHandler.ListAdAssets)
+			adminAds.DELETE("/:id", adHandler.DeleteAdAsset)
 		}
 	}
 

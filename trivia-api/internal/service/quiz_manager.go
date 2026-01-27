@@ -44,6 +44,7 @@ func NewQuizManager(
 	cacheRepo repository.CacheRepository,
 	wsManager *websocket.Manager,
 	db *gorm.DB,
+	quizAdSlotRepo repository.QuizAdSlotRepository,
 ) *QuizManager {
 	// Создаем контекст для управления жизненным циклом
 	ctx, cancel := context.WithCancel(context.Background())
@@ -53,12 +54,13 @@ func NewQuizManager(
 
 	// Собираем зависимости для компонентов
 	deps := &quizmanager.Dependencies{
-		QuizRepo:      quizRepo,
-		QuestionRepo:  questionRepo,
-		ResultRepo:    resultRepo,
-		ResultService: resultService,
-		CacheRepo:     cacheRepo,
-		WSManager:     wsManager,
+		QuizRepo:       quizRepo,
+		QuestionRepo:   questionRepo,
+		ResultRepo:     resultRepo,
+		ResultService:  resultService,
+		CacheRepo:      cacheRepo,
+		WSManager:      wsManager,
+		QuizAdSlotRepo: quizAdSlotRepo,
 	}
 
 	// Создаем компоненты

@@ -294,6 +294,47 @@ func (qm *QuestionManager) RunQuizQuestions(ctx context.Context, quizState *Acti
 			log.Printf("[QuestionManager] WARNING: Не удалось отправить ответ на вопрос #%d: %v", question.ID, err)
 		}
 
+		// === РЕКЛАМНЫЙ БЛОК ===
+		// Проверяем, есть ли рекламный слот после этого вопроса
+		if qm.deps.QuizAdSlotRepo != nil {
+			slot, slotErr := qm.deps.QuizAdSlotRepo.GetByQuizAndQuestionAfter(quizState.Quiz.ID, i+1)
+			if slotErr != nil {
+				log.Printf("[QuestionManager] WARNING: Ошибка получения рекламного слота для вопроса %d: %v", i+1, slotErr)
+			} else if slot != nil && slot.IsActive && slot.AdAsset != nil {
+				log.Printf("[QuestionManager] Показ рекламы #%d после вопроса %d (длительность: %d сек)",
+					slot.AdAsset.ID, i+1, slot.AdAsset.DurationSec)
+
+				// Отправляем событие начала рекламы
+				adEvent := map[string]interface{}{
+					"quiz_id":      quizState.Quiz.ID,
+					"media_type":   slot.AdAsset.MediaType,
+					"media_url":    slot.AdAsset.URL,
+					"duration_sec": slot.AdAsset.DurationSec,
+				}
+				if err := qm.sendEventWithRetry(quizCtx, quizState.Quiz.ID, "quiz:ad_break", adEvent); err != nil {
+					log.Printf("[QuestionManager] WARNING: Не удалось отправить quiz:ad_break: %v", err)
+				}
+
+				// Ждём заданное время показа рекламы
+				adDuration := time.Duration(slot.AdAsset.DurationSec) * time.Second
+				select {
+				case <-time.After(adDuration):
+					log.Printf("[QuestionManager] Реклама завершена, продолжаем викторину")
+				case <-quizCtx.Done():
+					return nil
+				}
+
+				// Отправляем событие окончания рекламы
+				adEndEvent := map[string]interface{}{
+					"quiz_id": quizState.Quiz.ID,
+				}
+				if err := qm.sendEventWithRetry(quizCtx, quizState.Quiz.ID, "quiz:ad_break_end", adEndEvent); err != nil {
+					log.Printf("[QuestionManager] WARNING: Не удалось отправить quiz:ad_break_end: %v", err)
+				}
+			}
+		}
+		// === КОНЕЦ РЕКЛАМНОГО БЛОКА ===
+
 		// Увеличиваем паузу между вопросами
 		if i < len(quizState.Quiz.Questions)-1 {
 			pauseTime := time.Duration(qm.config.InterQuestionDelayMs) * time.Millisecond

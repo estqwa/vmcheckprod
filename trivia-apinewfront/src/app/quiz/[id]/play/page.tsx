@@ -62,7 +62,7 @@ export default function QuizPlayPage() {
                 const question = msg.data as unknown as QuizQuestionEvent;
                 setQuizState(prev => ({
                     ...prev,
-                    status: 'question',
+                    status: prev.isEliminated ? 'eliminated' : 'question',
                     currentQuestion: question,
                     selectedAnswer: null,
                     lastResult: null,
@@ -153,18 +153,18 @@ export default function QuizPlayPage() {
                     correct_count?: number;
                 };
 
-                if (state.current_question) {
-                    setQuizState(prev => ({
-                        ...prev,
-                        status: state.is_eliminated ? 'eliminated' : 'question',
-                        currentQuestion: state.current_question!,
-                        timeRemaining: state.time_remaining ?? 0,
-                        isEliminated: state.is_eliminated ?? false,
-                        eliminationReason: state.elimination_reason ?? '',
-                        score: state.score ?? prev.score,
-                        correctCount: state.correct_count ?? prev.correctCount,
-                    }));
-                }
+                setQuizState(prev => ({
+                    ...prev,
+                    status: state.is_eliminated
+                        ? 'eliminated'
+                        : (state.current_question ? 'question' : 'waiting'),
+                    currentQuestion: state.current_question || null,
+                    timeRemaining: state.time_remaining ?? 0,
+                    isEliminated: state.is_eliminated ?? false,
+                    eliminationReason: state.elimination_reason ?? '',
+                    score: state.score ?? prev.score,
+                    correctCount: state.correct_count ?? prev.correctCount,
+                }));
                 break;
             }
 

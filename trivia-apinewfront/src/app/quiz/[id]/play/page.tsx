@@ -62,7 +62,7 @@ export default function QuizPlayPage() {
                 const question = msg.data as unknown as QuizQuestionEvent;
                 setQuizState(prev => ({
                     ...prev,
-                    status: prev.isEliminated ? 'eliminated' : 'question',
+                    status: 'question',
                     currentQuestion: question,
                     selectedAnswer: null,
                     lastResult: null,
@@ -155,9 +155,7 @@ export default function QuizPlayPage() {
 
                 setQuizState(prev => ({
                     ...prev,
-                    status: state.is_eliminated
-                        ? 'eliminated'
-                        : (state.current_question ? 'question' : 'waiting'),
+                    status: (state.current_question ? 'question' : (state.is_eliminated ? 'eliminated' : 'waiting')),
                     currentQuestion: state.current_question || null,
                     timeRemaining: state.time_remaining ?? 0,
                     isEliminated: state.is_eliminated ?? false,

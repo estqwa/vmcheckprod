@@ -319,7 +319,7 @@ export default function QuizPlayPage() {
                 )}
 
                 {/* Eliminated state */}
-                {status === 'eliminated' && !currentQuestion && (
+                {status === 'eliminated' && (
                     <Card className="text-center py-16 border-red-500/50">
                         <CardContent>
                             <p className="text-4xl mb-4">💀</p>

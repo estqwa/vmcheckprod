@@ -30,17 +30,17 @@ interface QuizWebSocketContextType {
     // Connection state
     connectionState: ConnectionState;
     isConnected: boolean;
-    
+
     // Current quiz
     quizId: number | null;
     currentPage: QuizPage;
-    
+
     // Actions
     connect: (quizId: number) => Promise<void>;
     disconnect: () => void;
     send: (type: string, data?: Record<string, unknown>) => void;
     sendAnswer: (questionId: number, selectedOption: number) => void;
-    
+
     // Message subscription
     subscribe: (handler: (msg: WSMessage) => void) => () => void;
 }
@@ -101,6 +101,12 @@ export function QuizWebSocketProvider({ children }: { children: ReactNode }) {
     // Helpers
     // ========================================================================
 
+    const isConnectingRef = useRef(false);
+
+    // ========================================================================
+    // Helpers
+    // ========================================================================
+
     const clearTimers = useCallback(() => {
         if (reconnectTimeoutRef.current) {
             clearTimeout(reconnectTimeoutRef.current);
@@ -128,7 +134,7 @@ export function QuizWebSocketProvider({ children }: { children: ReactNode }) {
             setCurrentPage(null);
             return;
         }
-        
+
         const match = pathname.match(/\/quiz\/(\d+)\/(lobby|play|results)/);
         if (match) {
             const page = match[2] as QuizPage;
@@ -144,7 +150,12 @@ export function QuizWebSocketProvider({ children }: { children: ReactNode }) {
 
     const doConnect = useCallback(async (targetQuizId: number, isReconnect: boolean = false) => {
         // Prevent multiple simultaneous connections
-        if (wsRef.current?.readyState === WebSocket.OPEN || 
+        if (isConnectingRef.current) {
+            console.log('[QuizWS] Connection already in progress, skipping...');
+            return;
+        }
+
+        if (wsRef.current?.readyState === WebSocket.OPEN ||
             wsRef.current?.readyState === WebSocket.CONNECTING) {
             if (currentQuizIdRef.current === targetQuizId) {
                 console.log('[QuizWS] Already connected to this quiz');
@@ -154,6 +165,7 @@ export function QuizWebSocketProvider({ children }: { children: ReactNode }) {
             wsRef.current.close();
         }
 
+        isConnectingRef.current = true;
         setConnectionState(isReconnect ? 'reconnecting' : 'connecting');
         currentQuizIdRef.current = targetQuizId;
         setQuizId(targetQuizId);
@@ -164,6 +176,7 @@ export function QuizWebSocketProvider({ children }: { children: ReactNode }) {
 
             ws.onopen = () => {
                 console.log('[QuizWS] Connected');
+                isConnectingRef.current = false; // Connection successful
                 setConnectionState('connected');
                 reconnectAttemptsRef.current = 0;
                 isIntentionalDisconnectRef.current = false;
@@ -233,28 +246,30 @@ export function QuizWebSocketProvider({ children }: { children: ReactNode }) {
 
             ws.onerror = (error) => {
                 console.error('[QuizWS] Error:', error);
+                // Don't reset isConnecting here, allow onclose to handle
             };
 
             ws.onclose = (event) => {
                 console.log('[QuizWS] Closed:', event.code, event.reason);
+                isConnectingRef.current = false; // Reset lock on close
                 setConnectionState('disconnected');
                 clearTimers();
 
                 // Only reconnect if not intentional disconnect
-                if (!isIntentionalDisconnectRef.current && 
+                if (!isIntentionalDisconnectRef.current &&
                     reconnectAttemptsRef.current < MAX_RECONNECT_ATTEMPTS &&
                     currentQuizIdRef.current !== null) {
-                    
+
                     // Calculate delay with exponential backoff + grace period
                     const baseDelay = Math.min(
                         INITIAL_RECONNECT_DELAY * Math.pow(2, reconnectAttemptsRef.current),
                         MAX_RECONNECT_DELAY
                     );
                     // Add grace period on first reconnect to let server clean up
-                    const delay = reconnectAttemptsRef.current === 0 
-                        ? baseDelay + RECONNECT_GRACE_PERIOD 
+                    const delay = reconnectAttemptsRef.current === 0
+                        ? baseDelay + RECONNECT_GRACE_PERIOD
                         : baseDelay;
-                    
+
                     console.log(`[QuizWS] Reconnecting in ${delay}ms (attempt ${reconnectAttemptsRef.current + 1})`);
                     setConnectionState('reconnecting');
 
@@ -272,6 +287,7 @@ export function QuizWebSocketProvider({ children }: { children: ReactNode }) {
             wsRef.current = ws;
         } catch (error) {
             console.error('[QuizWS] Failed to connect:', error);
+            isConnectingRef.current = false; // Reset lock on error
             setConnectionState('disconnected');
             toast.error('Failed to connect to game server');
         }
@@ -289,12 +305,12 @@ export function QuizWebSocketProvider({ children }: { children: ReactNode }) {
         isIntentionalDisconnectRef.current = true;
         clearTimers();
         reconnectAttemptsRef.current = MAX_RECONNECT_ATTEMPTS; // Prevent auto-reconnect
-        
+
         if (wsRef.current) {
             wsRef.current.close(1000, 'User disconnected');
             wsRef.current = null;
         }
-        
+
         currentQuizIdRef.current = null;
         setQuizId(null);
         setConnectionState('disconnected');

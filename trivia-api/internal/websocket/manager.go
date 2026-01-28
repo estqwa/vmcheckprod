@@ -289,3 +289,12 @@ func (m *Manager) GetActiveSubscribers(quizID uint) ([]uint, error) {
 	// HubInterface гарантирует наличие этого метода
 	return m.hub.GetActiveSubscribers(quizID)
 }
+
+// GetSubscriberCount возвращает количество подключённых подписчиков викторины.
+// Используется для real-time счётчика игроков в лобби и на странице игры.
+func (m *Manager) GetSubscriberCount(quizID uint) int {
+	if m.hub == nil {
+		return 0
+	}
+	return m.hub.GetSubscriberCount(quizID)
+}

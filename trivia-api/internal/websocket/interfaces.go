@@ -38,6 +38,9 @@ type HubInterface interface {
 	// Новый метод для получения активных подписчиков викторины
 	GetActiveSubscribers(quizID uint) ([]uint, error)
 
+	// GetSubscriberCount возвращает количество подписчиков викторины (для счётчика игроков)
+	GetSubscriberCount(quizID uint) int
+
 	// Методы, необходимые для работы Manager (если Manager вызывает их напрямую)
 	// RegisterClient(client *Client) // Пример: если Manager отвечает за регистрацию
 	// UnregisterClient(client *Client) // Пример

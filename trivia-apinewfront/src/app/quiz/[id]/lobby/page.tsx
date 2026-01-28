@@ -21,6 +21,7 @@ export default function QuizLobbyPage() {
     const [quiz, setQuiz] = useState<Quiz | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [timeRemaining, setTimeRemaining] = useState<string>('');
+    const [playerCount, setPlayerCount] = useState<number>(0);
 
     const timerRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -75,7 +76,7 @@ export default function QuizLobbyPage() {
 
     // Handle WebSocket messages
     const handleMessage = useCallback((msg: WSMessage) => {
-        console.log('[Lobby] WS message:', msg.type);
+        console.log('[Lobby] WS message:', msg.type, msg.data);
 
         switch (msg.type) {
             case 'quiz:start':
@@ -87,7 +88,16 @@ export default function QuizLobbyPage() {
                 // Could show countdown overlay
                 break;
             case 'quiz:user_ready':
-                // Another user joined
+                // Update player count when someone joins
+                if (msg.data?.player_count !== undefined) {
+                    setPlayerCount(msg.data.player_count as number);
+                }
+                break;
+            case 'quiz:player_count':
+                // Direct player count update (when someone leaves)
+                if (msg.data?.player_count !== undefined) {
+                    setPlayerCount(msg.data.player_count as number);
+                }
                 break;
         }
     }, [quizId, router]);
@@ -143,6 +153,10 @@ export default function QuizLobbyPage() {
                     </div>
 
                     <div className="flex justify-center gap-8">
+                        <div>
+                            <p className="text-2xl font-bold text-green-500">{playerCount}</p>
+                            <p className="text-muted-foreground text-sm">Players Online</p>
+                        </div>
                         <div>
                             <p className="text-2xl font-bold">{quiz.question_count}</p>
                             <p className="text-muted-foreground text-sm">Questions</p>

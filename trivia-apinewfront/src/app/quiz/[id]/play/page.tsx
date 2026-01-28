@@ -53,6 +53,9 @@ export default function QuizPlayPage() {
     const [adBreak, setAdBreak] = useState<AdBreakData | null>(null);
     const [showAdOverlay, setShowAdOverlay] = useState(false);
 
+    // State for player count
+    const [playerCount, setPlayerCount] = useState<number>(0);
+
     // Handle WebSocket messages
     const handleMessage = useCallback((msg: WSMessage) => {
         console.log('[Play] WS message:', msg.type, msg.data);
@@ -181,6 +184,22 @@ export default function QuizPlayPage() {
                 setAdBreak(null);
                 break;
             }
+
+            case 'quiz:player_count': {
+                // Update player count (when someone joins or leaves)
+                if (msg.data?.player_count !== undefined) {
+                    setPlayerCount(msg.data.player_count as number);
+                }
+                break;
+            }
+
+            case 'quiz:user_ready': {
+                // Update player count when someone joins (during quiz)
+                if (msg.data?.player_count !== undefined) {
+                    setPlayerCount(msg.data.player_count as number);
+                }
+                break;
+            }
         }
     }, [quizId, router]);
 
@@ -244,6 +263,10 @@ export default function QuizPlayPage() {
                     <div>
                         <p className="text-sm text-muted-foreground">Playing as {user?.username}</p>
                         <p className="font-bold">Score: {score} | Correct: {correctCount}</p>
+                    </div>
+                    <div className="text-right">
+                        <p className="text-xl font-bold text-green-500">{playerCount}</p>
+                        <p className="text-xs text-muted-foreground">Online</p>
                     </div>
                     <div className="flex items-center gap-2">
                         {connectionState === 'disconnected' && (

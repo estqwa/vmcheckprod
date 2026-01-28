@@ -376,6 +376,13 @@ func (s *Shard) unsubscribeInternal(client *Client, quizID uint) {
 			log.Printf("[Shard %d][Unsub] Client %s FAILED VERIFICATION of deletion from map for Quiz %d!", s.id, client.UserID, quizID) // НОВЫЙ ЛОГ
 		}
 
+		// Отправляем обновление player_count всем оставшимся подписчикам викторины
+		// Приводим parent к *ShardedHub для вызова BroadcastPlayerCountUpdate
+		if hub, ok := s.parent.(*ShardedHub); ok {
+			// Используем горутину чтобы не блокировать unsubscribe
+			go hub.BroadcastPlayerCountUpdate(quizID)
+		}
+
 		// Опционально: можно удалить карту викторины из s.quizSubscriptions, если она стала пустой
 		// Для этого нужен способ проверить размер sync.Map, что нетривиально и может быть неэффективно.
 		// Пока оставляем пустые карты.
@@ -716,4 +723,25 @@ func (s *Shard) getActiveSubscribersForQuiz(quizID uint) ([]uint, error) {
 	// --- Конец исправления ---
 
 	return activeSubscribers, nil
+}
+
+// getSubscriberCountForQuiz возвращает количество подписчиков викторины в этом шарде.
+// Это быстрый метод для счётчика игроков — не проверяет статус выбывания в Redis.
+func (s *Shard) getSubscriberCountForQuiz(quizID uint) int {
+	quizSubscribersRaw, ok := s.quizSubscriptions.Load(quizID)
+	if !ok {
+		return 0
+	}
+
+	quizSubscribersMap, ok := quizSubscribersRaw.(*sync.Map)
+	if !ok {
+		return 0
+	}
+
+	count := 0
+	quizSubscribersMap.Range(func(key, value interface{}) bool {
+		count++
+		return true
+	})
+	return count
 }

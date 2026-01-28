@@ -845,6 +845,48 @@ func (h *ShardedHub) GetActiveSubscribers(quizID uint) ([]uint, error) {
 	return allActiveSubscribers, firstError
 }
 
+// GetSubscriberCount возвращает количество подписчиков викторины (со всех шардов).
+// Это быстрый метод для счётчика игроков — не проверяет статус выбывания.
+func (h *ShardedHub) GetSubscriberCount(quizID uint) int {
+	h.shardsMu.RLock()
+	defer h.shardsMu.RUnlock()
+
+	if len(h.shards) == 0 {
+		return 0
+	}
+
+	totalCount := 0
+	for _, shard := range h.shards {
+		totalCount += shard.getSubscriberCountForQuiz(quizID)
+	}
+	return totalCount
+}
+
+// BroadcastPlayerCountUpdate отправляет обновление количества игроков всем подписчикам викторины.
+// Вызывается когда игрок подключается или отключается от викторины.
+func (h *ShardedHub) BroadcastPlayerCountUpdate(quizID uint) {
+	playerCount := h.GetSubscriberCount(quizID)
+
+	event := map[string]interface{}{
+		"type": "quiz:player_count",
+		"data": map[string]interface{}{
+			"quiz_id":      quizID,
+			"player_count": playerCount,
+		},
+	}
+
+	eventJSON, err := json.Marshal(event)
+	if err != nil {
+		log.Printf("[ShardedHub] Ошибка сериализации события player_count: %v", err)
+		return
+	}
+
+	// Используем горутину чтобы не блокировать вызывающий код
+	go h.BroadcastToQuiz(quizID, eventJSON)
+
+	log.Printf("[ShardedHub] Отправлено обновление player_count для викторины #%d: %d игроков", quizID, playerCount)
+}
+
 // minInt возвращает минимальное из переданных целых чисел
 func minInt(nums ...int) int {
 	if len(nums) == 0 {

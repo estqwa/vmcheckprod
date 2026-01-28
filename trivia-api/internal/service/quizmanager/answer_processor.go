@@ -214,13 +214,17 @@ func (ap *AnswerProcessor) HandleReadyEvent(ctx context.Context, userID uint, qu
 		log.Printf("[AnswerProcessor] WARNING: Не удалось установить TTL на participants Set: %v", err)
 	}
 
+	// Получаем текущее количество подключённых игроков для счётчика
+	playerCount := ap.deps.WSManager.GetSubscriberCount(quizID)
+
 	// Отправляем информацию о готовности пользователя всем участникам
 	fullEvent := map[string]interface{}{
 		"type": "quiz:user_ready",
 		"data": map[string]interface{}{
-			"user_id": userID,
-			"quiz_id": quizID,
-			"status":  "ready",
+			"user_id":      userID,
+			"quiz_id":      quizID,
+			"status":       "ready",
+			"player_count": playerCount, // Реальное количество подключённых игроков
 		},
 	}
 
@@ -230,8 +234,8 @@ func (ap *AnswerProcessor) HandleReadyEvent(ctx context.Context, userID uint, qu
 		return fmt.Errorf("failed to broadcast ready event: %w", err)
 	}
 
-	log.Printf("[AnswerProcessor] Успешно отправлено событие о готовности пользователя #%d к викторине #%d",
-		userID, quizID)
+	log.Printf("[AnswerProcessor] Успешно отправлено событие о готовности пользователя #%d к викторине #%d (игроков онлайн: %d)",
+		userID, quizID, playerCount)
 
 	return nil
 }

@@ -31,13 +31,11 @@ function AdsManagement() {
     const [isLoading, setIsLoading] = useState(true);
     const [isUploading, setIsUploading] = useState(false);
 
-    // Form state
     const [title, setTitle] = useState('');
     const [mediaType, setMediaType] = useState<'image' | 'video'>('image');
     const [duration, setDuration] = useState(10);
     const [file, setFile] = useState<File | null>(null);
 
-    // Fetch ads
     const fetchAds = useCallback(async () => {
         try {
             const response = await fetch(`${API_URL}/api/admin/ads`, {
@@ -58,7 +56,6 @@ function AdsManagement() {
         fetchAds();
     }, [fetchAds]);
 
-    // Upload ad
     const handleUpload = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!file || !title) {
@@ -101,7 +98,6 @@ function AdsManagement() {
         }
     };
 
-    // Delete ad
     const handleDelete = async (id: number) => {
         if (!confirm('Удалить эту рекламу?')) return;
 
@@ -135,144 +131,167 @@ function AdsManagement() {
     };
 
     return (
-        <main className="container max-w-5xl mx-auto px-4 py-12">
-            <div className="flex items-center justify-between mb-8">
-                <div>
+        <div className="min-h-screen">
+            {/* Header */}
+            <header className="border-b border-border/50 bg-white/80 backdrop-blur-sm sticky top-0 z-50">
+                <div className="container max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
+                    <Link href="/" className="flex items-center gap-2">
+                        <div className="w-9 h-9 rounded-lg bg-primary flex items-center justify-center">
+                            <span className="text-white font-bold text-lg">Q</span>
+                        </div>
+                        <span className="font-bold text-xl text-foreground">QazaQuiz</span>
+                        <Badge className="bg-primary/10 text-primary border-0 ml-2">Админ</Badge>
+                    </Link>
+                    <Link href="/admin">
+                        <Button variant="ghost">← Назад</Button>
+                    </Link>
+                </div>
+            </header>
+
+            <main className="container max-w-5xl mx-auto px-4 py-8">
+                <div className="mb-8">
                     <h1 className="text-3xl font-bold">Рекламные материалы</h1>
                     <p className="text-muted-foreground">Управление рекламой между вопросами</p>
                 </div>
-                <Link href="/admin">
-                    <Button variant="ghost">← Назад</Button>
-                </Link>
-            </div>
 
-            {/* Upload Form */}
-            <Card className="mb-8">
-                <CardHeader>
-                    <CardTitle>Загрузить рекламу</CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <form onSubmit={handleUpload} className="space-y-4">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div>
-                                <Label htmlFor="title">Название</Label>
-                                <Input
-                                    id="title"
-                                    value={title}
-                                    onChange={(e) => setTitle(e.target.value)}
-                                    placeholder="Реклама продукта X"
-                                    required
-                                />
-                            </div>
-                            <div>
-                                <Label htmlFor="media_type">Тип</Label>
-                                <select
-                                    id="media_type"
-                                    value={mediaType}
-                                    onChange={(e) => setMediaType(e.target.value as 'image' | 'video')}
-                                    className="w-full h-10 px-3 border rounded-md bg-background"
-                                >
-                                    <option value="image">Изображение</option>
-                                    <option value="video">Видео</option>
-                                </select>
-                            </div>
-                            <div>
-                                <Label htmlFor="duration">Длительность (сек)</Label>
-                                <Input
-                                    id="duration"
-                                    type="number"
-                                    min={3}
-                                    max={30}
-                                    value={duration}
-                                    onChange={(e) => setDuration(Number(e.target.value))}
-                                />
-                            </div>
-                            <div>
-                                <Label htmlFor="file">Файл</Label>
-                                <Input
-                                    id="file"
-                                    type="file"
-                                    accept={mediaType === 'video' ? 'video/mp4,video/webm' : 'image/*'}
-                                    onChange={(e) => setFile(e.target.files?.[0] || null)}
-                                    required
-                                />
-                            </div>
-                        </div>
-                        <Button type="submit" disabled={isUploading}>
-                            {isUploading ? 'Загрузка...' : 'Загрузить'}
-                        </Button>
-                    </form>
-                </CardContent>
-            </Card>
-
-            {/* Ads List */}
-            <Card>
-                <CardHeader>
-                    <CardTitle>Загруженные рекламы ({ads.length})</CardTitle>
-                </CardHeader>
-                <CardContent>
-                    {isLoading ? (
-                        <div className="space-y-3">
-                            {[...Array(3)].map((_, i) => (
-                                <Skeleton key={i} className="h-20 w-full" />
-                            ))}
-                        </div>
-                    ) : ads.length === 0 ? (
-                        <p className="text-center text-muted-foreground py-8">
-                            Нет загруженных реклам
-                        </p>
-                    ) : (
-                        <div className="space-y-3">
-                            {ads.map((ad) => (
-                                <div
-                                    key={ad.id}
-                                    className="flex items-center gap-4 p-4 rounded-lg border"
-                                >
-                                    {/* Preview */}
-                                    <div className="w-24 h-16 bg-muted rounded overflow-hidden flex-shrink-0">
-                                        {ad.media_type === 'video' ? (
-                                            <video
-                                                src={`${API_URL}${ad.url}`}
-                                                className="w-full h-full object-cover"
-                                                muted
-                                            />
-                                        ) : (
-                                            <img
-                                                src={`${API_URL}${ad.url}`}
-                                                alt={ad.title}
-                                                className="w-full h-full object-cover"
-                                            />
-                                        )}
-                                    </div>
-
-                                    {/* Info */}
-                                    <div className="flex-1 min-w-0">
-                                        <div className="flex items-center gap-2 mb-1">
-                                            <h3 className="font-semibold truncate">{ad.title}</h3>
-                                            <Badge variant={ad.media_type === 'video' ? 'default' : 'secondary'}>
-                                                {ad.media_type}
-                                            </Badge>
-                                        </div>
-                                        <p className="text-sm text-muted-foreground">
-                                            {ad.duration_sec} сек • {formatFileSize(ad.file_size_bytes)}
-                                        </p>
-                                    </div>
-
-                                    {/* Actions */}
-                                    <Button
-                                        variant="destructive"
-                                        size="sm"
-                                        onClick={() => handleDelete(ad.id)}
-                                    >
-                                        Удалить
-                                    </Button>
+                {/* Upload Form */}
+                <Card className="mb-8 card-elevated border-0 rounded-2xl">
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                            <span className="text-xl">📤</span>
+                            Загрузить рекламу
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <form onSubmit={handleUpload} className="space-y-4">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                    <Label htmlFor="title">Название</Label>
+                                    <Input
+                                        id="title"
+                                        value={title}
+                                        onChange={(e) => setTitle(e.target.value)}
+                                        placeholder="Реклама продукта X"
+                                        required
+                                        className="h-11"
+                                    />
                                 </div>
-                            ))}
-                        </div>
-                    )}
-                </CardContent>
-            </Card>
-        </main>
+                                <div className="space-y-2">
+                                    <Label htmlFor="media_type">Тип</Label>
+                                    <select
+                                        id="media_type"
+                                        value={mediaType}
+                                        onChange={(e) => setMediaType(e.target.value as 'image' | 'video')}
+                                        className="w-full h-11 px-3 border rounded-lg bg-background"
+                                    >
+                                        <option value="image">Изображение</option>
+                                        <option value="video">Видео</option>
+                                    </select>
+                                </div>
+                                <div className="space-y-2">
+                                    <Label htmlFor="duration">Длительность (сек)</Label>
+                                    <Input
+                                        id="duration"
+                                        type="number"
+                                        min={3}
+                                        max={30}
+                                        value={duration}
+                                        onChange={(e) => setDuration(Number(e.target.value))}
+                                        className="h-11"
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label htmlFor="file">Файл</Label>
+                                    <Input
+                                        id="file"
+                                        type="file"
+                                        accept={mediaType === 'video' ? 'video/mp4,video/webm' : 'image/*'}
+                                        onChange={(e) => setFile(e.target.files?.[0] || null)}
+                                        required
+                                        className="h-11"
+                                    />
+                                </div>
+                            </div>
+                            <Button type="submit" className="btn-coral" disabled={isUploading}>
+                                {isUploading ? 'Загрузка...' : 'Загрузить'}
+                            </Button>
+                        </form>
+                    </CardContent>
+                </Card>
+
+                {/* Ads List */}
+                <Card className="card-elevated border-0 rounded-2xl">
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                            <span className="text-xl">📺</span>
+                            Загруженные рекламы ({ads.length})
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        {isLoading ? (
+                            <div className="space-y-3">
+                                {[...Array(3)].map((_, i) => (
+                                    <Skeleton key={i} className="h-20 w-full rounded-xl" />
+                                ))}
+                            </div>
+                        ) : ads.length === 0 ? (
+                            <div className="text-center py-12">
+                                <span className="text-5xl mb-4 block">📺</span>
+                                <p className="text-muted-foreground">Нет загруженных реклам</p>
+                            </div>
+                        ) : (
+                            <div className="space-y-3">
+                                {ads.map((ad) => (
+                                    <div
+                                        key={ad.id}
+                                        className="flex items-center gap-4 p-4 rounded-xl bg-secondary/30"
+                                    >
+                                        {/* Preview */}
+                                        <div className="w-24 h-16 bg-muted rounded-lg overflow-hidden flex-shrink-0">
+                                            {ad.media_type === 'video' ? (
+                                                <video
+                                                    src={`${API_URL}${ad.url}`}
+                                                    className="w-full h-full object-cover"
+                                                    muted
+                                                />
+                                            ) : (
+                                                <img
+                                                    src={`${API_URL}${ad.url}`}
+                                                    alt={ad.title}
+                                                    className="w-full h-full object-cover"
+                                                />
+                                            )}
+                                        </div>
+
+                                        {/* Info */}
+                                        <div className="flex-1 min-w-0">
+                                            <div className="flex items-center gap-2 mb-1">
+                                                <h3 className="font-semibold truncate">{ad.title}</h3>
+                                                <Badge className={ad.media_type === 'video' ? 'bg-blue-100 text-blue-700 border-0' : 'bg-green-100 text-green-700 border-0'}>
+                                                    {ad.media_type === 'video' ? 'Видео' : 'Изображение'}
+                                                </Badge>
+                                            </div>
+                                            <p className="text-sm text-muted-foreground">
+                                                {ad.duration_sec} сек • {formatFileSize(ad.file_size_bytes)}
+                                            </p>
+                                        </div>
+
+                                        {/* Actions */}
+                                        <Button
+                                            variant="destructive"
+                                            size="sm"
+                                            onClick={() => handleDelete(ad.id)}
+                                        >
+                                            Удалить
+                                        </Button>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </CardContent>
+                </Card>
+            </main>
+        </div>
     );
 }
 

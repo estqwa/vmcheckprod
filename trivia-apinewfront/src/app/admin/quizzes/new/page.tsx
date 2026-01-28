@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 
 function CreateQuizForm() {
@@ -22,18 +23,17 @@ function CreateQuizForm() {
         e.preventDefault();
 
         if (!title.trim()) {
-            toast.error('Title is required');
+            toast.error('Название обязательно');
             return;
         }
 
         if (!scheduledTime) {
-            toast.error('Scheduled time is required');
+            toast.error('Укажите время начала');
             return;
         }
 
-        // Validate scheduled time is in the future
         if (new Date(scheduledTime) <= new Date()) {
-            toast.error('Scheduled time must be in the future');
+            toast.error('Время должно быть в будущем');
             return;
         }
 
@@ -45,17 +45,16 @@ function CreateQuizForm() {
                 scheduled_time: new Date(scheduledTime).toISOString(),
             });
 
-            toast.success('Quiz created successfully!');
+            toast.success('Викторина создана!');
             router.push(`/admin/quizzes/${quiz.id}`);
         } catch (error: unknown) {
             const err = error as { error?: string };
-            toast.error(err.error || 'Failed to create quiz');
+            toast.error(err.error || 'Ошибка создания викторины');
         } finally {
             setIsSubmitting(false);
         }
     };
 
-    // Default to 1 hour from now
     const getDefaultDateTime = () => {
         const date = new Date();
         date.setHours(date.getHours() + 1);
@@ -63,77 +62,95 @@ function CreateQuizForm() {
     };
 
     return (
-        <main className="container max-w-2xl mx-auto px-4 py-12">
-            <div className="flex items-center justify-between mb-8">
-                <h1 className="text-3xl font-bold">Create Quiz</h1>
-                <Link href="/admin">
-                    <Button variant="ghost">← Back</Button>
-                </Link>
-            </div>
-
-            <Card>
-                <CardHeader>
-                    <CardTitle>Quiz Details</CardTitle>
-                    <CardDescription>Create a new trivia quiz</CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <form onSubmit={handleSubmit} className="space-y-6">
-                        <div className="space-y-2">
-                            <Label htmlFor="title">Title *</Label>
-                            <Input
-                                id="title"
-                                value={title}
-                                onChange={(e) => setTitle(e.target.value)}
-                                placeholder="Evening Trivia Challenge"
-                                required
-                                minLength={3}
-                                maxLength={100}
-                            />
+        <div className="min-h-screen">
+            {/* Header */}
+            <header className="border-b border-border/50 bg-white/80 backdrop-blur-sm sticky top-0 z-50">
+                <div className="container max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
+                    <Link href="/" className="flex items-center gap-2">
+                        <div className="w-9 h-9 rounded-lg bg-primary flex items-center justify-center">
+                            <span className="text-white font-bold text-lg">Q</span>
                         </div>
+                        <span className="font-bold text-xl text-foreground">QazaQuiz</span>
+                        <Badge className="bg-primary/10 text-primary border-0 ml-2">Админ</Badge>
+                    </Link>
+                    <Link href="/admin">
+                        <Button variant="ghost">← Назад</Button>
+                    </Link>
+                </div>
+            </header>
 
-                        <div className="space-y-2">
-                            <Label htmlFor="description">Description</Label>
-                            <Input
-                                id="description"
-                                value={description}
-                                onChange={(e) => setDescription(e.target.value)}
-                                placeholder="Test your knowledge and win prizes!"
-                                maxLength={500}
-                            />
-                        </div>
+            <main className="container max-w-2xl mx-auto px-4 py-8">
+                <div className="mb-8">
+                    <h1 className="text-3xl font-bold">Создать викторину</h1>
+                    <p className="text-muted-foreground">Заполните основную информацию</p>
+                </div>
 
-                        <div className="space-y-2">
-                            <Label htmlFor="scheduledTime">Scheduled Time *</Label>
-                            <Input
-                                id="scheduledTime"
-                                type="datetime-local"
-                                value={scheduledTime || getDefaultDateTime()}
-                                onChange={(e) => setScheduledTime(e.target.value)}
-                                required
-                            />
-                            <p className="text-xs text-muted-foreground">
-                                Quiz will start automatically at this time
-                            </p>
-                        </div>
+                <Card className="card-elevated border-0 rounded-2xl">
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                            <span className="text-xl">✏️</span>
+                            Детали викторины
+                        </CardTitle>
+                        <CardDescription>После создания вы сможете добавить вопросы</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <form onSubmit={handleSubmit} className="space-y-6">
+                            <div className="space-y-2">
+                                <Label htmlFor="title">Название *</Label>
+                                <Input
+                                    id="title"
+                                    value={title}
+                                    onChange={(e) => setTitle(e.target.value)}
+                                    placeholder="Вечерняя викторина"
+                                    required
+                                    minLength={3}
+                                    maxLength={100}
+                                    className="h-12"
+                                />
+                            </div>
 
-                        <div className="flex gap-4 pt-4">
-                            <Button type="submit" disabled={isSubmitting} className="flex-1">
-                                {isSubmitting ? 'Creating...' : 'Create Quiz'}
-                            </Button>
-                            <Link href="/admin" className="flex-1">
-                                <Button type="button" variant="outline" className="w-full">
-                                    Cancel
+                            <div className="space-y-2">
+                                <Label htmlFor="description">Описание</Label>
+                                <Input
+                                    id="description"
+                                    value={description}
+                                    onChange={(e) => setDescription(e.target.value)}
+                                    placeholder="Проверь свои знания и выиграй призы!"
+                                    maxLength={500}
+                                    className="h-12"
+                                />
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label htmlFor="scheduledTime">Время начала *</Label>
+                                <Input
+                                    id="scheduledTime"
+                                    type="datetime-local"
+                                    value={scheduledTime || getDefaultDateTime()}
+                                    onChange={(e) => setScheduledTime(e.target.value)}
+                                    required
+                                    className="h-12"
+                                />
+                                <p className="text-xs text-muted-foreground">
+                                    Викторина начнётся автоматически в это время
+                                </p>
+                            </div>
+
+                            <div className="flex gap-4 pt-4">
+                                <Button type="submit" disabled={isSubmitting} className="flex-1 btn-coral h-12">
+                                    {isSubmitting ? 'Создаём...' : 'Создать викторину'}
                                 </Button>
-                            </Link>
-                        </div>
-                    </form>
-                </CardContent>
-            </Card>
-
-            <p className="text-center text-muted-foreground text-sm mt-6">
-                After creating the quiz, you&apos;ll be able to add questions.
-            </p>
-        </main>
+                                <Link href="/admin" className="flex-1">
+                                    <Button type="button" variant="outline" className="w-full h-12">
+                                        Отмена
+                                    </Button>
+                                </Link>
+                            </div>
+                        </form>
+                    </CardContent>
+                </Card>
+            </main>
+        </div>
     );
 }
 

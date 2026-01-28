@@ -4,87 +4,103 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  --background: oklch(0.985 0.002 280);
-  --foreground: oklch(0.2 0.02 280);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.2 0.02 280);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.2 0.02 280);
-  --primary: oklch(0.55 0.18 280);
-  --primary-foreground: oklch(1 0 0);
-  --secondary: oklch(0.95 0.02 280);
-  --secondary-foreground: oklch(0.3 0.02 280);
-  --muted: oklch(0.96 0.01 280);
-  --muted-foreground: oklch(0.5 0.02 280);
-  --accent: oklch(0.7 0.15 220);
-  --accent-foreground: oklch(0.2 0.02 220);
-  --destructive: oklch(0.55 0.2 25);
-  --destructive-foreground: oklch(1 0 0);
-  --border: oklch(0.92 0.01 280);
-  --input: oklch(0.92 0.01 280);
-  --ring: oklch(0.55 0.18 280);
-  --chart-1: oklch(0.55 0.18 280);
-  --chart-2: oklch(0.7 0.15 220);
-  --chart-3: oklch(0.65 0.12 160);
-  --chart-4: oklch(0.75 0.15 80);
-  --chart-5: oklch(0.6 0.18 320);
+  /* ====== QazaQuiz Color Palette ====== */
+  
+  /* Акцентный цвет (Кнопки и иконки) - Коралловый */
+  --primary: #ff6b6b;
+  --primary-foreground: #ffffff;
+  --primary-hover: #fa5252;
+  
+  /* Фон и поверхности */
+  --background: #fafbfc;
+  --foreground: #4a4a4a;
+  --card: #ffffff;
+  --card-foreground: #4a4a4a;
+  --popover: #ffffff;
+  --popover-foreground: #4a4a4a;
+  
+  /* Вторичные цвета */
+  --secondary: #f3f4f6;
+  --secondary-foreground: #4a4a4a;
+  --muted: #f3f4f6;
+  --muted-foreground: #9ca3af;
+  --accent: #fff0f0;
+  --accent-foreground: #ff6b6b;
+  
+  /* Системные цвета */
+  --destructive: #ef4444;
+  --destructive-foreground: #ffffff;
+  --success: #10b981;
+  --success-foreground: #ffffff;
+  --warning: #f59e0b;
+  --warning-foreground: #1f2937;
+  
+  /* Границы и кольца */
+  --border: #e5e7eb;
+  --input: #e5e7eb;
+  --ring: #ff6b6b;
+  
+  /* Графики */
+  --chart-1: #ff6b6b;
+  --chart-2: #94a3b8;
+  --chart-3: #10b981;
+  --chart-4: #f59e0b;
+  --chart-5: #8b7e74;
+  
+  /* Радиус */
   --radius: 0.75rem;
-  --sidebar: oklch(0.985 0.002 280);
-  --sidebar-foreground: oklch(0.2 0.02 280);
-  --sidebar-primary: oklch(0.55 0.18 280);
-  --sidebar-primary-foreground: oklch(1 0 0);
-  --sidebar-accent: oklch(0.95 0.02 280);
-  --sidebar-accent-foreground: oklch(0.3 0.02 280);
-  --sidebar-border: oklch(0.92 0.01 280);
-  --sidebar-ring: oklch(0.55 0.18 280);
-  --success: oklch(0.65 0.18 145);
-  --success-foreground: oklch(1 0 0);
-  --warning: oklch(0.75 0.15 80);
-  --warning-foreground: oklch(0.25 0.05 80);
+  
+  /* Sidebar */
+  --sidebar: #ffffff;
+  --sidebar-foreground: #4a4a4a;
+  --sidebar-primary: #ff6b6b;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #fff0f0;
+  --sidebar-accent-foreground: #ff6b6b;
+  --sidebar-border: #e5e7eb;
+  --sidebar-ring: #ff6b6b;
+  
+  /* Градиент для заголовка */
+  --title-gradient: linear-gradient(to right, #8b7e74, #ff8787, #94a3b8);
+  
+  /* Фоновый градиент */
+  --bg-gradient: linear-gradient(135deg, #ffffff 0%, #f0f4f8 50%, #fff5f5 100%);
 }
 
+/* Темная тема - минимальная поддержка */
 .dark {
-  --background: oklch(0.15 0.02 280);
-  --foreground: oklch(0.95 0.01 280);
-  --card: oklch(0.18 0.02 280);
-  --card-foreground: oklch(0.95 0.01 280);
-  --popover: oklch(0.18 0.02 280);
-  --popover-foreground: oklch(0.95 0.01 280);
-  --primary: oklch(0.65 0.18 280);
-  --primary-foreground: oklch(0.15 0.02 280);
-  --secondary: oklch(0.25 0.02 280);
-  --secondary-foreground: oklch(0.9 0.01 280);
-  --muted: oklch(0.25 0.02 280);
-  --muted-foreground: oklch(0.65 0.02 280);
-  --accent: oklch(0.6 0.15 220);
-  --accent-foreground: oklch(0.95 0.01 220);
-  --destructive: oklch(0.5 0.2 25);
-  --destructive-foreground: oklch(0.95 0.01 25);
-  --border: oklch(0.28 0.02 280);
-  --input: oklch(0.28 0.02 280);
-  --ring: oklch(0.65 0.18 280);
-  --chart-1: oklch(0.65 0.18 280);
-  --chart-2: oklch(0.6 0.15 220);
-  --chart-3: oklch(0.55 0.12 160);
-  --chart-4: oklch(0.65 0.15 80);
-  --chart-5: oklch(0.55 0.18 320);
-  --sidebar: oklch(0.18 0.02 280);
-  --sidebar-foreground: oklch(0.95 0.01 280);
-  --sidebar-primary: oklch(0.65 0.18 280);
-  --sidebar-primary-foreground: oklch(0.15 0.02 280);
-  --sidebar-accent: oklch(0.25 0.02 280);
-  --sidebar-accent-foreground: oklch(0.9 0.01 280);
-  --sidebar-border: oklch(0.28 0.02 280);
-  --sidebar-ring: oklch(0.65 0.18 280);
-  --success: oklch(0.6 0.15 145);
-  --success-foreground: oklch(0.15 0.02 145);
-  --warning: oklch(0.7 0.12 80);
-  --warning-foreground: oklch(0.2 0.05 80);
+  --background: #1a1a2e;
+  --foreground: #f0f0f0;
+  --card: #252540;
+  --card-foreground: #f0f0f0;
+  --popover: #252540;
+  --popover-foreground: #f0f0f0;
+  --primary: #ff6b6b;
+  --primary-foreground: #ffffff;
+  --secondary: #2a2a45;
+  --secondary-foreground: #f0f0f0;
+  --muted: #2a2a45;
+  --muted-foreground: #9ca3af;
+  --accent: #3a2a35;
+  --accent-foreground: #ff8787;
+  --destructive: #ef4444;
+  --destructive-foreground: #ffffff;
+  --border: #3a3a5a;
+  --input: #3a3a5a;
+  --ring: #ff6b6b;
+  --sidebar: #252540;
+  --sidebar-foreground: #f0f0f0;
+  --sidebar-primary: #ff6b6b;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #3a2a35;
+  --sidebar-accent-foreground: #ff8787;
+  --sidebar-border: #3a3a5a;
+  --sidebar-ring: #ff6b6b;
 }
 
 @theme inline {
-  --font-sans: 'Inter', 'Inter Fallback';
-  --font-mono: 'Geist Mono', 'Geist Mono Fallback';
+  --font-sans: 'Inter', 'Inter Fallback', system-ui, sans-serif;
+  --font-mono: 'Geist Mono', 'Geist Mono Fallback', monospace;
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -134,5 +150,98 @@
 
   body {
     @apply bg-background text-foreground;
+    background: var(--bg-gradient);
+    min-height: 100vh;
   }
+}
+
+/* ====== Кастомные утилиты ====== */
+
+/* Градиентный текст заголовка */
+.text-gradient-hero {
+  background: var(--title-gradient);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Карточка с тенью */
+.card-elevated {
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 
+              0 10px 20px -5px rgba(0, 0, 0, 0.05);
+  transition: box-shadow 0.3s ease, transform 0.3s ease;
+}
+
+.card-elevated:hover {
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.08), 
+              0 20px 40px -10px rgba(0, 0, 0, 0.06);
+  transform: translateY(-2px);
+}
+
+/* Анимация пульсации для таймера */
+@keyframes pulse-soft {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+.animate-pulse-soft {
+  animation: pulse-soft 2s ease-in-out infinite;
+}
+
+/* Кнопка с красивым hover */
+.btn-coral {
+  background: #ff6b6b;
+  color: white;
+  transition: all 0.2s ease;
+}
+
+.btn-coral:hover {
+  background: #fa5252;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(255, 107, 107, 0.4);
+}
+
+/* Метка "Live" */
+.badge-live {
+  background: linear-gradient(135deg, #ff6b6b, #ff8787);
+  color: white;
+  padding: 0.25rem 0.75rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.badge-live::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  background: white;
+  border-radius: 50%;
+  animation: pulse-soft 1.5s ease-in-out infinite;
+}
+
+/* Таймер-блок */
+.timer-block {
+  background: #f8fafc;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.75rem;
+  padding: 0.5rem 1rem;
+  text-align: center;
+  min-width: 60px;
+}
+
+.timer-block .value {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #1f2937;
+}
+
+.timer-block .label {
+  font-size: 0.625rem;
+  color: #9ca3af;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }

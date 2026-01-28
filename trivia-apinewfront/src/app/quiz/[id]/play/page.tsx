@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { useAuth } from '@/providers/AuthProvider';
 import { useQuizWebSocket, WSMessage } from '@/providers/QuizWebSocketProvider';
 import { Button } from '@/components/ui/button';
@@ -49,11 +50,8 @@ export default function QuizPlayPage() {
         eliminationReason: '',
     });
 
-    // State for ad break
     const [adBreak, setAdBreak] = useState<AdBreakData | null>(null);
     const [showAdOverlay, setShowAdOverlay] = useState(false);
-
-    // State for player count
     const [playerCount, setPlayerCount] = useState<number>(0);
 
     // Handle WebSocket messages
@@ -124,14 +122,14 @@ export default function QuizPlayPage() {
                     isEliminated: true,
                     eliminationReason: msg.data.reason as string,
                 }));
-                toast.error((msg.data.message as string) || 'You have been eliminated!');
+                toast.error((msg.data.message as string) || 'Вы выбыли из игры!');
                 break;
             }
 
             case 'quiz:finish': {
                 const finish = msg.data as unknown as QuizFinishEvent;
                 setQuizState(prev => ({ ...prev, status: 'finished' }));
-                toast.success(finish.message || 'Quiz finished!');
+                toast.success(finish.message || 'Викторина завершена!');
                 setTimeout(() => {
                     router.push(`/quiz/${quizId}/results`);
                 }, 2000);
@@ -143,7 +141,6 @@ export default function QuizPlayPage() {
                 break;
             }
 
-            // Handle resync - restore state after reconnect
             case 'quiz:state': {
                 console.log('[Play] Received state resync:', msg.data);
                 const state = msg.data as {
@@ -169,7 +166,6 @@ export default function QuizPlayPage() {
                 break;
             }
 
-            // Handle ad break
             case 'quiz:ad_break': {
                 console.log('[Play] Ad break started:', msg.data);
                 const adData = msg.data as unknown as AdBreakData;
@@ -186,7 +182,6 @@ export default function QuizPlayPage() {
             }
 
             case 'quiz:player_count': {
-                // Update player count (when someone joins or leaves)
                 if (msg.data?.player_count !== undefined) {
                     setPlayerCount(msg.data.player_count as number);
                 }
@@ -194,7 +189,6 @@ export default function QuizPlayPage() {
             }
 
             case 'quiz:user_ready': {
-                // Update player count when someone joins (during quiz)
                 if (msg.data?.player_count !== undefined) {
                     setPlayerCount(msg.data.player_count as number);
                 }
@@ -203,14 +197,11 @@ export default function QuizPlayPage() {
         }
     }, [quizId, router]);
 
-    // Subscribe to messages
     useEffect(() => {
         const unsubscribe = subscribe(handleMessage);
         return () => unsubscribe();
     }, [subscribe, handleMessage]);
 
-    // Send resync request when Play page mounts to get current state
-    // This fixes the race condition where quiz:question arrives during navigation from Lobby
     useEffect(() => {
         if (isConnected && quizId) {
             console.log('[Play] Requesting initial state sync...');
@@ -218,7 +209,6 @@ export default function QuizPlayPage() {
         }
     }, [isConnected, quizId, send]);
 
-    // Handle answer selection
     const handleAnswer = useCallback((optionId: number) => {
         if (quizState.selectedAnswer !== null || quizState.isEliminated) return;
         if (!quizState.currentQuestion) return;
@@ -229,25 +219,24 @@ export default function QuizPlayPage() {
 
     const { status, currentQuestion, selectedAnswer, lastResult, timeRemaining, score, correctCount, isEliminated } = quizState;
 
-    // Get option style based on state
     const getOptionStyle = (optionId: number) => {
+        const base = 'w-full h-auto py-4 px-4 text-left justify-start transition-all';
         if (lastResult) {
             if (optionId === lastResult.correct_option) {
-                return 'border-green-500 bg-green-500/20 text-green-500';
+                return `${base} border-green-500 bg-green-50 text-green-700`;
             }
             if (optionId === selectedAnswer && !lastResult.is_correct) {
-                return 'border-red-500 bg-red-500/20 text-red-500';
+                return `${base} border-red-500 bg-red-50 text-red-700`;
             }
         }
         if (optionId === selectedAnswer) {
-            return 'border-primary bg-primary/20';
+            return `${base} border-primary bg-primary/10 text-primary`;
         }
-        return 'border-border hover:border-primary/50';
+        return `${base} border-border hover:border-primary/50 hover:bg-primary/5`;
     };
 
     return (
         <>
-            {/* Ad Break Overlay */}
             <AdBreakOverlay
                 adData={adBreak}
                 isVisible={showAdOverlay}
@@ -257,114 +246,155 @@ export default function QuizPlayPage() {
                 }}
             />
 
-            <main className="container max-w-xl mx-auto px-4 py-8 min-h-screen">
+            <div className="min-h-screen">
                 {/* Header */}
-                <div className="flex items-center justify-between mb-6">
-                    <div>
-                        <p className="text-sm text-muted-foreground">Playing as {user?.username}</p>
-                        <p className="font-bold">Score: {score} | Correct: {correctCount}</p>
-                    </div>
-                    <div className="text-right">
-                        <p className="text-xl font-bold text-green-500">{playerCount}</p>
-                        <p className="text-xs text-muted-foreground">Online</p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                        {connectionState === 'disconnected' && (
-                            <Badge variant="destructive">Disconnected</Badge>
-                        )}
-                        {connectionState === 'connecting' && (
-                            <Badge variant="secondary">Connecting...</Badge>
-                        )}
-                        {connectionState === 'reconnecting' && (
-                            <Badge variant="secondary">Reconnecting...</Badge>
-                        )}
-                        {isEliminated && (
-                            <Badge variant="destructive">Spectator Mode</Badge>
-                        )}
-                    </div>
-                </div>
-
-                {/* Waiting state */}
-                {status === 'waiting' && (
-                    <Card className="text-center py-16">
-                        <CardContent>
-                            <div className="animate-pulse">
-                                <p className="text-xl font-bold mb-2">Waiting for next question...</p>
-                                <p className="text-muted-foreground">Get ready!</p>
+                <header className="border-b border-border/50 bg-white/80 backdrop-blur-sm sticky top-0 z-40">
+                    <div className="container max-w-6xl mx-auto px-4 h-14 flex items-center justify-between">
+                        <Link href="/" className="flex items-center gap-2">
+                            <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
+                                <span className="text-white font-bold">Q</span>
                             </div>
-                        </CardContent>
-                    </Card>
-                )}
+                            <span className="font-bold text-lg text-foreground hidden sm:inline">QazaQuiz</span>
+                        </Link>
 
-                {/* Question state */}
-                {(status === 'question' || status === 'result') && currentQuestion && (
-                    <Card>
-                        <CardHeader>
-                            <div className="flex items-center justify-between">
-                                <Badge variant="outline">
-                                    Q{currentQuestion.number} of {currentQuestion.total_questions}
-                                </Badge>
-                                <div className={`text-2xl font-mono font-bold ${timeRemaining <= 5 ? 'text-red-500 animate-pulse' : ''}`}>
-                                    {timeRemaining}s
-                                </div>
+                        <div className="flex items-center gap-4">
+                            <div className="text-center">
+                                <p className="text-lg font-bold">{score}</p>
+                                <p className="text-xs text-muted-foreground">Очки</p>
                             </div>
-                            <CardTitle className="text-xl mt-4">{currentQuestion.text}</CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-3">
-                            {currentQuestion.options.map((option) => (
-                                <Button
-                                    key={option.id}
-                                    variant="outline"
-                                    className={`w-full h-auto py-4 px-4 text-left justify-start ${getOptionStyle(option.id)}`}
-                                    onClick={() => handleAnswer(option.id)}
-                                    disabled={selectedAnswer !== null || isEliminated}
-                                >
-                                    <span className="font-medium mr-3">{String.fromCharCode(65 + option.id)}.</span>
-                                    {option.text}
-                                </Button>
-                            ))}
+                            <div className="text-center">
+                                <p className="text-lg font-bold text-green-600">{correctCount}</p>
+                                <p className="text-xs text-muted-foreground">Верно</p>
+                            </div>
+                            <div className="text-center">
+                                <p className="text-lg font-bold text-primary">{playerCount}</p>
+                                <p className="text-xs text-muted-foreground">Онлайн</p>
+                            </div>
+                        </div>
 
-                            {/* Result feedback */}
-                            {lastResult && (
-                                <div className={`mt-4 p-4 rounded-lg border ${lastResult.is_correct ? 'border-green-500 bg-green-500/10' : 'border-red-500 bg-red-500/10'}`}>
-                                    <p className={`font-bold ${lastResult.is_correct ? 'text-green-500' : 'text-red-500'}`}>
-                                        {lastResult.is_correct ? '✓ Correct!' : '✗ Wrong!'}
-                                    </p>
-                                    <p className="text-sm text-muted-foreground mt-1">
-                                        +{lastResult.points_earned} points • {lastResult.time_taken_ms}ms
-                                    </p>
-                                </div>
+                        <div className="flex items-center gap-2">
+                            {connectionState === 'disconnected' && (
+                                <Badge variant="destructive">Отключён</Badge>
                             )}
-                        </CardContent>
-                    </Card>
-                )}
+                            {connectionState === 'reconnecting' && (
+                                <Badge variant="secondary">Подключение...</Badge>
+                            )}
+                            {isEliminated && (
+                                <Badge className="bg-orange-100 text-orange-700 border-orange-200">Зритель</Badge>
+                            )}
+                        </div>
+                    </div>
+                </header>
 
-                {/* Eliminated state */}
-                {status === 'eliminated' && (
-                    <Card className="text-center py-16 border-red-500/50">
-                        <CardContent>
-                            <p className="text-4xl mb-4">💀</p>
-                            <p className="text-xl font-bold text-red-500 mb-2">You&apos;ve been eliminated!</p>
-                            <p className="text-muted-foreground">You can continue watching as a spectator.</p>
-                        </CardContent>
-                    </Card>
-                )}
+                <main className="container max-w-xl mx-auto px-4 py-6">
+                    {/* Player info */}
+                    <p className="text-sm text-muted-foreground text-center mb-6">
+                        Играете как <span className="font-semibold text-foreground">{user?.username}</span>
+                    </p>
 
-                {/* Finished state */}
-                {status === 'finished' && (
-                    <Card className="text-center py-16">
-                        <CardContent>
-                            <p className="text-4xl mb-4">🎉</p>
-                            <p className="text-xl font-bold mb-2">Quiz Complete!</p>
-                            <p className="text-muted-foreground">Final Score: {score}</p>
-                            <p className="text-muted-foreground">Correct Answers: {correctCount}</p>
-                            <Button className="mt-6" onClick={() => router.push(`/quiz/${quizId}/results`)}>
-                                View Results
-                            </Button>
-                        </CardContent>
-                    </Card>
-                )}
-            </main>
+                    {/* Waiting state */}
+                    {status === 'waiting' && (
+                        <Card className="card-elevated border-0 rounded-2xl text-center py-16">
+                            <CardContent>
+                                <div className="animate-pulse">
+                                    <span className="text-5xl mb-4 block">⏳</span>
+                                    <p className="text-xl font-bold mb-2">Ожидаем следующий вопрос...</p>
+                                    <p className="text-muted-foreground">Приготовьтесь!</p>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    )}
+
+                    {/* Question state */}
+                    {(status === 'question' || status === 'result') && currentQuestion && (
+                        <Card className="card-elevated border-0 rounded-2xl overflow-hidden">
+                            <CardHeader className="bg-gradient-to-b from-primary/5 to-transparent">
+                                <div className="flex items-center justify-between mb-4">
+                                    <Badge variant="outline" className="text-sm">
+                                        Вопрос {currentQuestion.number} из {currentQuestion.total_questions}
+                                    </Badge>
+                                    <div className={`text-2xl font-mono font-bold px-3 py-1 rounded-lg ${timeRemaining <= 5
+                                            ? 'text-red-600 bg-red-50 animate-pulse'
+                                            : 'text-foreground bg-secondary'
+                                        }`}>
+                                        {timeRemaining}с
+                                    </div>
+                                </div>
+                                <CardTitle className="text-xl">{currentQuestion.text}</CardTitle>
+                            </CardHeader>
+                            <CardContent className="space-y-3 pt-2">
+                                {currentQuestion.options.map((option) => (
+                                    <Button
+                                        key={option.id}
+                                        variant="outline"
+                                        className={getOptionStyle(option.id)}
+                                        onClick={() => handleAnswer(option.id)}
+                                        disabled={selectedAnswer !== null || isEliminated}
+                                    >
+                                        <span className="w-8 h-8 rounded-lg bg-secondary flex items-center justify-center font-bold mr-3 flex-shrink-0">
+                                            {String.fromCharCode(65 + option.id)}
+                                        </span>
+                                        <span className="flex-1">{option.text}</span>
+                                    </Button>
+                                ))}
+
+                                {/* Result feedback */}
+                                {lastResult && (
+                                    <div className={`mt-4 p-4 rounded-xl border-2 ${lastResult.is_correct
+                                            ? 'border-green-300 bg-green-50'
+                                            : 'border-red-300 bg-red-50'
+                                        }`}>
+                                        <p className={`font-bold text-lg ${lastResult.is_correct ? 'text-green-700' : 'text-red-700'}`}>
+                                            {lastResult.is_correct ? '✓ Верно!' : '✗ Неверно!'}
+                                        </p>
+                                        <p className="text-sm text-muted-foreground mt-1">
+                                            +{lastResult.points_earned} очков • {lastResult.time_taken_ms}мс
+                                        </p>
+                                    </div>
+                                )}
+                            </CardContent>
+                        </Card>
+                    )}
+
+                    {/* Eliminated state */}
+                    {status === 'eliminated' && (
+                        <Card className="card-elevated border-0 rounded-2xl text-center py-16 border-2 border-orange-200">
+                            <CardContent>
+                                <span className="text-5xl mb-4 block">👀</span>
+                                <p className="text-xl font-bold text-orange-700 mb-2">Вы выбыли из игры</p>
+                                <p className="text-muted-foreground">Вы можете продолжить смотреть как зритель.</p>
+                            </CardContent>
+                        </Card>
+                    )}
+
+                    {/* Finished state */}
+                    {status === 'finished' && (
+                        <Card className="card-elevated border-0 rounded-2xl text-center py-16">
+                            <CardContent>
+                                <span className="text-5xl mb-4 block">🎉</span>
+                                <p className="text-2xl font-bold mb-4">Викторина завершена!</p>
+                                <div className="flex justify-center gap-8 mb-6">
+                                    <div>
+                                        <p className="text-3xl font-bold text-primary">{score}</p>
+                                        <p className="text-muted-foreground">Очков</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-3xl font-bold text-green-600">{correctCount}</p>
+                                        <p className="text-muted-foreground">Верных ответов</p>
+                                    </div>
+                                </div>
+                                <Button
+                                    className="btn-coral px-8"
+                                    size="lg"
+                                    onClick={() => router.push(`/quiz/${quizId}/results`)}
+                                >
+                                    Посмотреть результаты
+                                </Button>
+                            </CardContent>
+                        </Card>
+                    )}
+                </main>
+            </div>
         </>
     );
 }

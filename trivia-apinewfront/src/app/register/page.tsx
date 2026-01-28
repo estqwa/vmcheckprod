@@ -22,95 +22,117 @@ export default function RegisterPage() {
         e.preventDefault();
 
         if (password !== confirmPassword) {
-            toast.error('Passwords do not match');
+            toast.error('Пароли не совпадают');
             return;
         }
 
         if (password.length < 6) {
-            toast.error('Password must be at least 6 characters');
+            toast.error('Пароль должен быть минимум 6 символов');
             return;
         }
 
         try {
             await register(username, email, password);
-            toast.success('Account created successfully!');
+            toast.success('Аккаунт создан! Добро пожаловать!');
             router.push('/');
         } catch (error: unknown) {
             const err = error as { error?: string };
-            toast.error(err.error || 'Registration failed');
+            toast.error(err.error || 'Ошибка регистрации');
         }
     };
 
     return (
-        <main className="flex items-center justify-center min-h-screen px-4">
-            <Card className="w-full max-w-md">
-                <CardHeader className="text-center">
-                    <CardTitle className="text-2xl">Create Account</CardTitle>
-                    <CardDescription>Join the trivia community and start winning!</CardDescription>
-                </CardHeader>
-                <form onSubmit={handleSubmit}>
-                    <CardContent className="space-y-4">
-                        <div className="space-y-2">
-                            <Label htmlFor="username">Username</Label>
-                            <Input
-                                id="username"
-                                type="text"
-                                placeholder="YourUsername"
-                                value={username}
-                                onChange={(e) => setUsername(e.target.value)}
-                                required
-                                minLength={3}
-                                maxLength={50}
-                            />
+        <div className="min-h-screen flex flex-col">
+            {/* Header */}
+            <header className="border-b border-border/50 bg-white/80 backdrop-blur-sm">
+                <div className="container max-w-6xl mx-auto px-4 h-16 flex items-center">
+                    <Link href="/" className="flex items-center gap-2">
+                        <div className="w-9 h-9 rounded-lg bg-primary flex items-center justify-center">
+                            <span className="text-white font-bold text-lg">Q</span>
                         </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="email">Email</Label>
-                            <Input
-                                id="email"
-                                type="email"
-                                placeholder="you@example.com"
-                                value={email}
-                                onChange={(e) => setEmail(e.target.value)}
-                                required
-                            />
+                        <span className="font-bold text-xl text-foreground">QazaQuiz</span>
+                    </Link>
+                </div>
+            </header>
+
+            {/* Main */}
+            <main className="flex-1 flex items-center justify-center px-4 py-12">
+                <Card className="w-full max-w-md card-elevated border-0 rounded-2xl">
+                    <CardHeader className="text-center pb-2">
+                        <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-4">
+                            <span className="text-3xl">🎮</span>
                         </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="password">Password</Label>
-                            <Input
-                                id="password"
-                                type="password"
-                                placeholder="••••••••"
-                                value={password}
-                                onChange={(e) => setPassword(e.target.value)}
-                                required
-                                minLength={6}
-                            />
-                        </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="confirmPassword">Confirm Password</Label>
-                            <Input
-                                id="confirmPassword"
-                                type="password"
-                                placeholder="••••••••"
-                                value={confirmPassword}
-                                onChange={(e) => setConfirmPassword(e.target.value)}
-                                required
-                            />
-                        </div>
-                    </CardContent>
-                    <CardFooter className="flex flex-col gap-4">
-                        <Button type="submit" className="w-full" disabled={isLoading}>
-                            {isLoading ? 'Creating account...' : 'Create Account'}
-                        </Button>
-                        <p className="text-sm text-muted-foreground text-center">
-                            Already have an account?{' '}
-                            <Link href="/login" className="text-primary hover:underline">
-                                Login
-                            </Link>
-                        </p>
-                    </CardFooter>
-                </form>
-            </Card>
-        </main>
+                        <CardTitle className="text-2xl">Создать аккаунт</CardTitle>
+                        <CardDescription>Присоединяйся к викторинам и выигрывай призы!</CardDescription>
+                    </CardHeader>
+                    <form onSubmit={handleSubmit}>
+                        <CardContent className="space-y-4">
+                            <div className="space-y-2">
+                                <Label htmlFor="username">Имя пользователя</Label>
+                                <Input
+                                    id="username"
+                                    type="text"
+                                    placeholder="ВашНикнейм"
+                                    value={username}
+                                    onChange={(e) => setUsername(e.target.value)}
+                                    required
+                                    minLength={3}
+                                    maxLength={50}
+                                    className="h-12"
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="email">Email</Label>
+                                <Input
+                                    id="email"
+                                    type="email"
+                                    placeholder="you@example.com"
+                                    value={email}
+                                    onChange={(e) => setEmail(e.target.value)}
+                                    required
+                                    className="h-12"
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="password">Пароль</Label>
+                                <Input
+                                    id="password"
+                                    type="password"
+                                    placeholder="••••••••"
+                                    value={password}
+                                    onChange={(e) => setPassword(e.target.value)}
+                                    required
+                                    minLength={6}
+                                    className="h-12"
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="confirmPassword">Подтвердите пароль</Label>
+                                <Input
+                                    id="confirmPassword"
+                                    type="password"
+                                    placeholder="••••••••"
+                                    value={confirmPassword}
+                                    onChange={(e) => setConfirmPassword(e.target.value)}
+                                    required
+                                    className="h-12"
+                                />
+                            </div>
+                        </CardContent>
+                        <CardFooter className="flex flex-col gap-4">
+                            <Button type="submit" className="w-full h-12 btn-coral text-base" disabled={isLoading}>
+                                {isLoading ? 'Создаём аккаунт...' : 'Создать аккаунт'}
+                            </Button>
+                            <p className="text-sm text-muted-foreground text-center">
+                                Уже есть аккаунт?{' '}
+                                <Link href="/login" className="text-primary hover:underline font-medium">
+                                    Войти
+                                </Link>
+                            </p>
+                        </CardFooter>
+                    </form>
+                </Card>
+            </main>
+        </div>
     );
 }

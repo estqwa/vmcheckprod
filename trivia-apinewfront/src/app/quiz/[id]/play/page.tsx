@@ -151,6 +151,7 @@ export default function QuizPlayPage() {
                     elimination_reason?: string;
                     score?: number;
                     correct_count?: number;
+                    player_count?: number;
                 };
 
                 setQuizState(prev => ({
@@ -163,6 +164,11 @@ export default function QuizPlayPage() {
                     score: state.score ?? prev.score,
                     correctCount: state.correct_count ?? prev.correctCount,
                 }));
+
+                // Update player count from resync
+                if (state.player_count !== undefined) {
+                    setPlayerCount(state.player_count);
+                }
                 break;
             }
 
@@ -314,8 +320,8 @@ export default function QuizPlayPage() {
                                         Вопрос {currentQuestion.number} из {currentQuestion.total_questions}
                                     </Badge>
                                     <div className={`text-2xl font-mono font-bold px-3 py-1 rounded-lg ${timeRemaining <= 5
-                                            ? 'text-red-600 bg-red-50 animate-pulse'
-                                            : 'text-foreground bg-secondary'
+                                        ? 'text-red-600 bg-red-50 animate-pulse'
+                                        : 'text-foreground bg-secondary'
                                         }`}>
                                         {timeRemaining}с
                                     </div>
@@ -341,8 +347,8 @@ export default function QuizPlayPage() {
                                 {/* Result feedback */}
                                 {lastResult && (
                                     <div className={`mt-4 p-4 rounded-xl border-2 ${lastResult.is_correct
-                                            ? 'border-green-300 bg-green-50'
-                                            : 'border-red-300 bg-red-50'
+                                        ? 'border-green-300 bg-green-50'
+                                        : 'border-red-300 bg-red-50'
                                         }`}>
                                         <p className={`font-bold text-lg ${lastResult.is_correct ? 'text-green-700' : 'text-red-700'}`}>
                                             {lastResult.is_correct ? '✓ Верно!' : '✗ Неверно!'}

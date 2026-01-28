@@ -344,6 +344,7 @@ type QuizStateResponse struct {
 	EliminationReason string         `json:"elimination_reason,omitempty"`
 	Score             int            `json:"score"`
 	CorrectCount      int            `json:"correct_count"`
+	PlayerCount       int            `json:"player_count"`
 }
 
 // QuestionState представляет текущий вопрос для resync
@@ -376,9 +377,13 @@ func (qm *QuizManager) GetCurrentState(userID uint, quizID uint) (*QuizStateResp
 			return nil, fmt.Errorf("quiz not found: %w", err)
 		}
 
+		// Получаем количество активных игроков
+		playerCount := qm.wsManager.GetSubscriberCount(quizID)
+
 		response := &QuizStateResponse{
-			QuizID: quizID,
-			Status: string(quiz.Status),
+			QuizID:      quizID,
+			Status:      string(quiz.Status),
+			PlayerCount: playerCount,
 		}
 
 		// Если викторина завершена, получаем результаты пользователя
@@ -398,9 +403,13 @@ func (qm *QuizManager) GetCurrentState(userID uint, quizID uint) (*QuizStateResp
 	question, questionNumber := state.GetCurrentQuestion()
 	startTimeMs := state.GetCurrentQuestionStartTime()
 
+	// Получаем количество активных игроков
+	playerCount := qm.wsManager.GetSubscriberCount(quizID)
+
 	response := &QuizStateResponse{
-		QuizID: quizID,
-		Status: "in_progress",
+		QuizID:      quizID,
+		Status:      "in_progress",
+		PlayerCount: playerCount,
 	}
 
 	// Получаем статус пользователя (выбыл или нет)

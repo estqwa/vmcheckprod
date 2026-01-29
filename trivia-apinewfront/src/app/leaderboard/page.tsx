@@ -1,9 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
+import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/providers/AuthProvider';
-import { getLeaderboard, LeaderboardEntry } from '@/lib/api';
+import { getLeaderboard } from '@/lib/api';
+import { leaderboardQueryKey } from '@/lib/hooks/useUserQuery';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -11,29 +13,18 @@ import { Skeleton } from '@/components/ui/skeleton';
 
 export default function LeaderboardPage() {
     const { isAuthenticated } = useAuth();
-    const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
-    const [isLoading, setIsLoading] = useState(true);
     const [page, setPage] = useState(1);
-    const [total, setTotal] = useState(0);
     const pageSize = 10;
 
-    useEffect(() => {
-        const fetchLeaderboard = async () => {
-            setIsLoading(true);
-            try {
-                const data = await getLeaderboard({ page, page_size: pageSize });
-                setEntries(data.users || []);
-                setTotal(data.total || 0);
-            } catch (error) {
-                console.error('Failed to fetch leaderboard:', error);
-            } finally {
-                setIsLoading(false);
-            }
-        };
+    // Используем TanStack Query для автоматического кеширования и ревалидации
+    const { data, isLoading } = useQuery({
+        queryKey: [...leaderboardQueryKey, page],
+        queryFn: () => getLeaderboard({ page, page_size: pageSize }),
+        staleTime: 30 * 1000, // 30 секунд
+    });
 
-        fetchLeaderboard();
-    }, [page]);
-
+    const entries = data?.users ?? [];
+    const total = data?.total ?? 0;
     const totalPages = Math.ceil(total / pageSize);
 
     const getRankStyle = (rank: number) => {

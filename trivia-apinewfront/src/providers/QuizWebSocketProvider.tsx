@@ -9,9 +9,11 @@ import {
     useRef,
     ReactNode,
 } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from './AuthProvider';
 import { useRouter, usePathname } from 'next/navigation';
 import { toast } from 'sonner';
+import { userQueryKey, leaderboardQueryKey } from '@/lib/hooks/useUserQuery';
 
 // ============================================================================
 // Types
@@ -79,6 +81,7 @@ export function QuizWebSocketProvider({ children }: { children: ReactNode }) {
     const router = useRouter();
     const pathname = usePathname();
     const { getWsTicket, logout } = useAuth();
+    const queryClient = useQueryClient();
 
     // Refs for WebSocket and timers
     const wsRef = useRef<WebSocket | null>(null);
@@ -233,6 +236,17 @@ export function QuizWebSocketProvider({ children }: { children: ReactNode }) {
                         case 'server:error':
                             console.error('[QuizWS] Server error:', msg.data);
                             toast.error((msg.data.message as string) || 'Server error');
+                            break;
+
+                        case 'quiz:finish':
+                        case 'quiz:results_available':
+                            // Инвалидируем данные пользователя и лидерборда после викторины
+                            // Это обновит games_played, wins_count, total_score, total_prize_won
+                            console.log('[QuizWS] Quiz finished/results available - invalidating user and leaderboard cache');
+                            queryClient.invalidateQueries({ queryKey: userQueryKey });
+                            queryClient.invalidateQueries({ queryKey: leaderboardQueryKey });
+                            // Также пробрасываем подписчикам для UI обновлений
+                            notifyHandlers(msg);
                             break;
 
                         default:

@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"strings"
 	"time"
 
 	"github.com/yourusername/trivia-api/internal/domain/entity"
@@ -40,10 +41,15 @@ func NewQuizService(
 }
 
 // CreateQuiz создает новую викторину
-func (s *QuizService) CreateQuiz(title, description string, scheduledTime time.Time) (*entity.Quiz, error) {
+func (s *QuizService) CreateQuiz(title, description string, scheduledTime time.Time, prizeFund int) (*entity.Quiz, error) {
 	// Проверяем, что время проведения в будущем
 	if scheduledTime.Before(time.Now()) {
 		return nil, errors.New("scheduled time must be in the future")
+	}
+
+	// Используем дефолт если prizeFund не указан или <= 0
+	if prizeFund <= 0 {
+		prizeFund = s.config.TotalPrizeFund
 	}
 
 	// Создаем новую викторину
@@ -53,6 +59,7 @@ func (s *QuizService) CreateQuiz(title, description string, scheduledTime time.T
 		ScheduledTime: scheduledTime,
 		Status:        entity.QuizStatusScheduled,
 		QuestionCount: 0,
+		PrizeFund:     prizeFund,
 	}
 
 	// Сохраняем викторину в БД
@@ -205,12 +212,16 @@ func (s *QuizService) DuplicateQuiz(originalQuizID uint, newScheduledTime time.T
 	}
 
 	// 4. Создать Новую Сущность Викторины
+	// Обрезаем title если он слишком длинный (лимит 100 символов)
+	newTitle := truncateDuplicateTitle(originalQuiz.Title, 100)
+
 	newQuiz := &entity.Quiz{
-		Title:         originalQuiz.Title + " (Копия)",
+		Title:         newTitle,
 		Description:   originalQuiz.Description,
 		ScheduledTime: newScheduledTime,
 		Status:        entity.QuizStatusScheduled,
 		QuestionCount: len(originalQuiz.Questions),
+		PrizeFund:     originalQuiz.PrizeFund, // Копируем призовой фонд из оригинала
 	}
 
 	// 5. Начать Транзакцию для атомарного создания викторины и вопросов
@@ -259,4 +270,37 @@ func (s *QuizService) DuplicateQuiz(originalQuizID uint, newScheduledTime time.T
 	log.Printf("[QuizService] Викторина ID=%d успешно дублирована с новым ID=%d на время %v", originalQuizID, newQuiz.ID, newScheduledTime)
 	// Возвращаем новую викторину (без вопросов, т.к. GetWithQuestions не вызывался для нее)
 	return newQuiz, nil
+}
+
+// truncateDuplicateTitle создаёт название для дубликата с ограничением длины.
+// Если title уже заканчивается на "(Копия)" или "(Копия N)", убирает его и добавляет новый суффикс.
+func truncateDuplicateTitle(originalTitle string, maxLen int) string {
+	suffix := " (Копия)"
+
+	// Убираем существующий суффикс "(Копия)" или "(Копия N)" если он есть
+	if idx := strings.LastIndex(originalTitle, " (Копия"); idx > 0 {
+		originalTitle = originalTitle[:idx]
+	}
+
+	newTitle := originalTitle + suffix
+
+	// Проверяем длину в рунах (для корректной работы с кириллицей)
+	runeTitle := []rune(newTitle)
+	if len(runeTitle) > maxLen {
+		// Обрезаем originalTitle чтобы итоговая строка уместилась
+		suffixRunes := []rune(suffix)
+		maxOriginalLen := maxLen - len(suffixRunes)
+		if maxOriginalLen > 0 {
+			originalRunes := []rune(originalTitle)
+			if len(originalRunes) > maxOriginalLen {
+				originalRunes = originalRunes[:maxOriginalLen]
+			}
+			newTitle = string(originalRunes) + suffix
+		} else {
+			// Крайний случай: даже суффикс не влезает
+			newTitle = string(runeTitle[:maxLen])
+		}
+	}
+
+	return newTitle
 }

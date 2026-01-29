@@ -40,6 +40,7 @@ type CreateQuizRequest struct {
 	Title         string    `json:"title" binding:"required,min=3,max=100"`
 	Description   string    `json:"description" binding:"omitempty,max=500"`
 	ScheduledTime time.Time `json:"scheduled_time" binding:"required"`
+	PrizeFund     int       `json:"prize_fund"` // Опционально, 0 = дефолт
 }
 
 // CreateQuiz обрабатывает запрос на создание викторины
@@ -50,7 +51,7 @@ func (h *QuizHandler) CreateQuiz(c *gin.Context) {
 		return
 	}
 
-	quiz, err := h.quizService.CreateQuiz(req.Title, req.Description, req.ScheduledTime)
+	quiz, err := h.quizService.CreateQuiz(req.Title, req.Description, req.ScheduledTime, req.PrizeFund)
 	if err != nil {
 		h.handleQuizError(c, err)
 		return

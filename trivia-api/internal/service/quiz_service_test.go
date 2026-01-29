@@ -104,7 +104,7 @@ func TestQuizService_CreateQuiz_Success(t *testing.T) {
 	quizService := createTestQuizServiceWithMocks(mockQuizRepo, nil, getDefaultTestConfigForQuiz())
 
 	// Act
-	quiz, err := quizService.CreateQuiz("Тестовая викторина", "Описание", scheduledTime)
+	quiz, err := quizService.CreateQuiz("Тестовая викторина", "Описание", scheduledTime, 500000)
 
 	// Assert
 	require.NoError(t, err, "Создание викторины должно быть успешным")
@@ -123,7 +123,7 @@ func TestQuizService_CreateQuiz_PastScheduledTime(t *testing.T) {
 	quizService := createTestQuizServiceWithMocks(mockQuizRepo, nil, getDefaultTestConfigForQuiz())
 
 	// Act
-	quiz, err := quizService.CreateQuiz("Викторина", "Описание", scheduledTime)
+	quiz, err := quizService.CreateQuiz("Викторина", "Описание", scheduledTime, 0)
 
 	// Assert
 	assert.Error(t, err, "Должна быть ошибка при времени в прошлом")

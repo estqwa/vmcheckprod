@@ -18,6 +18,7 @@ function CreateQuizForm() {
     const [title, setTitle] = useState('');
     const [description, setDescription] = useState('');
     const [scheduledTime, setScheduledTime] = useState('');
+    const [prizeFund, setPrizeFund] = useState(1000000);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -43,6 +44,7 @@ function CreateQuizForm() {
                 title: title.trim(),
                 description: description.trim() || undefined,
                 scheduled_time: new Date(scheduledTime).toISOString(),
+                prize_fund: prizeFund > 0 ? prizeFund : undefined,
             });
 
             toast.success('Викторина создана!');
@@ -133,6 +135,21 @@ function CreateQuizForm() {
                                 />
                                 <p className="text-xs text-muted-foreground">
                                     Викторина начнётся автоматически в это время
+                                </p>
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label htmlFor="prizeFund">Призовой фонд</Label>
+                                <Input
+                                    id="prizeFund"
+                                    type="number"
+                                    value={prizeFund}
+                                    onChange={(e) => setPrizeFund(parseInt(e.target.value) || 0)}
+                                    min={0}
+                                    className="h-12"
+                                />
+                                <p className="text-xs text-muted-foreground">
+                                    Сумма делится поровну между всеми победителями
                                 </p>
                             </div>
 

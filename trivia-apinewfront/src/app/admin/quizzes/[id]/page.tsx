@@ -251,6 +251,7 @@ function QuizDetailsContent() {
                     <CardContent className="space-y-2">
                         {quiz.description && <p>{quiz.description}</p>}
                         <p><strong>Запланировано:</strong> {formatDate(quiz.scheduled_time)}</p>
+                        <p><strong>Призовой фонд:</strong> <span className="text-green-600 font-semibold">${quiz.prize_fund?.toLocaleString() || 0}</span></p>
                         <p><strong>Создано:</strong> {formatDate(quiz.created_at)}</p>
                     </CardContent>
                 </Card>

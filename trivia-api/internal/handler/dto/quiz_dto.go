@@ -27,6 +27,7 @@ type QuizResponse struct {
 	ScheduledTime time.Time          `json:"scheduled_time"`
 	Status        string             `json:"status"`
 	QuestionCount int                `json:"question_count"`
+	PrizeFund     int                `json:"prize_fund"`
 	Questions     []QuestionResponse `json:"questions,omitempty"` // Слайс DTO вопросов
 	CreatedAt     time.Time          `json:"created_at"`
 	UpdatedAt     time.Time          `json:"updated_at"`
@@ -103,6 +104,7 @@ func NewQuizResponse(quiz *entity.Quiz, includeQuestions bool) *QuizResponse {
 		ScheduledTime: quiz.ScheduledTime,
 		Status:        string(quiz.Status), // Преобразуем статус в строку
 		QuestionCount: quiz.QuestionCount,  // Добавляем поле
+		PrizeFund:     quiz.PrizeFund,
 		Questions:     questionsDTO,
 		CreatedAt:     quiz.CreatedAt,
 		UpdatedAt:     quiz.UpdatedAt,

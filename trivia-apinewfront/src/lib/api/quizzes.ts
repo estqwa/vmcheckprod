@@ -90,6 +90,7 @@ interface CreateQuizData {
     title: string;
     description?: string;
     scheduled_time: string;
+    prize_fund?: number; // Опционально, 0 = дефолт 1000000
 }
 
 interface QuestionData {

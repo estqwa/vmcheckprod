@@ -24,6 +24,7 @@ export interface Quiz {
     scheduled_time: string;
     status: QuizStatus;
     question_count: number;
+    prize_fund: number;
     created_at: string;
     updated_at: string;
 }

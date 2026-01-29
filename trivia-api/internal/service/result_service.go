@@ -207,8 +207,11 @@ func (s *ResultService) DetermineWinnersAndAllocatePrizes(ctx context.Context, q
 		return nil
 	}
 
-	// Используем общий призовой фонд из конфигурации
-	totalPrizeFund := s.config.TotalPrizeFund
+	// Используем призовой фонд конкретной викторины, fallback на дефолт из конфига
+	totalPrizeFund := quiz.PrizeFund
+	if totalPrizeFund <= 0 {
+		totalPrizeFund = s.config.TotalPrizeFund
+	}
 	var winnerIDs []uint
 	var prizePerWinner int
 

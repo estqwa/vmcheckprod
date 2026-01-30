@@ -158,9 +158,13 @@ export function QuizWebSocketProvider({ children }: { children: ReactNode }) {
             return;
         }
 
+        // Set target quiz ID immediately to prevent race conditions from layout useEffect
+        const previousQuizId = currentQuizIdRef.current;
+        currentQuizIdRef.current = targetQuizId;
+
         if (wsRef.current?.readyState === WebSocket.OPEN ||
             wsRef.current?.readyState === WebSocket.CONNECTING) {
-            if (currentQuizIdRef.current === targetQuizId) {
+            if (previousQuizId === targetQuizId) {
                 console.log('[QuizWS] Already connected to this quiz');
                 return;
             }
@@ -170,8 +174,8 @@ export function QuizWebSocketProvider({ children }: { children: ReactNode }) {
 
         isConnectingRef.current = true;
         setConnectionState(isReconnect ? 'reconnecting' : 'connecting');
-        currentQuizIdRef.current = targetQuizId;
         setQuizId(targetQuizId);
+
 
         try {
             const ticket = await getWsTicket();

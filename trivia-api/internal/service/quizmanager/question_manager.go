@@ -148,21 +148,8 @@ func (qm *QuestionManager) RunQuizQuestions(ctx context.Context, quizState *Acti
 	// WaitGroup для синхронизации всех таймеров вопросов
 	var timerWg sync.WaitGroup
 
-	// Отправляем сообщение о начале викторины
-	startEvent := map[string]interface{}{
-		"quiz_id":        quizState.Quiz.ID,
-		"title":          quizState.Quiz.Title,
-		"question_count": len(quizState.Quiz.Questions),
-	}
-
-	// Используем новую сигнатуру
-	startFullEvent := map[string]interface{}{"type": "quiz:start", "data": startEvent}
-	err := qm.deps.WSManager.BroadcastEventToQuiz(quizState.Quiz.ID, startFullEvent)
-	if err != nil {
-		log.Printf("[QuestionManager] ОШИБКА при отправке события quiz:start для викторины #%d: %v",
-			quizState.Quiz.ID, err)
-		// Продолжаем, несмотря на ошибку
-	}
+	// NOTE: quiz:start уже отправлен Scheduler.triggerQuizStart() перед вызовом QuestionManager.
+	// Здесь мы сразу начинаем отправку вопросов.
 
 	for i, question := range quizState.Quiz.Questions {
 		// Устанавливаем текущий вопрос в состоянии

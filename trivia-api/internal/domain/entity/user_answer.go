@@ -10,7 +10,7 @@ type UserAnswer struct {
 	UserID            uint      `gorm:"not null;index" json:"user_id"`
 	QuizID            uint      `gorm:"not null;index" json:"quiz_id"`
 	QuestionID        uint      `gorm:"not null;index" json:"question_id"`
-	SelectedOption    int       `gorm:"not null;default:-1" json:"selected_option"`
+	SelectedOption    int       `gorm:"not null" json:"selected_option"`
 	IsCorrect         bool      `gorm:"not null" json:"is_correct"`
 	ResponseTimeMs    int64     `gorm:"not null" json:"response_time_ms"`
 	Score             int       `gorm:"not null;default:0" json:"score"`

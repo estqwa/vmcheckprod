@@ -208,12 +208,19 @@ func main() {
 	}()
 
 	// Инициализация WebSocket Hub
+	// ВАЖНО: Всегда создаём ShardedHub, даже если шардирование выключено.
+	// Раньше wsHub оставался nil, что ломало весь WebSocket.
+	// Sharding.Enabled контролирует только запуск ClusterHub для межсерверного
+	// взаимодействия, но локальный Hub нужен всегда.
+	log.Println("WebSocket: инициализация ShardedHub")
+	shardedHub := ws.NewShardedHub(cfg.WebSocket, pubSubProvider, cacheRepo)
+	go shardedHub.Run() // Запускаем обработчик шардов
+	wsHub = shardedHub
+
 	if cfg.WebSocket.Sharding.Enabled {
-		log.Println("WebSocket: включено шардирование")
-		// Передаем конфигурацию WebSocket, PubSubProvider и CacheRepo в ShardedHub
-		shardedHub := ws.NewShardedHub(cfg.WebSocket, pubSubProvider, cacheRepo)
-		go shardedHub.Run() // Запускаем обработчик шардов
-		wsHub = shardedHub
+		log.Println("WebSocket: кластерный режим включен")
+	} else {
+		log.Println("WebSocket: работа в автономном режиме (без кластера)")
 	}
 
 	wsManager := ws.NewManager(wsHub)
@@ -231,7 +238,7 @@ func main() {
 	// Инициализируем обработчики
 	authHandler := handler.NewAuthHandler(authService, tokenManager, wsHub)
 	quizHandler := handler.NewQuizHandler(quizService, resultService, quizManagerService)
-	wsHandler := handler.NewWSHandler(wsHub, wsManager, quizManagerService, jwtService)
+	wsHandler := handler.NewWSHandler(wsHub, wsManager, quizManagerService, jwtService, cfg.WebSocket)
 	userHandler := handler.NewUserHandler(userService)
 	adHandler := handler.NewAdHandler(adService, quizAdSlotService)
 

@@ -171,6 +171,14 @@ func (ch *ClusterHub) Start() error {
 		ch.publishMetrics()
 	}()
 
+	// FIX: Запускаем обработку входящих метрик от других узлов кластера
+	// Без этого метрики публиковались, но никто их не принимал!
+	ch.wg.Add(1)
+	go func() {
+		defer ch.wg.Done()
+		ch.handleMetricsMessages()
+	}()
+
 	return nil
 }
 

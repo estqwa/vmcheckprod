@@ -89,8 +89,10 @@ type Client struct {
 	conn *websocket.Conn
 
 	// Буферизованный канал для исходящих сообщений
-	// Уменьшен размер буфера с 256 до 64 для экономии памяти
 	send chan []byte
+
+	// Конфигурация клиента (лимиты, таймауты)
+	config ClientConfig
 
 	// Флаг, указывающий что канал send закрыт (для предотвращения panic)
 	sendClosed atomic.Bool
@@ -119,34 +121,38 @@ type Client struct {
 	bufferWarningMutex sync.Mutex // Мьютекс для защиты счетчика
 }
 
-// NewClient создает нового клиента
+// NewClient создает нового клиента с конфигурацией по умолчанию
 func NewClient(hub interface{}, conn *websocket.Conn, userID string) *Client {
-	connectionID := uuid.New().String()
-	return &Client{
-		hub:                  hub,
-		conn:                 conn,
-		send:                 make(chan []byte, defaultClientBufferSize), // Используем увеличенный буфер
-		UserID:               userID,
-		ConnectionID:         connectionID,
-		lastActivity:         time.Now(),
-		registrationComplete: make(chan struct{}, 1),
-		roles:                make(map[string]bool),
-	}
+	return NewClientWithConfig(hub, conn, userID, DefaultClientConfig())
 }
 
 // NewClientWithConfig создает нового клиента с указанной конфигурацией
 func NewClientWithConfig(hub interface{}, conn *websocket.Conn, userID string, config ClientConfig) *Client {
 	connectionID := uuid.New().String()
 
-	// Проверяем и исправляем недопустимые значения
+	// Проверяем и исправляем недопустимые значения, используя значения по умолчанию
+	defaultConfig := DefaultClientConfig()
 	if config.BufferSize <= 0 {
-		config.BufferSize = defaultClientBufferSize
+		config.BufferSize = defaultConfig.BufferSize
+	}
+	if config.PingInterval <= 0 {
+		config.PingInterval = defaultConfig.PingInterval
+	}
+	if config.PongWait <= 0 {
+		config.PongWait = defaultConfig.PongWait
+	}
+	if config.WriteWait <= 0 {
+		config.WriteWait = defaultConfig.WriteWait
+	}
+	if config.MaxMessageSize <= 0 {
+		config.MaxMessageSize = defaultConfig.MaxMessageSize
 	}
 
 	return &Client{
 		hub:                  hub,
 		conn:                 conn,
 		send:                 make(chan []byte, config.BufferSize),
+		config:               config, // Сохраняем конфигурацию для использования в pumps
 		UserID:               userID,
 		ConnectionID:         connectionID,
 		lastActivity:         time.Now(),
@@ -190,11 +196,11 @@ func (c *Client) readPump(messageHandler func(message []byte, client *Client) er
 		c.conn.Close()
 	}()
 
-	// Настройка чтения сообщений
-	c.conn.SetReadLimit(maxMessageSize) // Используем значение из defaultConfig
-	c.conn.SetReadDeadline(time.Now().Add(pongWait))
+	// Настройка чтения сообщений - используем значения из конфигурации клиента
+	c.conn.SetReadLimit(c.config.MaxMessageSize)
+	c.conn.SetReadDeadline(time.Now().Add(c.config.PongWait))
 	c.conn.SetPongHandler(func(string) error {
-		c.conn.SetReadDeadline(time.Now().Add(pongWait))
+		c.conn.SetReadDeadline(time.Now().Add(c.config.PongWait))
 		c.lastActivity = time.Now() // Обновляем время активности при получении pong
 		return nil
 	})
@@ -256,7 +262,7 @@ func safeHandleMessage(message []byte, client *Client, messageHandler func(messa
 
 // writePump отправляет сообщения клиенту из канала send
 func (c *Client) writePump() {
-	ticker := time.NewTicker(pingPeriod)
+	ticker := time.NewTicker(c.config.PingInterval)
 	defer func() {
 		ticker.Stop()
 		// Закрываем соединение при завершении writePump
@@ -274,8 +280,8 @@ func (c *Client) writePump() {
 				log.Printf("[Client %s][Conn %s] Dequeued message. Type: %s. Buffer len: %d", c.UserID, c.ConnectionID, messageTypeFromBytes(message), len(c.send))
 			}
 
-			// Устанавливаем таймаут для записи
-			if err := c.conn.SetWriteDeadline(time.Now().Add(writeWait)); err != nil {
+			// Устанавливаем таймаут для записи - используем значения из конфигурации
+			if err := c.conn.SetWriteDeadline(time.Now().Add(c.config.WriteWait)); err != nil {
 				log.Printf("WebSocket Client SetWriteDeadline Error (UserID: %s, ConnID: %s): %v", c.UserID, c.ConnectionID, err)
 				return // Завершаем горутину записи
 			}
@@ -312,7 +318,7 @@ func (c *Client) writePump() {
 
 		case <-ticker.C:
 			// Отправляем ping клиенту
-			if err := c.conn.SetWriteDeadline(time.Now().Add(writeWait)); err != nil {
+			if err := c.conn.SetWriteDeadline(time.Now().Add(c.config.WriteWait)); err != nil {
 				log.Printf("WebSocket Client SetWriteDeadline (Ping) Error (UserID: %s, ConnID: %s): %v", c.UserID, c.ConnectionID, err)
 				return // Завершаем горутину записи
 			}

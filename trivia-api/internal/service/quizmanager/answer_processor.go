@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"strconv"
 	"time"
 
 	"github.com/lib/pq"
@@ -68,15 +69,31 @@ func (ap *AnswerProcessor) ProcessAnswer(
 	// === 2. ПРОВЕРКА ВРЕМЕНИ И КОРРЕКТНОСТИ ===
 
 	// Получаем время начала вопроса
-	if questionStartTimeMs == 0 {
-		log.Printf("[AnswerProcessor] CRITICAL: Время начала для вопроса #%d не найдено в состоянии викторины #%d", questionID, quizID)
-		return fmt.Errorf("internal error: question start time not found in state")
+	// FIX: Добавлен fallback к Redis при questionStartTimeMs == 0.
+	// Это возможно после рестарта сервера, когда in-memory state потеряно,
+	// но данные остались в Redis.
+	actualStartTimeMs := questionStartTimeMs
+	if actualStartTimeMs == 0 {
+		// Пробуем получить из Redis
+		questionStartKey := fmt.Sprintf("question:%d:start_time", questionID)
+		startTimeStr, redisErr := ap.deps.CacheRepo.Get(questionStartKey)
+		if redisErr != nil {
+			log.Printf("[AnswerProcessor] CRITICAL: Время начала для вопроса #%d не найдено ни в state, ни в Redis для викторины #%d: %v", questionID, quizID, redisErr)
+			return fmt.Errorf("internal error: question start time not found")
+		}
+		var parseErr error
+		actualStartTimeMs, parseErr = strconv.ParseInt(startTimeStr, 10, 64)
+		if parseErr != nil {
+			log.Printf("[AnswerProcessor] CRITICAL: Не удалось распарсить время начала из Redis для вопроса #%d: %s, ошибка: %v", questionID, startTimeStr, parseErr)
+			return fmt.Errorf("internal error: invalid start time in Redis")
+		}
+		log.Printf("[AnswerProcessor] Использовано время начала из Redis для вопроса #%d: %d", questionID, actualStartTimeMs)
 	}
 
 	// Фиксируем серверное время получения
 	serverReceiveTimeMs := time.Now().UnixNano() / int64(time.Millisecond)
-	// Рассчитываем время ответа
-	responseTimeMs := serverReceiveTimeMs - questionStartTimeMs
+	// Рассчитываем время ответа - используем actualStartTimeMs (может быть из Redis)
+	responseTimeMs := serverReceiveTimeMs - actualStartTimeMs
 	if responseTimeMs < 0 {
 		responseTimeMs = 0
 	}
@@ -84,7 +101,7 @@ func (ap *AnswerProcessor) ProcessAnswer(
 	// Проверяем лимит времени
 	timeLimitMs := int64(question.TimeLimitSec * 1000)
 	isTimeLimitExceeded := responseTimeMs > timeLimitMs
-	isReceivedTooLate := serverReceiveTimeMs > (questionStartTimeMs + timeLimitMs)
+	isReceivedTooLate := serverReceiveTimeMs > (actualStartTimeMs + timeLimitMs)
 	if isReceivedTooLate {
 		log.Printf("[AnswerProcessor] Ответ от User #%d на Q #%d получен ПОСЛЕ дедлайна.", userID, questionID)
 		isTimeLimitExceeded = true // Гарантируем статус просроченного

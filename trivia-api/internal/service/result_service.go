@@ -194,18 +194,23 @@ func (s *ResultService) GetUserResults(userID uint, page, pageSize int) ([]entit
 func (s *ResultService) DetermineWinnersAndAllocatePrizes(ctx context.Context, quizID uint) error {
 	log.Printf("[ResultService] Финализация результатов для викторины #%d", quizID)
 
-	// Получаем общее количество вопросов ДО транзакции
-	quiz, err := s.quizRepo.GetByID(quizID)
+	// FIX: Используем GetWithQuestions для получения реального количества вопросов.
+	// Поле quiz.QuestionCount может быть не синхронизировано с реальным количеством
+	// вопросов в таблице questions (например, после автозаполнения).
+	quiz, err := s.quizRepo.GetWithQuestions(quizID)
 	if err != nil {
-		log.Printf("[ResultService] Ошибка при получении викторины #%d для определения кол-ва вопросов: %v", quizID, err)
+		log.Printf("[ResultService] Ошибка при получении викторины #%d с вопросами: %v", quizID, err)
 		return fmt.Errorf("ошибка получения викторины: %w", err)
 	}
-	totalQuestions := quiz.QuestionCount
+
+	// Используем len(quiz.Questions) — это реальное количество вопросов в БД
+	totalQuestions := len(quiz.Questions)
 	if totalQuestions <= 0 {
 		log.Printf("[ResultService] Викторина #%d не имеет вопросов, пропуск определения победителей и обновления рангов.", quizID)
 		s.sendResultsAvailableNotification(quizID) // Уведомляем, что результаты (без победителей) готовы
 		return nil
 	}
+	log.Printf("[ResultService] Викторина #%d: определение победителей на основе %d вопросов", quizID, totalQuestions)
 
 	// Используем призовой фонд конкретной викторины, fallback на дефолт из конфига
 	totalPrizeFund := quiz.PrizeFund

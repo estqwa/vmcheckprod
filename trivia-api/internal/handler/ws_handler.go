@@ -10,6 +10,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	gorillaws "github.com/gorilla/websocket"
+	"github.com/yourusername/trivia-api/internal/config"
 	"github.com/yourusername/trivia-api/internal/service"
 	"github.com/yourusername/trivia-api/internal/websocket"
 	"github.com/yourusername/trivia-api/pkg/auth"
@@ -21,6 +22,7 @@ type WSHandler struct {
 	wsManager   *websocket.Manager
 	quizManager *service.QuizManager
 	jwtService  *auth.JWTService
+	wsConfig    config.WebSocketConfig // Конфигурация WebSocket для лимитов
 }
 
 // NewWSHandler создает новый обработчик WebSocket
@@ -29,12 +31,14 @@ func NewWSHandler(
 	wsManager *websocket.Manager,
 	quizManager *service.QuizManager,
 	jwtService *auth.JWTService,
+	wsConfig config.WebSocketConfig,
 ) *WSHandler {
 	handler := &WSHandler{
 		wsHub:       wsHub,
 		wsManager:   wsManager,
 		quizManager: quizManager,
 		jwtService:  jwtService,
+		wsConfig:    wsConfig,
 	}
 
 	// Регистрируем обработчики сообщений один раз при создании обработчика
@@ -105,14 +109,6 @@ func (h *WSHandler) HandleConnection(c *gin.Context) {
 		return
 	}
 
-	// Логируем все заголовки запроса
-	log.Printf("WebSocket: Request headers:")
-	for name, values := range c.Request.Header {
-		for _, value := range values {
-			log.Printf("  %s: %s", name, value)
-		}
-	}
-
 	// Устанавливаем соединение
 	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {
@@ -123,8 +119,17 @@ func (h *WSHandler) HandleConnection(c *gin.Context) {
 
 	log.Printf("WebSocket: Connection upgraded for UserID: %d", claims.UserID)
 
-	// Создаем нового клиента
-	client := websocket.NewClient(h.wsHub, conn, fmt.Sprintf("%d", claims.UserID))
+	// Создаем конфигурацию клиента из WebSocket config
+	clientConfig := websocket.ClientConfig{
+		BufferSize:     h.wsConfig.Buffers.ClientSendBuffer,
+		PingInterval:   time.Duration(h.wsConfig.Ping.Interval) * time.Second,
+		PongWait:       time.Duration(h.wsConfig.Limits.PongWait) * time.Second,
+		WriteWait:      time.Duration(h.wsConfig.Limits.WriteWait) * time.Second,
+		MaxMessageSize: int64(h.wsConfig.Limits.MaxMessageSize),
+	}
+
+	// Создаем нового клиента с конфигурацией из config.yaml
+	client := websocket.NewClientWithConfig(h.wsHub, conn, fmt.Sprintf("%d", claims.UserID), clientConfig)
 
 	// Запускаем прослушивание сообщений
 	client.StartPumps(h.wsManager.HandleMessage)

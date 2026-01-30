@@ -192,11 +192,14 @@ func (qm *QuestionManager) RunQuizQuestions(ctx context.Context, quizState *Acti
 		}
 
 		// Отправка с повторными попытками при ошибке
+		// FIX: Изменено с фатальной ошибки на предупреждение.
+		// Раньше: ошибка WS → вся викторина останавливалась для всех.
+		// Теперь: логируем ошибку, но продолжаем — "best effort" подход.
+		// Клиенты с проблемами могут переподключиться через resync.
 		if err := qm.sendEventWithRetry(quizCtx, quizState.Quiz.ID, "quiz:question", questionEvent); err != nil {
-			// Логируем фатальную ошибку отправки вопроса и выходим
-			log.Printf("[QuestionManager] ФАТАЛЬНАЯ ОШИБКА при отправке вопроса #%d для викторины #%d: %v. Прерывание викторины.",
+			log.Printf("[QuestionManager] WARNING: Не удалось отправить вопрос #%d для викторины #%d: %v. Продолжаем викторину.",
 				question.ID, quizState.Quiz.ID, err)
-			return err // Прерываем выполнение викторины
+			// НЕ возвращаем ошибку — викторина продолжается
 		}
 
 		// Сохраняем время начала вопроса для подсчета времени ответа

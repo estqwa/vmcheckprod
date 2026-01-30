@@ -1,6 +1,9 @@
 import { api, setCsrfToken, getCsrfToken } from './client';
 import { User, AuthResponse, Session } from './types';
 
+// Lock to prevent multiple simultaneous CSRF fetch requests
+let csrfFetchPromise: Promise<string> | null = null;
+
 interface RegisterData {
     username: string;
     email: string;
@@ -79,18 +82,45 @@ export async function getCurrentUser(): Promise<User> {
 }
 
 /**
- * Get CSRF token from server
+ * Get CSRF token from server (with deduplication)
  */
 export async function fetchCsrfToken(): Promise<string> {
-    const response = await api.get<{ csrf_token: string }>('/api/auth/csrf');
-    setCsrfToken(response.csrf_token);
-    return response.csrf_token;
+    // If there's already a fetch in progress, wait for it
+    if (csrfFetchPromise) {
+        return csrfFetchPromise;
+    }
+
+    csrfFetchPromise = (async () => {
+        try {
+            const response = await api.get<{ csrf_token: string }>('/api/auth/csrf');
+            setCsrfToken(response.csrf_token);
+            return response.csrf_token;
+        } finally {
+            csrfFetchPromise = null;
+        }
+    })();
+
+    return csrfFetchPromise;
+}
+
+/**
+ * Ensure CSRF token is available (fetch if missing)
+ */
+async function ensureCsrfToken(): Promise<string> {
+    const existing = getCsrfToken();
+    if (existing) {
+        return existing;
+    }
+    return fetchCsrfToken();
 }
 
 /**
  * Get WebSocket ticket (required for WS connection)
+ * Ensures CSRF token is available before making the request
  */
 export async function getWsTicket(): Promise<string> {
+    // Ensure CSRF token is available before making the POST request
+    await ensureCsrfToken();
     const response = await api.post<{ success: boolean; data: { ticket: string } }>('/api/auth/ws-ticket', {});
     return response.data.ticket;
 }

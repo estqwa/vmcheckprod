@@ -50,7 +50,13 @@ export async function request<T, B = unknown>(
 
     // Add body for mutating requests
     if (body && ['POST', 'PUT', 'PATCH'].includes(method)) {
-        config.body = JSON.stringify(body);
+        if (body instanceof FormData) {
+            config.body = body;
+            // Let the browser set the Content-Type with the boundary for FormData
+            delete headers['Content-Type'];
+        } else {
+            config.body = JSON.stringify(body);
+        }
     }
 
     // Add query params

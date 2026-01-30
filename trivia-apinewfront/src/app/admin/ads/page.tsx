@@ -10,6 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from 'sonner';
+import { api } from '@/lib/api/client';
 import { useAuth } from '@/providers/AuthProvider';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '';
@@ -26,7 +27,6 @@ interface AdAsset {
 }
 
 function AdsManagement() {
-    const { csrfToken } = useAuth();
     const [ads, setAds] = useState<AdAsset[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isUploading, setIsUploading] = useState(false);
@@ -71,19 +71,8 @@ function AdsManagement() {
             formData.append('media_type', mediaType);
             formData.append('duration_sec', duration.toString());
 
-            const response = await fetch(`${API_URL}/api/admin/ads`, {
-                method: 'POST',
-                credentials: 'include',
-                headers: {
-                    'X-CSRF-Token': csrfToken || '',
-                },
-                body: formData,
-            });
 
-            if (!response.ok) {
-                const error = await response.json();
-                throw new Error(error.error || 'Upload failed');
-            }
+            await api.post('/api/admin/ads', formData);
 
             toast.success('Реклама загружена');
             setTitle('');
@@ -102,18 +91,7 @@ function AdsManagement() {
         if (!confirm('Удалить эту рекламу?')) return;
 
         try {
-            const response = await fetch(`${API_URL}/api/admin/ads/${id}`, {
-                method: 'DELETE',
-                credentials: 'include',
-                headers: {
-                    'X-CSRF-Token': csrfToken || '',
-                },
-            });
-
-            if (!response.ok) {
-                const error = await response.json();
-                throw new Error(error.error || 'Delete failed');
-            }
+            await api.delete(`/api/admin/ads/${id}`);
 
             toast.success('Реклама удалена');
             fetchAds();

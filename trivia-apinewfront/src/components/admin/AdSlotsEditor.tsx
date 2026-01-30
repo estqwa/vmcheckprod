@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
+import { api } from '@/lib/api/client';
 import { useAuth } from '@/providers/AuthProvider';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '';
@@ -31,8 +32,8 @@ interface AdSlotsEditorProps {
     questionCount: number;
 }
 
+
 export function AdSlotsEditor({ quizId, questionCount }: AdSlotsEditorProps) {
-    const { csrfToken } = useAuth();
     const [slots, setSlots] = useState<QuizAdSlot[]>([]);
     const [ads, setAds] = useState<AdAsset[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -88,24 +89,11 @@ export function AdSlotsEditor({ quizId, questionCount }: AdSlotsEditorProps) {
 
         setIsAdding(true);
         try {
-            const response = await fetch(`${API_URL}/api/quizzes/${quizId}/ad-slots`, {
-                method: 'POST',
-                credentials: 'include',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-Token': csrfToken || '',
-                },
-                body: JSON.stringify({
-                    question_after: selectedQuestion,
-                    ad_asset_id: selectedAdId,
-                    is_active: true,
-                }),
+            await api.post(`/api/quizzes/${quizId}/ad-slots`, {
+                question_after: selectedQuestion,
+                ad_asset_id: selectedAdId,
+                is_active: true,
             });
-
-            if (!response.ok) {
-                const error = await response.json();
-                throw new Error(error.error || 'Failed to create slot');
-            }
 
             toast.success('Слот добавлен');
             fetchSlots();
@@ -124,17 +112,7 @@ export function AdSlotsEditor({ quizId, questionCount }: AdSlotsEditorProps) {
     // Toggle slot active
     const handleToggleActive = async (slot: QuizAdSlot) => {
         try {
-            const response = await fetch(`${API_URL}/api/quizzes/${quizId}/ad-slots/${slot.id}`, {
-                method: 'PUT',
-                credentials: 'include',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-Token': csrfToken || '',
-                },
-                body: JSON.stringify({ is_active: !slot.is_active }),
-            });
-
-            if (!response.ok) throw new Error('Failed to update slot');
+            await api.put(`/api/quizzes/${quizId}/ad-slots/${slot.id}`, { is_active: !slot.is_active });
             fetchSlots();
         } catch (error) {
             console.error('Update slot failed:', error);
@@ -147,15 +125,7 @@ export function AdSlotsEditor({ quizId, questionCount }: AdSlotsEditorProps) {
         if (!confirm('Удалить этот слот?')) return;
 
         try {
-            const response = await fetch(`${API_URL}/api/quizzes/${quizId}/ad-slots/${slotId}`, {
-                method: 'DELETE',
-                credentials: 'include',
-                headers: {
-                    'X-CSRF-Token': csrfToken || '',
-                },
-            });
-
-            if (!response.ok) throw new Error('Failed to delete slot');
+            await api.delete(`/api/quizzes/${quizId}/ad-slots/${slotId}`);
             toast.success('Слот удален');
             fetchSlots();
         } catch (error) {

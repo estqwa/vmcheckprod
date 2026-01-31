@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { useTranslations } from 'next-intl';
 import { getQuiz, getQuizResults, getMyResult, Quiz, QuizResult, PaginatedResults } from '@/lib/api';
 import { useAuth } from '@/providers/AuthProvider';
 import { Button } from '@/components/ui/button';
@@ -10,12 +11,17 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 
 export default function QuizResultsPage() {
     const params = useParams();
     const router = useRouter();
     const quizId = Number(params.id);
     const { user, isAuthenticated } = useAuth();
+
+    const t = useTranslations('quiz');
+    const tNav = useTranslations('nav');
+    const tLeaderboard = useTranslations('leaderboard');
 
     const [quiz, setQuiz] = useState<Quiz | null>(null);
     const [results, setResults] = useState<PaginatedResults<QuizResult> | null>(null);
@@ -74,15 +80,18 @@ export default function QuizResultsPage() {
                         </div>
                         <span className="font-bold text-xl text-foreground">QazaQuiz</span>
                     </Link>
-                    <Link href="/">
-                        <Button variant="ghost">← На главную</Button>
-                    </Link>
+                    <div className="flex items-center gap-2">
+                        <LanguageSwitcher />
+                        <Link href="/">
+                            <Button variant="ghost">← {tNav('home')}</Button>
+                        </Link>
+                    </div>
                 </div>
             </header>
 
             <main className="container max-w-3xl mx-auto px-4 py-8">
                 <div className="mb-8">
-                    <h1 className="text-3xl font-bold">Результаты</h1>
+                    <h1 className="text-3xl font-bold">{t('gameOver')}</h1>
                     {quiz && <p className="text-muted-foreground">{quiz.title}</p>}
                 </div>
 
@@ -91,36 +100,36 @@ export default function QuizResultsPage() {
                     <Card className={`mb-6 card-elevated border-0 rounded-2xl overflow-hidden ${myResult.is_winner ? 'ring-2 ring-yellow-400' : ''
                         }`}>
                         <CardHeader className={`${myResult.is_winner
-                                ? 'bg-gradient-to-r from-yellow-50 to-orange-50'
-                                : myResult.is_eliminated
-                                    ? 'bg-gradient-to-r from-orange-50 to-red-50'
-                                    : 'bg-gradient-to-b from-primary/5 to-transparent'
+                            ? 'bg-gradient-to-r from-yellow-50 to-orange-50'
+                            : myResult.is_eliminated
+                                ? 'bg-gradient-to-r from-orange-50 to-red-50'
+                                : 'bg-gradient-to-b from-primary/5 to-transparent'
                             }`}>
                             <CardTitle className="flex items-center gap-2">
                                 <span className="text-2xl">{myResult.is_winner ? '🏆' : myResult.is_eliminated ? '👀' : '📊'}</span>
-                                Ваш результат
-                                {myResult.is_winner && <Badge className="bg-yellow-400 text-yellow-900 border-0">Победитель!</Badge>}
-                                {myResult.is_eliminated && <Badge className="bg-orange-100 text-orange-700 border-0">Выбыл</Badge>}
+                                {t('score').replace(': {score}', '')}
+                                {myResult.is_winner && <Badge className="bg-yellow-400 text-yellow-900 border-0">{t('winner')}</Badge>}
+                                {myResult.is_eliminated && <Badge className="bg-orange-100 text-orange-700 border-0">{t('eliminated')}</Badge>}
                             </CardTitle>
                         </CardHeader>
                         <CardContent className="pt-6">
                             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                                 <div className="bg-secondary/50 rounded-xl p-4 text-center">
                                     <p className="text-3xl font-bold">#{myResult.rank}</p>
-                                    <p className="text-muted-foreground text-sm">Место</p>
+                                    <p className="text-muted-foreground text-sm">{tLeaderboard('rank')}</p>
                                 </div>
                                 <div className="bg-primary/10 rounded-xl p-4 text-center">
                                     <p className="text-3xl font-bold text-primary">{myResult.score}</p>
-                                    <p className="text-muted-foreground text-sm">Очков</p>
+                                    <p className="text-muted-foreground text-sm">{t('score').replace(': {score}', '')}</p>
                                 </div>
                                 <div className="bg-secondary/50 rounded-xl p-4 text-center">
                                     <p className="text-3xl font-bold">{myResult.correct_answers}/{myResult.total_questions}</p>
-                                    <p className="text-muted-foreground text-sm">Верно</p>
+                                    <p className="text-muted-foreground text-sm">{t('correct')}</p>
                                 </div>
                                 {myResult.prize_fund > 0 && (
                                     <div className="bg-green-50 rounded-xl p-4 text-center">
                                         <p className="text-3xl font-bold text-green-600">${myResult.prize_fund}</p>
-                                        <p className="text-muted-foreground text-sm">Приз</p>
+                                        <p className="text-muted-foreground text-sm">{tLeaderboard('prize')}</p>
                                     </div>
                                 )}
                             </div>
@@ -133,14 +142,14 @@ export default function QuizResultsPage() {
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2">
                             <span className="text-xl">🏆</span>
-                            Таблица лидеров
+                            {tLeaderboard('title')}
                         </CardTitle>
                     </CardHeader>
                     <CardContent>
                         {!results || results.results.length === 0 ? (
                             <div className="text-center py-12">
                                 <span className="text-5xl mb-4 block">📊</span>
-                                <p className="text-muted-foreground">Результатов пока нет</p>
+                                <p className="text-muted-foreground">{tLeaderboard('noPlayers')}</p>
                             </div>
                         ) : (
                             <div className="space-y-3">
@@ -148,10 +157,10 @@ export default function QuizResultsPage() {
                                     <div
                                         key={result.id}
                                         className={`flex items-center gap-4 p-4 rounded-xl border-2 transition-all ${result.user_id === user?.id
-                                                ? 'border-primary/50 bg-primary/5'
-                                                : result.is_winner
-                                                    ? 'border-yellow-300 bg-yellow-50'
-                                                    : 'border-transparent bg-secondary/30'
+                                            ? 'border-primary/50 bg-primary/5'
+                                            : result.is_winner
+                                                ? 'border-yellow-300 bg-yellow-50'
+                                                : 'border-transparent bg-secondary/30'
                                             }`}
                                     >
                                         {/* Rank */}
@@ -175,21 +184,21 @@ export default function QuizResultsPage() {
                                         <div className="flex-1 min-w-0">
                                             <p className="font-medium truncate">
                                                 {result.username}
-                                                {result.user_id === user?.id && <span className="text-muted-foreground"> (Вы)</span>}
+                                                {result.user_id === user?.id && <span className="text-muted-foreground"> (You)</span>}
                                             </p>
                                             <p className="text-sm text-muted-foreground">
-                                                {result.correct_answers}/{result.total_questions} верных
+                                                {result.correct_answers}/{result.total_questions} {t('correct')}
                                             </p>
                                         </div>
 
                                         {/* Stats */}
                                         <div className="flex items-center gap-2">
-                                            <Badge variant="outline" className="font-bold">{result.score} очков</Badge>
+                                            <Badge variant="outline" className="font-bold">{result.score}</Badge>
                                             {result.prize_fund > 0 && (
                                                 <Badge className="bg-green-500 border-0">${result.prize_fund}</Badge>
                                             )}
                                             {result.is_eliminated && (
-                                                <Badge className="bg-orange-100 text-orange-700 border-0 text-xs">Выбыл</Badge>
+                                                <Badge className="bg-orange-100 text-orange-700 border-0 text-xs">{t('eliminated')}</Badge>
                                             )}
                                         </div>
                                     </div>
@@ -201,7 +210,7 @@ export default function QuizResultsPage() {
 
                 <div className="text-center mt-8">
                     <Button className="btn-coral px-8" size="lg" onClick={() => router.push('/')}>
-                        На главную
+                        {tNav('home')}
                     </Button>
                 </div>
             </main>
@@ -211,16 +220,16 @@ export default function QuizResultsPage() {
                 <div className="flex justify-around">
                     <Link href="/" className="flex flex-col items-center text-muted-foreground">
                         <span className="text-xl">🏠</span>
-                        <span className="text-xs">Главная</span>
+                        <span className="text-xs">{tNav('home')}</span>
                     </Link>
                     <Link href="/leaderboard" className="flex flex-col items-center text-muted-foreground">
                         <span className="text-xl">🏆</span>
-                        <span className="text-xs">Рейтинг</span>
+                        <span className="text-xs">{tNav('leaderboard')}</span>
                     </Link>
                     {isAuthenticated && (
                         <Link href="/profile" className="flex flex-col items-center text-muted-foreground">
                             <span className="text-xl">👤</span>
-                            <span className="text-xs">Профиль</span>
+                            <span className="text-xs">{tNav('profile')}</span>
                         </Link>
                     )}
                 </div>

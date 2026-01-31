@@ -11,7 +11,7 @@
     "nav": {
         "home": "Главная",
         "quiz": "Викторина",
-        "leaderboard": "Лидерборд",
+        "leaderboard": "Рейтинг",
         "profile": "Профиль",
         "login": "Войти",
         "logout": "Выйти",
@@ -32,8 +32,24 @@
         "score": "Ваш счёт: {score}",
         "noActiveQuiz": "Нет активной викторины",
         "nextQuiz": "Следующая викторина: {date}",
-        "prizeFund": "Призовой фонд: {amount} ₸",
-        "participants": "{count} участников"
+        "prizeFund": "Призовой фонд",
+        "participants": "{count} участников",
+        "startsIn": "Игра начнётся через",
+        "hours": "Часов",
+        "minutes": "Минут",
+        "seconds": "Секунд",
+        "online": "Онлайн",
+        "questions": "Вопросов",
+        "ready": "Вы готовы!",
+        "connected": "Подключён",
+        "connecting": "Подключение...",
+        "reconnecting": "Переподключение...",
+        "disconnected": "Отключён",
+        "connectionLost": "Соединение потеряно",
+        "playingAs": "Играете как",
+        "leaveLobby": "Покинуть лобби",
+        "notFound": "Викторина не найдена",
+        "starting": "Викторина начинается!"
     },
     "auth": {
         "login": "Вход",
@@ -47,7 +63,13 @@
         "noAccount": "Нет аккаунта?",
         "hasAccount": "Уже есть аккаунт?",
         "loginError": "Неверный email или пароль",
-        "registerError": "Ошибка регистрации"
+        "registerError": "Ошибка регистрации",
+        "loginSuccess": "С возвращением!",
+        "registerSuccess": "Аккаунт создан!",
+        "loginDescription": "Введите данные для входа",
+        "registerDescription": "Создайте аккаунт",
+        "passwordMismatch": "Пароли не совпадают",
+        "passwordTooShort": "Пароль должен быть минимум 6 символов"
     },
     "profile": {
         "title": "Профиль",
@@ -57,14 +79,27 @@
         "winsCount": "Побед",
         "totalPrize": "Выиграно призов",
         "settings": "Настройки",
-        "language": "Язык"
+        "language": "Язык",
+        "selectLanguage": "Выберите язык интерфейса",
+        "sessions": "Активные сессии",
+        "sessionsDescription": "Управляйте устройствами",
+        "noSessions": "Нет активных сессий",
+        "endSession": "Завершить",
+        "actions": "Действия",
+        "logoutAll": "Выйти со всех устройств",
+        "logoutSuccess": "Вы вышли из аккаунта",
+        "logoutAllSuccess": "Вы вышли со всех устройств",
+        "sessionRevoked": "Сессия завершена"
     },
     "leaderboard": {
-        "title": "Лидерборд",
+        "title": "Рейтинг игроков",
+        "subtitle": "Лучшие игроки QazaQuiz",
+        "topPlayers": "Топ игроков",
+        "noPlayers": "Пока нет игроков",
         "rank": "Место",
         "player": "Игрок",
-        "wins": "Побед",
-        "prize": "Приз"
+        "wins": "побед",
+        "prize": "приз"
     },
     "home": {
         "welcome": "Добро пожаловать в QazaQuiz!",

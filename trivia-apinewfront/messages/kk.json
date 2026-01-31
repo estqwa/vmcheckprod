@@ -11,7 +11,7 @@
     "nav": {
         "home": "Басты бет",
         "quiz": "Викторина",
-        "leaderboard": "Лидерлер",
+        "leaderboard": "Рейтинг",
         "profile": "Профиль",
         "login": "Кіру",
         "logout": "Шығу",
@@ -32,8 +32,24 @@
         "score": "Сіздің ұпайыңыз: {score}",
         "noActiveQuiz": "Белсенді викторина жоқ",
         "nextQuiz": "Келесі викторина: {date}",
-        "prizeFund": "Жүлде қоры: {amount} ₸",
-        "participants": "{count} қатысушы"
+        "prizeFund": "Жүлде қоры",
+        "participants": "{count} қатысушы",
+        "startsIn": "Ойын басталуына",
+        "hours": "Сағат",
+        "minutes": "Минут",
+        "seconds": "Секунд",
+        "online": "Онлайн",
+        "questions": "Сұрақ",
+        "ready": "Сіз дайынсыз!",
+        "connected": "Қосылды",
+        "connecting": "Қосылуда...",
+        "reconnecting": "Қайта қосылуда...",
+        "disconnected": "Ажыратылды",
+        "connectionLost": "Байланыс үзілді",
+        "playingAs": "Сіз ретінде ойнайсыз",
+        "leaveLobby": "Лоббиден шығу",
+        "notFound": "Викторина табылмады",
+        "starting": "Викторина басталады!"
     },
     "auth": {
         "login": "Кіру",
@@ -47,7 +63,13 @@
         "noAccount": "Аккаунтыңыз жоқ па?",
         "hasAccount": "Аккаунтыңыз бар ма?",
         "loginError": "Қате email немесе құпия сөз",
-        "registerError": "Тіркелу қатесі"
+        "registerError": "Тіркелу қатесі",
+        "loginSuccess": "Қош келдіңіз!",
+        "registerSuccess": "Аккаунт жасалды!",
+        "loginDescription": "Кіру үшін деректерді енгізіңіз",
+        "registerDescription": "Аккаунт жасаңыз",
+        "passwordMismatch": "Құпия сөздер сәйкес келмейді",
+        "passwordTooShort": "Құпия сөз кемінде 6 таңба болуы керек"
     },
     "profile": {
         "title": "Профиль",
@@ -55,16 +77,29 @@
         "totalScore": "Жалпы ұпай",
         "highestScore": "Ең жоғары нәтиже",
         "winsCount": "Жеңістер",
-        "totalPrize": "Жеңіліп алған жүлде",
+        "totalPrize": "Жүлделер",
         "settings": "Баптаулар",
-        "language": "Тіл"
+        "language": "Тіл",
+        "selectLanguage": "Интерфейс тілін таңдаңыз",
+        "sessions": "Белсенді сессиялар",
+        "sessionsDescription": "Құрылғыларды басқару",
+        "noSessions": "Белсенді сессия жоқ",
+        "endSession": "Аяқтау",
+        "actions": "Әрекеттер",
+        "logoutAll": "Барлық құрылғылардан шығу",
+        "logoutSuccess": "Сіз шықтыңыз",
+        "logoutAllSuccess": "Барлық құрылғылардан шықтыңыз",
+        "sessionRevoked": "Сессия аяқталды"
     },
     "leaderboard": {
-        "title": "Лидерлер",
+        "title": "Ойыншылар рейтингі",
+        "subtitle": "QazaQuiz үздік ойыншылары",
+        "topPlayers": "Үздік ойыншылар",
+        "noPlayers": "Әзірге ойыншылар жоқ",
         "rank": "Орын",
         "player": "Ойыншы",
-        "wins": "Жеңістер",
-        "prize": "Жүлде"
+        "wins": "жеңіс",
+        "prize": "жүлде"
     },
     "home": {
         "welcome": "QazaQuiz-ке қош келдіңіз!",

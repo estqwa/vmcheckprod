@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { useTranslations } from 'next-intl';
 import { useAuth } from '@/providers/AuthProvider';
 import { getQuiz, Quiz } from '@/lib/api';
 import { useQuizWebSocket, WSMessage } from '@/providers/QuizWebSocketProvider';
@@ -11,6 +12,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from 'sonner';
+import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 
 export default function QuizLobbyPage() {
     const params = useParams();
@@ -18,6 +20,10 @@ export default function QuizLobbyPage() {
     const quizId = Number(params.id);
     const { user } = useAuth();
     const { isConnected, connectionState, subscribe } = useQuizWebSocket();
+
+    const t = useTranslations('quiz');
+    const tNav = useTranslations('nav');
+    const tCommon = useTranslations('common');
 
     const [quiz, setQuiz] = useState<Quiz | null>(null);
     const [isLoading, setIsLoading] = useState(true);
@@ -36,7 +42,7 @@ export default function QuizLobbyPage() {
                 setQuiz(data);
             } catch (error) {
                 console.error('Failed to fetch quiz:', error);
-                toast.error('Викторина не найдена');
+                toast.error(t('notFound') || 'Викторина не найдена');
                 router.push('/');
             } finally {
                 setIsLoading(false);
@@ -44,7 +50,7 @@ export default function QuizLobbyPage() {
         };
 
         fetchQuiz();
-    }, [quizId, router]);
+    }, [quizId, router, t]);
 
     // Countdown timer
     useEffect(() => {
@@ -81,7 +87,7 @@ export default function QuizLobbyPage() {
 
         switch (msg.type) {
             case 'quiz:start':
-                toast.success('Викторина начинается!');
+                toast.success(t('starting') || 'Викторина начинается!');
                 router.push(`/quiz/${quizId}/play`);
                 break;
             case 'quiz:countdown':
@@ -97,7 +103,7 @@ export default function QuizLobbyPage() {
                 }
                 break;
         }
-    }, [quizId, router]);
+    }, [quizId, router, t]);
 
     useEffect(() => {
         const unsubscribe = subscribe(handleMessage);
@@ -123,10 +129,10 @@ export default function QuizLobbyPage() {
 
     const getConnectionStatus = () => {
         switch (connectionState) {
-            case 'connected': return { icon: '🟢', text: 'Подключён', color: 'text-green-600 bg-green-50' };
-            case 'connecting': return { icon: '🟡', text: 'Подключение...', color: 'text-yellow-600 bg-yellow-50' };
-            case 'reconnecting': return { icon: '🟠', text: 'Переподключение...', color: 'text-orange-600 bg-orange-50' };
-            default: return { icon: '🔴', text: 'Отключён', color: 'text-red-600 bg-red-50' };
+            case 'connected': return { icon: '🟢', text: t('connected') || 'Подключён', color: 'text-green-600 bg-green-50' };
+            case 'connecting': return { icon: '🟡', text: t('connecting') || 'Подключение...', color: 'text-yellow-600 bg-yellow-50' };
+            case 'reconnecting': return { icon: '🟠', text: t('reconnecting') || 'Переподключение...', color: 'text-orange-600 bg-orange-50' };
+            default: return { icon: '🔴', text: t('disconnected') || 'Отключён', color: 'text-red-600 bg-red-50' };
         }
     };
 
@@ -143,9 +149,12 @@ export default function QuizLobbyPage() {
                         </div>
                         <span className="font-bold text-xl text-foreground">QazaQuiz</span>
                     </Link>
-                    <Badge className={`${status.color} border-0`}>
-                        {status.icon} {status.text}
-                    </Badge>
+                    <div className="flex items-center gap-2">
+                        <LanguageSwitcher />
+                        <Badge className={`${status.color} border-0`}>
+                            {status.icon} {status.text}
+                        </Badge>
+                    </div>
                 </div>
             </header>
 
@@ -164,19 +173,19 @@ export default function QuizLobbyPage() {
                     <CardContent className="space-y-6 text-center pt-0">
                         {/* Timer */}
                         <div>
-                            <p className="text-sm text-muted-foreground mb-3">Игра начнётся через</p>
+                            <p className="text-sm text-muted-foreground mb-3">{t('startsIn') || 'Игра начнётся через'}</p>
                             <div className="flex justify-center gap-2">
                                 <div className="timer-block">
                                     <div className="value">{String(timeRemaining.hours).padStart(2, '0')}</div>
-                                    <div className="label">Часов</div>
+                                    <div className="label">{t('hours') || 'Часов'}</div>
                                 </div>
                                 <div className="timer-block">
                                     <div className="value">{String(timeRemaining.minutes).padStart(2, '0')}</div>
-                                    <div className="label">Минут</div>
+                                    <div className="label">{t('minutes') || 'Минут'}</div>
                                 </div>
                                 <div className="timer-block">
                                     <div className="value">{String(timeRemaining.seconds).padStart(2, '0')}</div>
-                                    <div className="label">Секунд</div>
+                                    <div className="label">{t('seconds') || 'Секунд'}</div>
                                 </div>
                             </div>
                         </div>
@@ -185,44 +194,44 @@ export default function QuizLobbyPage() {
                         <div className="flex justify-center gap-8">
                             <div>
                                 <p className="text-2xl font-bold text-green-600">{playerCount}</p>
-                                <p className="text-muted-foreground text-sm">Онлайн</p>
+                                <p className="text-muted-foreground text-sm">{t('online') || 'Онлайн'}</p>
                             </div>
                             <div>
                                 <p className="text-2xl font-bold">{quiz.question_count}</p>
-                                <p className="text-muted-foreground text-sm">Вопросов</p>
+                                <p className="text-muted-foreground text-sm">{t('questions') || 'Вопросов'}</p>
                             </div>
                         </div>
 
                         {/* Status */}
                         {isConnected ? (
                             <div className="bg-green-50 border border-green-200 rounded-xl p-4">
-                                <p className="text-green-700 font-medium">✓ Вы готовы!</p>
+                                <p className="text-green-700 font-medium">✓ {t('ready') || 'Вы готовы!'}</p>
                                 <p className="text-sm text-green-600/80">
-                                    Ожидаем начала игры...
+                                    {t('waiting')}
                                 </p>
                             </div>
                         ) : connectionState === 'disconnected' ? (
                             <div className="bg-red-50 border border-red-200 rounded-xl p-4">
-                                <p className="text-red-700 font-medium">Соединение потеряно</p>
+                                <p className="text-red-700 font-medium">{t('connectionLost') || 'Соединение потеряно'}</p>
                                 <p className="text-sm text-red-600/80">
-                                    Пытаемся переподключиться...
+                                    {t('reconnecting') || 'Пытаемся переподключиться...'}
                                 </p>
                             </div>
                         ) : (
                             <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4">
-                                <p className="text-yellow-700 font-medium">Подключаемся...</p>
+                                <p className="text-yellow-700 font-medium">{t('connecting') || 'Подключаемся...'}</p>
                             </div>
                         )}
 
                         <p className="text-sm text-muted-foreground">
-                            Играете как <span className="font-semibold text-foreground">{user?.username}</span>
+                            {t('playingAs') || 'Играете как'} <span className="font-semibold text-foreground">{user?.username}</span>
                         </p>
                     </CardContent>
                 </Card>
 
                 <div className="text-center mt-8">
                     <Link href="/">
-                        <Button variant="ghost">← Покинуть лобби</Button>
+                        <Button variant="ghost">← {t('leaveLobby') || 'Покинуть лобби'}</Button>
                     </Link>
                 </div>
             </main>

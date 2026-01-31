@@ -3,12 +3,14 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { useAuth } from '@/providers/AuthProvider';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
+import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 
 export default function RegisterPage() {
     const router = useRouter();
@@ -18,26 +20,29 @@ export default function RegisterPage() {
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
 
+    const t = useTranslations('auth');
+    const tCommon = useTranslations('common');
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
 
         if (password !== confirmPassword) {
-            toast.error('Пароли не совпадают');
+            toast.error(t('passwordMismatch') || 'Пароли не совпадают');
             return;
         }
 
         if (password.length < 6) {
-            toast.error('Пароль должен быть минимум 6 символов');
+            toast.error(t('passwordTooShort') || 'Пароль должен быть минимум 6 символов');
             return;
         }
 
         try {
             await register(username, email, password);
-            toast.success('Аккаунт создан! Добро пожаловать!');
+            toast.success(t('registerSuccess') || 'Аккаунт создан!');
             router.push('/');
         } catch (error: unknown) {
             const err = error as { error?: string };
-            toast.error(err.error || 'Ошибка регистрации');
+            toast.error(err.error || t('registerError'));
         }
     };
 
@@ -45,13 +50,14 @@ export default function RegisterPage() {
         <div className="min-h-screen flex flex-col">
             {/* Header */}
             <header className="border-b border-border/50 bg-white/80 backdrop-blur-sm">
-                <div className="container max-w-6xl mx-auto px-4 h-16 flex items-center">
+                <div className="container max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
                     <Link href="/" className="flex items-center gap-2">
                         <div className="w-9 h-9 rounded-lg bg-primary flex items-center justify-center">
                             <span className="text-white font-bold text-lg">Q</span>
                         </div>
                         <span className="font-bold text-xl text-foreground">QazaQuiz</span>
                     </Link>
+                    <LanguageSwitcher />
                 </div>
             </header>
 
@@ -62,17 +68,17 @@ export default function RegisterPage() {
                         <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-4">
                             <span className="text-3xl">🎮</span>
                         </div>
-                        <CardTitle className="text-2xl">Создать аккаунт</CardTitle>
-                        <CardDescription>Присоединяйся к викторинам и выигрывай призы!</CardDescription>
+                        <CardTitle className="text-2xl">{t('register')}</CardTitle>
+                        <CardDescription>{t('registerDescription') || 'Создайте аккаунт'}</CardDescription>
                     </CardHeader>
                     <form onSubmit={handleSubmit}>
                         <CardContent className="space-y-4">
                             <div className="space-y-2">
-                                <Label htmlFor="username">Имя пользователя</Label>
+                                <Label htmlFor="username">{t('username')}</Label>
                                 <Input
                                     id="username"
                                     type="text"
-                                    placeholder="ВашНикнейм"
+                                    placeholder="YourNickname"
                                     value={username}
                                     onChange={(e) => setUsername(e.target.value)}
                                     required
@@ -82,7 +88,7 @@ export default function RegisterPage() {
                                 />
                             </div>
                             <div className="space-y-2">
-                                <Label htmlFor="email">Email</Label>
+                                <Label htmlFor="email">{t('email')}</Label>
                                 <Input
                                     id="email"
                                     type="email"
@@ -94,7 +100,7 @@ export default function RegisterPage() {
                                 />
                             </div>
                             <div className="space-y-2">
-                                <Label htmlFor="password">Пароль</Label>
+                                <Label htmlFor="password">{t('password')}</Label>
                                 <Input
                                     id="password"
                                     type="password"
@@ -107,7 +113,7 @@ export default function RegisterPage() {
                                 />
                             </div>
                             <div className="space-y-2">
-                                <Label htmlFor="confirmPassword">Подтвердите пароль</Label>
+                                <Label htmlFor="confirmPassword">{t('confirmPassword')}</Label>
                                 <Input
                                     id="confirmPassword"
                                     type="password"
@@ -121,12 +127,12 @@ export default function RegisterPage() {
                         </CardContent>
                         <CardFooter className="flex flex-col gap-4">
                             <Button type="submit" className="w-full h-12 btn-coral text-base" disabled={isLoading}>
-                                {isLoading ? 'Создаём аккаунт...' : 'Создать аккаунт'}
+                                {isLoading ? tCommon('loading') : t('registerButton')}
                             </Button>
                             <p className="text-sm text-muted-foreground text-center">
-                                Уже есть аккаунт?{' '}
+                                {t('hasAccount')}{' '}
                                 <Link href="/login" className="text-primary hover:underline font-medium">
-                                    Войти
+                                    {t('loginButton')}
                                 </Link>
                             </p>
                         </CardFooter>

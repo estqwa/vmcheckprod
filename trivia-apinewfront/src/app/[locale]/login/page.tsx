@@ -3,12 +3,14 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { useAuth } from '@/providers/AuthProvider';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
+import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 
 export default function LoginPage() {
     const router = useRouter();
@@ -16,16 +18,19 @@ export default function LoginPage() {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
 
+    const t = useTranslations('auth');
+    const tCommon = useTranslations('common');
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
 
         try {
             await login(email, password);
-            toast.success('С возвращением!');
+            toast.success(t('loginSuccess') || 'С возвращением!');
             router.push('/');
         } catch (error: unknown) {
             const err = error as { error?: string };
-            toast.error(err.error || 'Ошибка входа');
+            toast.error(err.error || t('loginError'));
         }
     };
 
@@ -33,13 +38,14 @@ export default function LoginPage() {
         <div className="min-h-screen flex flex-col">
             {/* Header */}
             <header className="border-b border-border/50 bg-white/80 backdrop-blur-sm">
-                <div className="container max-w-6xl mx-auto px-4 h-16 flex items-center">
+                <div className="container max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
                     <Link href="/" className="flex items-center gap-2">
                         <div className="w-9 h-9 rounded-lg bg-primary flex items-center justify-center">
                             <span className="text-white font-bold text-lg">Q</span>
                         </div>
                         <span className="font-bold text-xl text-foreground">QazaQuiz</span>
                     </Link>
+                    <LanguageSwitcher />
                 </div>
             </header>
 
@@ -50,13 +56,13 @@ export default function LoginPage() {
                         <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-4">
                             <span className="text-3xl">👋</span>
                         </div>
-                        <CardTitle className="text-2xl">Добро пожаловать!</CardTitle>
-                        <CardDescription>Введите данные для входа в аккаунт</CardDescription>
+                        <CardTitle className="text-2xl">{t('login')}</CardTitle>
+                        <CardDescription>{t('loginDescription') || 'Введите данные для входа'}</CardDescription>
                     </CardHeader>
                     <form onSubmit={handleSubmit}>
                         <CardContent className="space-y-4">
                             <div className="space-y-2">
-                                <Label htmlFor="email">Email</Label>
+                                <Label htmlFor="email">{t('email')}</Label>
                                 <Input
                                     id="email"
                                     type="email"
@@ -68,7 +74,7 @@ export default function LoginPage() {
                                 />
                             </div>
                             <div className="space-y-2">
-                                <Label htmlFor="password">Пароль</Label>
+                                <Label htmlFor="password">{t('password')}</Label>
                                 <Input
                                     id="password"
                                     type="password"
@@ -82,12 +88,12 @@ export default function LoginPage() {
                         </CardContent>
                         <CardFooter className="flex flex-col gap-4">
                             <Button type="submit" className="w-full h-12 btn-coral text-base" disabled={isLoading}>
-                                {isLoading ? 'Входим...' : 'Войти'}
+                                {isLoading ? tCommon('loading') : t('loginButton')}
                             </Button>
                             <p className="text-sm text-muted-foreground text-center">
-                                Нет аккаунта?{' '}
+                                {t('noAccount')}{' '}
                                 <Link href="/register" className="text-primary hover:underline font-medium">
-                                    Зарегистрироваться
+                                    {t('registerButton')}
                                 </Link>
                             </p>
                         </CardFooter>

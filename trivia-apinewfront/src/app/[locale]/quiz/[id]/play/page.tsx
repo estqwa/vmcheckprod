@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { useTranslations } from 'next-intl';
 import { useAuth } from '@/providers/AuthProvider';
 import { useQuizWebSocket, WSMessage } from '@/providers/QuizWebSocketProvider';
 import { Button } from '@/components/ui/button';
@@ -11,7 +12,7 @@ import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { QuizQuestionEvent, AnswerResultEvent, QuizFinishEvent, QuestionOption } from '@/lib/api/types';
 import { AdBreakOverlay } from '@/components/game/AdBreakOverlay';
-import { useLocale } from '@/components/LanguageSwitcher';
+import { useLocale, LanguageSwitcher } from '@/components/LanguageSwitcher';
 
 interface QuizState {
     status: 'waiting' | 'question' | 'result' | 'eliminated' | 'finished';
@@ -38,6 +39,9 @@ export default function QuizPlayPage() {
     const quizId = Number(params.id);
     const { user } = useAuth();
     const { isConnected, connectionState, subscribe, sendAnswer, send } = useQuizWebSocket();
+
+    const t = useTranslations('quiz');
+    const tCommon = useTranslations('common');
 
     const [quizState, setQuizState] = useState<QuizState>({
         status: 'waiting',
@@ -123,14 +127,14 @@ export default function QuizPlayPage() {
                     isEliminated: true,
                     eliminationReason: msg.data.reason as string,
                 }));
-                toast.error((msg.data.message as string) || 'Вы выбыли из игры!');
+                toast.error((msg.data.message as string) || t('eliminated'));
                 break;
             }
 
             case 'quiz:finish': {
                 const finish = msg.data as unknown as QuizFinishEvent;
                 setQuizState(prev => ({ ...prev, status: 'finished' }));
-                toast.success(finish.message || 'Викторина завершена!');
+                toast.success(finish.message || t('gameOver'));
                 setTimeout(() => {
                     router.push(`/quiz/${quizId}/results`);
                 }, 2000);
@@ -202,7 +206,7 @@ export default function QuizPlayPage() {
                 break;
             }
         }
-    }, [quizId, router]);
+    }, [quizId, router, t]);
 
     useEffect(() => {
         const unsubscribe = subscribe(handleMessage);
@@ -288,27 +292,27 @@ export default function QuizPlayPage() {
                         <div className="flex items-center gap-4">
                             <div className="text-center">
                                 <p className="text-lg font-bold">{score}</p>
-                                <p className="text-xs text-muted-foreground">Очки</p>
+                                <p className="text-xs text-muted-foreground">{t('score').replace('{score}', '')}</p>
                             </div>
                             <div className="text-center">
                                 <p className="text-lg font-bold text-green-600">{correctCount}</p>
-                                <p className="text-xs text-muted-foreground">Верно</p>
+                                <p className="text-xs text-muted-foreground">{t('correct')}</p>
                             </div>
                             <div className="text-center">
                                 <p className="text-lg font-bold text-primary">{playerCount}</p>
-                                <p className="text-xs text-muted-foreground">Онлайн</p>
+                                <p className="text-xs text-muted-foreground">{t('online')}</p>
                             </div>
                         </div>
 
                         <div className="flex items-center gap-2">
                             {connectionState === 'disconnected' && (
-                                <Badge variant="destructive">Отключён</Badge>
+                                <Badge variant="destructive">{t('disconnected')}</Badge>
                             )}
                             {connectionState === 'reconnecting' && (
-                                <Badge variant="secondary">Подключение...</Badge>
+                                <Badge variant="secondary">{t('connecting')}</Badge>
                             )}
                             {isEliminated && (
-                                <Badge className="bg-orange-100 text-orange-700 border-orange-200">Зритель</Badge>
+                                <Badge className="bg-orange-100 text-orange-700 border-orange-200">{t('eliminated')}</Badge>
                             )}
                         </div>
                     </div>
@@ -317,7 +321,7 @@ export default function QuizPlayPage() {
                 <main className="container max-w-xl mx-auto px-4 py-6">
                     {/* Player info */}
                     <p className="text-sm text-muted-foreground text-center mb-6">
-                        Играете как <span className="font-semibold text-foreground">{user?.username}</span>
+                        {t('playingAs')} <span className="font-semibold text-foreground">{user?.username}</span>
                     </p>
 
                     {/* Waiting state */}
@@ -326,8 +330,8 @@ export default function QuizPlayPage() {
                             <CardContent>
                                 <div className="animate-pulse">
                                     <span className="text-5xl mb-4 block">⏳</span>
-                                    <p className="text-xl font-bold mb-2">Ожидаем следующий вопрос...</p>
-                                    <p className="text-muted-foreground">Приготовьтесь!</p>
+                                    <p className="text-xl font-bold mb-2">{t('waiting')}</p>
+                                    <p className="text-muted-foreground">{tCommon('loading')}</p>
                                 </div>
                             </CardContent>
                         </Card>
@@ -339,7 +343,7 @@ export default function QuizPlayPage() {
                             <CardHeader className="bg-gradient-to-b from-primary/5 to-transparent">
                                 <div className="flex items-center justify-between mb-4">
                                     <Badge variant="outline" className="text-sm">
-                                        Вопрос {currentQuestion.number} из {currentQuestion.total_questions}
+                                        {t('question').replace('{current}', String(currentQuestion.number)).replace('{total}', String(currentQuestion.total_questions))}
                                     </Badge>
                                     <div className={`text-2xl font-mono font-bold px-3 py-1 rounded-lg ${timeRemaining <= 5
                                         ? 'text-red-600 bg-red-50 animate-pulse'
@@ -373,10 +377,10 @@ export default function QuizPlayPage() {
                                         : 'border-red-300 bg-red-50'
                                         }`}>
                                         <p className={`font-bold text-lg ${lastResult.is_correct ? 'text-green-700' : 'text-red-700'}`}>
-                                            {lastResult.is_correct ? '✓ Верно!' : '✗ Неверно!'}
+                                            {lastResult.is_correct ? `✓ ${t('correct')}` : `✗ ${t('incorrect')}`}
                                         </p>
                                         <p className="text-sm text-muted-foreground mt-1">
-                                            +{lastResult.points_earned} очков • {lastResult.time_taken_ms}мс
+                                            +{lastResult.points_earned} • {lastResult.time_taken_ms}ms
                                         </p>
                                     </div>
                                 )}
@@ -389,8 +393,8 @@ export default function QuizPlayPage() {
                         <Card className="card-elevated border-0 rounded-2xl text-center py-16 border-2 border-orange-200">
                             <CardContent>
                                 <span className="text-5xl mb-4 block">👀</span>
-                                <p className="text-xl font-bold text-orange-700 mb-2">Вы выбыли из игры</p>
-                                <p className="text-muted-foreground">Вы можете продолжить смотреть как зритель.</p>
+                                <p className="text-xl font-bold text-orange-700 mb-2">{t('eliminated')}</p>
+                                <p className="text-muted-foreground">{t('waiting')}</p>
                             </CardContent>
                         </Card>
                     )}
@@ -400,15 +404,15 @@ export default function QuizPlayPage() {
                         <Card className="card-elevated border-0 rounded-2xl text-center py-16">
                             <CardContent>
                                 <span className="text-5xl mb-4 block">🎉</span>
-                                <p className="text-2xl font-bold mb-4">Викторина завершена!</p>
+                                <p className="text-2xl font-bold mb-4">{t('gameOver')}</p>
                                 <div className="flex justify-center gap-8 mb-6">
                                     <div>
                                         <p className="text-3xl font-bold text-primary">{score}</p>
-                                        <p className="text-muted-foreground">Очков</p>
+                                        <p className="text-muted-foreground">{t('score').replace('{score}', '')}</p>
                                     </div>
                                     <div>
                                         <p className="text-3xl font-bold text-green-600">{correctCount}</p>
-                                        <p className="text-muted-foreground">Верных ответов</p>
+                                        <p className="text-muted-foreground">{t('correct')}</p>
                                     </div>
                                 </div>
                                 <Button
@@ -416,7 +420,7 @@ export default function QuizPlayPage() {
                                     size="lg"
                                     onClick={() => router.push(`/quiz/${quizId}/results`)}
                                 >
-                                    Посмотреть результаты
+                                    {tCommon('submit')}
                                 </Button>
                             </CardContent>
                         </Card>

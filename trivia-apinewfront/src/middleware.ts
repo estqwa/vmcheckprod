@@ -6,8 +6,9 @@ export default createMiddleware(routing);
 export const config = {
     // Применяем middleware ко всем путям кроме:
     // - /api (API routes)
+    // - /admin (Admin panel — остаётся на русском)
     // - /_next (Next.js internal)
     // - /_vercel (Vercel assets)
     // - Файлы с расширениями (favicon.ico, images и т.д.)
-    matcher: '/((?!api|_next|_vercel|.*\\..*).*)'
+    matcher: '/((?!api|admin|_next|_vercel|.*\\..*).*)'
 };

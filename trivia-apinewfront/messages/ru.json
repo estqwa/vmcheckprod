@@ -1,0 +1,77 @@
+{
+    "common": {
+        "loading": "Загрузка...",
+        "error": "Ошибка",
+        "close": "Закрыть",
+        "back": "Назад",
+        "submit": "Отправить",
+        "cancel": "Отменить",
+        "save": "Сохранить"
+    },
+    "nav": {
+        "home": "Главная",
+        "quiz": "Викторина",
+        "leaderboard": "Лидерборд",
+        "profile": "Профиль",
+        "login": "Войти",
+        "logout": "Выйти",
+        "register": "Регистрация"
+    },
+    "quiz": {
+        "title": "Викторина",
+        "start": "Начать",
+        "waiting": "Ожидание начала...",
+        "countdown": "До начала: {seconds} сек",
+        "question": "Вопрос {current} из {total}",
+        "timeLeft": "Осталось: {seconds} сек",
+        "correct": "Правильно!",
+        "incorrect": "Неправильно",
+        "eliminated": "Вы выбыли",
+        "winner": "Вы победитель!",
+        "gameOver": "Игра окончена",
+        "score": "Ваш счёт: {score}",
+        "noActiveQuiz": "Нет активной викторины",
+        "nextQuiz": "Следующая викторина: {date}",
+        "prizeFund": "Призовой фонд: {amount} ₸",
+        "participants": "{count} участников"
+    },
+    "auth": {
+        "login": "Вход",
+        "register": "Регистрация",
+        "email": "Email",
+        "password": "Пароль",
+        "confirmPassword": "Подтвердите пароль",
+        "username": "Имя пользователя",
+        "loginButton": "Войти",
+        "registerButton": "Зарегистрироваться",
+        "noAccount": "Нет аккаунта?",
+        "hasAccount": "Уже есть аккаунт?",
+        "loginError": "Неверный email или пароль",
+        "registerError": "Ошибка регистрации"
+    },
+    "profile": {
+        "title": "Профиль",
+        "gamesPlayed": "Игр сыграно",
+        "totalScore": "Всего очков",
+        "highestScore": "Лучший результат",
+        "winsCount": "Побед",
+        "totalPrize": "Выиграно призов",
+        "settings": "Настройки",
+        "language": "Язык"
+    },
+    "leaderboard": {
+        "title": "Лидерборд",
+        "rank": "Место",
+        "player": "Игрок",
+        "wins": "Побед",
+        "prize": "Приз"
+    },
+    "home": {
+        "welcome": "Добро пожаловать в QazaQuiz!",
+        "description": "Отвечайте на вопросы, побеждайте и выигрывайте реальные призы!",
+        "howToPlay": "Как играть",
+        "step1": "Присоединитесь к викторине в назначенное время",
+        "step2": "Отвечайте на вопросы быстро и правильно",
+        "step3": "Последний оставшийся получает приз!"
+    }
+}

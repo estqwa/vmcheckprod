@@ -9,6 +9,7 @@ export interface User {
     highest_score: number;
     wins_count: number;
     total_prize_won: number;
+    language: 'ru' | 'kk'; // Язык интерфейса пользователя
     created_at: string;
     updated_at: string;
 }
@@ -141,8 +142,10 @@ export interface QuizQuestionEvent {
     question_id: number;
     quiz_id: number;
     number: number;
-    text: string;
-    options: QuestionOption[];
+    text: string; // Русский текст (всегда присутствует)
+    text_kk?: string; // Казахский текст (опционально)
+    options: QuestionOption[]; // Русские варианты (всегда присутствуют)
+    options_kk?: QuestionOption[]; // Казахские варианты (опционально)
     time_limit: number;
     total_questions: number;
     start_time: number;

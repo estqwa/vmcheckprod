@@ -36,7 +36,7 @@ func (o *StringArray) Scan(value interface{}) error {
 // Value реализует интерфейс driver.Valuer для StringArray
 // Используется GORM для записи StringArray в JSONB в базе
 func (o StringArray) Value() (driver.Value, error) {
-	if o == nil || len(o) == 0 {
+	if len(o) == 0 {
 		return []byte("[]"), nil // Возвращаем пустой JSON массив вместо null
 	}
 	return json.Marshal(o)
@@ -48,7 +48,9 @@ type Question struct {
 	QuizID        uint        `gorm:"not null;index" json:"quiz_id"`
 	Text          string      `gorm:"size:500;not null" json:"text"`
 	Options       StringArray `gorm:"type:jsonb;not null" json:"options"`
-	CorrectOption int         `gorm:"not null" json:"-"` // Скрыто от клиента
+	TextKK        string      `gorm:"size:500" json:"text_kk,omitempty"`      // Казахский текст (опционально)
+	OptionsKK     StringArray `gorm:"type:jsonb" json:"options_kk,omitempty"` // Казахские варианты (опционально)
+	CorrectOption int         `gorm:"not null" json:"-"`                      // Скрыто от клиента
 	TimeLimitSec  int         `gorm:"not null;default:10" json:"time_limit_sec"`
 	PointValue    int         `gorm:"not null;default:10" json:"point_value"`
 	CreatedAt     time.Time   `json:"created_at"`
@@ -83,4 +85,22 @@ func (q *Question) OptionsCount() int {
 // IsValidOption проверяет, является ли выбранный вариант допустимым
 func (q *Question) IsValidOption(selectedOption int) bool {
 	return selectedOption >= 0 && selectedOption < len(q.Options)
+}
+
+// GetLocalizedText возвращает текст вопроса на указанном языке
+// Если казахский текст не задан — возвращает русский (fallback)
+func (q *Question) GetLocalizedText(lang string) string {
+	if lang == "kk" && q.TextKK != "" {
+		return q.TextKK
+	}
+	return q.Text
+}
+
+// GetLocalizedOptions возвращает варианты ответов на указанном языке
+// Если казахские варианты не заданы — возвращает русские (fallback)
+func (q *Question) GetLocalizedOptions(lang string) StringArray {
+	if lang == "kk" && len(q.OptionsKK) > 0 {
+		return q.OptionsKK
+	}
+	return q.Options
 }

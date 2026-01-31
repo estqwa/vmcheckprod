@@ -183,6 +183,20 @@ func (s *AuthService) UpdateUserProfile(userID uint, username, profilePicture st
 	return s.userRepo.UpdateProfile(userID, updates)
 }
 
+// UpdateUserLanguage обновляет язык интерфейса пользователя
+func (s *AuthService) UpdateUserLanguage(userID uint, language string) error {
+	// Валидация языка (ru или kk)
+	if language != "ru" && language != "kk" {
+		return fmt.Errorf("%w: invalid language '%s', allowed: ru, kk", apperrors.ErrValidation, language)
+	}
+
+	updates := map[string]interface{}{
+		"language": language,
+	}
+
+	return s.userRepo.UpdateProfile(userID, updates)
+}
+
 // ChangePassword изменяет пароль пользователя и инвалидирует все токены
 func (s *AuthService) ChangePassword(userID uint, oldPassword, newPassword string) error {
 	// Получаем пользователя для проверки старого пароля

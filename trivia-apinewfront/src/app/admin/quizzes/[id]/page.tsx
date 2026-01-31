@@ -24,7 +24,9 @@ const statusColors: Record<string, { bg: string; text: string; label: string }> 
 
 interface QuestionFormData {
     text: string;
+    text_kk: string; // Казахский текст (опционально)
     options: string[];
+    options_kk: string[]; // Казахские варианты (опционально)
     correct_option: number;
     time_limit_sec: number;
     point_value: number;
@@ -120,7 +122,9 @@ function QuizDetailsContent() {
     const addEmptyQuestion = () => {
         setQuestions([...questions, {
             text: '',
+            text_kk: '',
             options: ['', '', '', ''],
+            options_kk: ['', '', '', ''],
             correct_option: 0,
             time_limit_sec: 15,
             point_value: 1,
@@ -131,8 +135,12 @@ function QuizDetailsContent() {
         const updated = [...questions];
         if (field === 'text') {
             updated[index].text = value as string;
+        } else if (field === 'text_kk') {
+            updated[index].text_kk = value as string;
         } else if (field === 'options') {
             updated[index].options = value as string[];
+        } else if (field === 'options_kk') {
+            updated[index].options_kk = value as string[];
         } else if (field === 'correct_option') {
             updated[index].correct_option = value as number;
         } else if (field === 'time_limit_sec') {
@@ -146,6 +154,12 @@ function QuizDetailsContent() {
     const updateOption = (qIndex: number, oIndex: number, value: string) => {
         const updated = [...questions];
         updated[qIndex].options[oIndex] = value;
+        setQuestions(updated);
+    };
+
+    const updateOptionKK = (qIndex: number, oIndex: number, value: string) => {
+        const updated = [...questions];
+        updated[qIndex].options_kk[oIndex] = value;
         setQuestions(updated);
     };
 
@@ -172,6 +186,11 @@ function QuizDetailsContent() {
             await addQuestions(quizId, questions.map(q => ({
                 ...q,
                 options: q.options.filter(o => o.trim()),
+                // Фильтруем и отправляем kk поля только если они заполнены
+                text_kk: q.text_kk?.trim() || undefined,
+                options_kk: q.options_kk?.filter(o => o.trim()).length > 0
+                    ? q.options_kk.filter(o => o.trim())
+                    : undefined,
             })));
             toast.success('Вопросы добавлены');
             setShowAddQuestions(false);
@@ -361,6 +380,23 @@ function QuizDetailsContent() {
                                                 <Input value={opt} onChange={(e) => updateOption(qIndex, oIndex, e.target.value)} placeholder={`Вариант ${oIndex + 1}`} className="h-11" />
                                             </div>
                                         ))}
+                                    </div>
+
+                                    {/* Казахский текст (опционально) */}
+                                    <div className="border-t border-border pt-4 mt-2">
+                                        <p className="text-sm text-muted-foreground mb-2">🇰🇿 Казахский текст (опционально)</p>
+                                        <div>
+                                            <Label>Сұрақ мәтіні (KZ)</Label>
+                                            <Input value={q.text_kk} onChange={(e) => updateQuestion(qIndex, 'text_kk', e.target.value)} placeholder="Казахский текст вопроса" className="h-11" />
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-2 mt-2">
+                                            {q.options_kk.map((opt, oIndex) => (
+                                                <div key={oIndex}>
+                                                    <Label>Нұсқа {oIndex + 1} (KZ)</Label>
+                                                    <Input value={opt} onChange={(e) => updateOptionKK(qIndex, oIndex, e.target.value)} placeholder={`Вариант ${oIndex + 1} на казахском`} className="h-11" />
+                                                </div>
+                                            ))}
+                                        </div>
                                     </div>
                                     <div className="grid grid-cols-3 gap-4">
                                         <div>

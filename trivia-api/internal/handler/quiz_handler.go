@@ -108,7 +108,9 @@ func (h *QuizHandler) GetScheduledQuizzes(c *gin.Context) {
 type AddQuestionsRequest struct {
 	Questions []struct {
 		Text          string   `json:"text" binding:"required,min=3,max=500"`
+		TextKK        string   `json:"text_kk,omitempty"` // Казахский текст (опционально)
 		Options       []string `json:"options" binding:"required,min=2,max=5"`
+		OptionsKK     []string `json:"options_kk,omitempty"` // Казахские варианты (опционально)
 		CorrectOption int      `json:"correct_option" binding:"required,min=0"`
 		TimeLimitSec  int      `json:"time_limit_sec" binding:"required,min=5,max=60"`
 		PointValue    int      `json:"point_value" binding:"required,min=1,max=100"`
@@ -134,7 +136,9 @@ func (h *QuizHandler) AddQuestions(c *gin.Context) {
 		}
 		questions = append(questions, entity.Question{
 			Text:          q.Text,
+			TextKK:        q.TextKK,
 			Options:       entity.StringArray(q.Options),
+			OptionsKK:     entity.StringArray(q.OptionsKK),
 			CorrectOption: q.CorrectOption,
 			TimeLimitSec:  q.TimeLimitSec,
 			PointValue:    q.PointValue,

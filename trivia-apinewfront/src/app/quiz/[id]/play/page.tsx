@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/providers/AuthProvider';
@@ -9,8 +9,9 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-import { QuizQuestionEvent, AnswerResultEvent, QuizFinishEvent } from '@/lib/api/types';
+import { QuizQuestionEvent, AnswerResultEvent, QuizFinishEvent, QuestionOption } from '@/lib/api/types';
 import { AdBreakOverlay } from '@/components/game/AdBreakOverlay';
+import { useLocale } from '@/components/LanguageSwitcher';
 
 interface QuizState {
     status: 'waiting' | 'question' | 'result' | 'eliminated' | 'finished';
@@ -225,6 +226,27 @@ export default function QuizPlayPage() {
 
     const { status, currentQuestion, selectedAnswer, lastResult, timeRemaining, score, correctCount, isEliminated } = quizState;
 
+    // Получаем текущий язык из cookie
+    const locale = useLocale();
+
+    // Локализованный текст вопроса (с fallback на русский)
+    const localizedQuestionText = useMemo(() => {
+        if (!currentQuestion) return '';
+        if (locale === 'kk' && currentQuestion.text_kk) {
+            return currentQuestion.text_kk;
+        }
+        return currentQuestion.text;
+    }, [currentQuestion, locale]);
+
+    // Локализованные варианты ответа (с fallback на русский)
+    const localizedOptions: QuestionOption[] = useMemo(() => {
+        if (!currentQuestion) return [];
+        if (locale === 'kk' && currentQuestion.options_kk && currentQuestion.options_kk.length > 0) {
+            return currentQuestion.options_kk;
+        }
+        return currentQuestion.options;
+    }, [currentQuestion, locale]);
+
     const getOptionStyle = (optionId: number) => {
         const base = 'w-full h-auto py-4 px-4 text-left justify-start transition-all';
         if (lastResult) {
@@ -326,10 +348,10 @@ export default function QuizPlayPage() {
                                         {timeRemaining}с
                                     </div>
                                 </div>
-                                <CardTitle className="text-xl">{currentQuestion.text}</CardTitle>
+                                <CardTitle className="text-xl">{localizedQuestionText}</CardTitle>
                             </CardHeader>
                             <CardContent className="space-y-3 pt-2">
-                                {currentQuestion.options.map((option) => (
+                                {localizedOptions.map((option) => (
                                     <Button
                                         key={option.id}
                                         variant="outline"

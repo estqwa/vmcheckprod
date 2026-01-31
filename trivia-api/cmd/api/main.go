@@ -330,6 +330,7 @@ func main() {
 		{
 			users.GET("/me", authHandler.GetMe)
 			users.PUT("/me", authMiddleware.RequireCSRF(), authHandler.UpdateProfile)
+			users.PUT("/me/language", authMiddleware.RequireCSRF(), authHandler.UpdateLanguage)
 		}
 
 		// Лидерборд (публичный маршрут)

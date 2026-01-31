@@ -166,12 +166,15 @@ func (qm *QuestionManager) RunQuizQuestions(ctx context.Context, quizState *Acti
 		// ===>>> КОНЕЦ ИЗМЕНЕНИЯ <<<===
 
 		// Отправляем вопрос всем участникам
+		// Включаем оба языка — Frontend выбирает нужный по настройке пользователя
 		questionEvent := map[string]interface{}{
 			"question_id":      question.ID,
 			"quiz_id":          quizState.Quiz.ID,
 			"number":           i + 1,
 			"text":             question.Text,
+			"text_kk":          question.TextKK, // Казахский текст (может быть пустым)
 			"options":          helper.ConvertOptionsToObjects(question.Options),
+			"options_kk":       helper.ConvertOptionsToObjects(question.OptionsKK), // Казахские варианты
 			"time_limit":       question.TimeLimitSec,
 			"total_questions":  len(quizState.Quiz.Questions),
 			"start_time":       sendTimeMs,

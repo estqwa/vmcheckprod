@@ -325,6 +325,38 @@ func (h *AuthHandler) UpdateProfile(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Profile updated successfully"})
 }
 
+// UpdateLanguageRequest представляет запрос на изменение языка пользователя
+type UpdateLanguageRequest struct {
+	Language string `json:"language" binding:"required,oneof=ru kk"`
+}
+
+// UpdateLanguage обновляет язык интерфейса пользователя
+// PUT /api/users/me/language
+func (h *AuthHandler) UpdateLanguage(c *gin.Context) {
+	userID := c.MustGet("user_id").(uint)
+
+	var req UpdateLanguageRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":          "Invalid language. Allowed: ru, kk",
+			"allowed_values": []string{"ru", "kk"},
+		})
+		return
+	}
+
+	if err := h.authService.UpdateUserLanguage(userID, req.Language); err != nil {
+		log.Printf("[AuthHandler] Ошибка обновления языка для пользователя ID=%d: %v", userID, err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update language"})
+		return
+	}
+
+	log.Printf("[AuthHandler] Язык пользователя ID=%d обновлен на '%s'", userID, req.Language)
+	c.JSON(http.StatusOK, gin.H{
+		"message":  "Language updated successfully",
+		"language": req.Language,
+	})
+}
+
 // Logout обрабатывает выход пользователя.
 // Он извлекает refresh token из HttpOnly cookie, инвалидирует его
 // и очищает cookie на стороне клиента.

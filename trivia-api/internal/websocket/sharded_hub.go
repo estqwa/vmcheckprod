@@ -533,12 +533,23 @@ func (h *ShardedHub) GetMetrics() map[string]interface{} {
 func (h *ShardedHub) GetDetailedMetrics() map[string]interface{} {
 	allMetrics := h.metrics.GetAllMetrics()
 
-	// Добавляем метрики шардов
+	// Добавляем метрики шардов и считаем реальное количество активных соединений
 	shardMetrics := make([]map[string]interface{}, h.shardCount)
+	totalActiveConnections := int64(0)
+
 	for i, shard := range h.shards {
-		shardMetrics[i] = shard.GetMetrics()
+		metrics := shard.GetMetrics()
+		shardMetrics[i] = metrics
+
+		// Суммируем реальное количество активных соединений из шардов
+		if connections, ok := metrics["active_connections"].(int); ok {
+			totalActiveConnections += int64(connections)
+		}
 	}
 	allMetrics["shards"] = shardMetrics
+
+	// Перезаписываем active_connections актуальным значением из шардов
+	allMetrics["active_connections"] = totalActiveConnections
 
 	// Добавляем информацию о пирах кластера
 	peerMetrics := make(map[string]interface{})
@@ -552,10 +563,27 @@ func (h *ShardedHub) GetDetailedMetrics() map[string]interface{} {
 	return allMetrics
 }
 
-// collectMetrics периодически собирает метрики со всех шардов
 func (h *ShardedHub) collectMetrics() {
-	log.Println("ShardedHub: сбор метрик")
+	// Интервал сбора метрик - 10 секунд
+	ticker := time.NewTicker(10 * time.Second)
+	defer ticker.Stop()
 
+	// Выполняем сбор метрик сразу при запуске
+	h.doCollectMetrics()
+
+	for {
+		select {
+		case <-ticker.C:
+			h.doCollectMetrics()
+		case <-h.done:
+			log.Println("ShardedHub: остановка сбора метрик")
+			return
+		}
+	}
+}
+
+// doCollectMetrics выполняет фактический сбор метрик со всех шардов
+func (h *ShardedHub) doCollectMetrics() {
 	// Создаем метрики для всех шардов
 	shardMetrics := make([]map[string]interface{}, h.shardCount)
 	hotShards := make([]int, 0)

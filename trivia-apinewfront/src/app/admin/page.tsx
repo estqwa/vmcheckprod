@@ -72,6 +72,9 @@ function AdminDashboard() {
                         <p className="text-muted-foreground">Управление викторинами</p>
                     </div>
                     <div className="flex gap-2">
+                        <Link href="/admin/monitoring">
+                            <Button variant="outline">📊 Мониторинг</Button>
+                        </Link>
                         <Link href="/admin/ads">
                             <Button variant="outline">📺 Реклама</Button>
                         </Link>

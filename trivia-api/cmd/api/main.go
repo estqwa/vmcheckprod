@@ -399,6 +399,18 @@ func main() {
 	// WebSocket маршрут
 	router.GET("/ws", wsHandler.HandleConnection)
 
+	// WebSocket мониторинг (Admin only)
+	// Эндпоинты для мониторинга состояния WebSocket сервера
+	adminWsMetrics := router.Group("/admin/ws")
+	adminWsMetrics.Use(authMiddleware.RequireAuth(), authMiddleware.AdminOnly())
+	{
+		adminWsMetrics.GET("/metrics", gin.WrapF(ws.WebSocketMetricsHandler(shardedHub)))
+		adminWsMetrics.GET("/metrics/detailed", gin.WrapF(ws.DetailedWebSocketMetricsHandler(shardedHub)))
+		adminWsMetrics.GET("/metrics/prometheus", gin.WrapF(ws.PrometheusMetricsHandler(shardedHub)))
+		adminWsMetrics.GET("/health", gin.WrapF(ws.WebSocketHealthCheckHandler(shardedHub)))
+		adminWsMetrics.GET("/alerts", gin.WrapF(ws.WebSocketSystemAlertsHandler(shardedHub)))
+	}
+
 	// Запланированные викторины
 	// После перезапуска сервера нужно заново запланировать активные викторины
 	go func() {

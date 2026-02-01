@@ -442,3 +442,16 @@ func renderPrometheusMetrics(w http.ResponseWriter, metrics map[string]interface
 		}
 	}
 }
+
+// PrometheusMetricsHandler возвращает обработчик для метрик в формате Prometheus
+func PrometheusMetricsHandler(provider DetailedInfoProvider) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if provider == nil {
+			http.Error(w, "Metrics not available", http.StatusServiceUnavailable)
+			return
+		}
+		metrics := provider.GetDetailedMetrics()
+		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+		renderPrometheusMetrics(w, metrics)
+	}
+}

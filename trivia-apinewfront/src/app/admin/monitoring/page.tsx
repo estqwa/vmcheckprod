@@ -70,9 +70,9 @@ function MonitoringDashboard() {
     const fetchAll = useCallback(async () => {
         try {
             const [metricsData, healthData, alertsData] = await Promise.all([
-                api.get<DetailedMetrics>('/admin/ws/metrics/detailed'),
-                api.get<HealthStatus>('/admin/ws/health'),
-                api.get<AlertsResponse>('/admin/ws/alerts'),
+                api.get<DetailedMetrics>('/api/admin/ws/metrics/detailed'),
+                api.get<HealthStatus>('/api/admin/ws/health'),
+                api.get<AlertsResponse>('/api/admin/ws/alerts'),
             ]);
             setMetrics(metricsData);
             setHealth(healthData);
@@ -351,11 +351,11 @@ function MonitoringDashboard() {
                             </CardHeader>
                             <CardContent>
                                 <div className="grid md:grid-cols-2 gap-3 text-sm">
-                                    <code className="p-2 bg-secondary/50 rounded">GET /admin/ws/metrics</code>
-                                    <code className="p-2 bg-secondary/50 rounded">GET /admin/ws/metrics/detailed</code>
-                                    <code className="p-2 bg-secondary/50 rounded">GET /admin/ws/metrics/prometheus</code>
-                                    <code className="p-2 bg-secondary/50 rounded">GET /admin/ws/health</code>
-                                    <code className="p-2 bg-secondary/50 rounded">GET /admin/ws/alerts</code>
+                                    <code className="p-2 bg-secondary/50 rounded">GET /api/admin/ws/metrics</code>
+                                    <code className="p-2 bg-secondary/50 rounded">GET /api/admin/ws/metrics/detailed</code>
+                                    <code className="p-2 bg-secondary/50 rounded">GET /api/admin/ws/metrics/prometheus</code>
+                                    <code className="p-2 bg-secondary/50 rounded">GET /api/admin/ws/health</code>
+                                    <code className="p-2 bg-secondary/50 rounded">GET /api/admin/ws/alerts</code>
                                 </div>
                             </CardContent>
                         </Card>

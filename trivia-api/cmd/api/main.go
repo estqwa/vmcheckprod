@@ -401,7 +401,7 @@ func main() {
 
 	// WebSocket мониторинг (Admin only)
 	// Эндпоинты для мониторинга состояния WebSocket сервера
-	adminWsMetrics := router.Group("/admin/ws")
+	adminWsMetrics := router.Group("/api/admin/ws")
 	adminWsMetrics.Use(authMiddleware.RequireAuth(), authMiddleware.AdminOnly())
 	{
 		adminWsMetrics.GET("/metrics", gin.WrapF(ws.WebSocketMetricsHandler(shardedHub)))

@@ -617,8 +617,10 @@ func (h *ShardedHub) collectMetrics() {
 	// Обновляем метрики хаба
 	h.metrics.mu.Lock()
 	h.metrics.activeConnections = totalConnections
-	h.metrics.UpdateShardMetrics(shardMetrics)
 	h.metrics.mu.Unlock()
+
+	// UpdateShardMetrics имеет свой собственный Lock
+	h.metrics.UpdateShardMetrics(shardMetrics)
 
 	// Проверяем, нужна ли балансировка
 	if len(hotShards) > 0 {

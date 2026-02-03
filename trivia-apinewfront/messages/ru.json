@@ -115,7 +115,10 @@
         "rank": "Место",
         "prize": "Приз",
         "viewResults": "Результаты",
-        "page": "Страница"
+        "page": "Страница",
+        "backToProfile": "← Назад в профиль",
+        "prev": "Назад",
+        "next": "Вперёд"
     },
     "home": {
         "welcome": "Добро пожаловать в QazaQuiz!",

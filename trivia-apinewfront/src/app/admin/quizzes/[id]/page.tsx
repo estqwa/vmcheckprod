@@ -311,6 +311,11 @@ function QuizDetailsContent() {
                                         🏆 Победители
                                     </Button>
                                 </Link>
+                                <Link href={`/admin/quizzes/${quizId}/statistics`}>
+                                    <Button variant="outline" className="border-purple-300 text-purple-700 hover:bg-purple-50">
+                                        📈 Статистика
+                                    </Button>
+                                </Link>
                                 <Button
                                     variant="outline"
                                     onClick={() => {

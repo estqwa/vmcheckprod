@@ -115,7 +115,10 @@
         "rank": "Орын",
         "prize": "Жүлде",
         "viewResults": "Нәтижелер",
-        "page": "Бет"
+        "page": "Бет",
+        "backToProfile": "← Профильге оралу",
+        "prev": "Артқа",
+        "next": "Алға"
     },
     "home": {
         "welcome": "QazaQuiz-ке қош келдіңіз!",

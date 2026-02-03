@@ -162,6 +162,12 @@ func (s *QuizService) ListQuizzes(page, pageSize int) ([]entity.Quiz, error) {
 	return s.quizRepo.List(pageSize, offset)
 }
 
+// ListQuizzesWithFilters возвращает список викторин с фильтрацией и пагинацией
+func (s *QuizService) ListQuizzesWithFilters(page, pageSize int, filters repository.QuizFilters) ([]entity.Quiz, int64, error) {
+	offset := (page - 1) * pageSize
+	return s.quizRepo.ListWithFilters(filters, pageSize, offset)
+}
+
 // DeleteQuiz удаляет викторину
 func (s *QuizService) DeleteQuiz(quizID uint) error {
 	// Получаем викторину, чтобы убедиться, что она существует

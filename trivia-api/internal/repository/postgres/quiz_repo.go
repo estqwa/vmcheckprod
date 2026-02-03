@@ -7,6 +7,7 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/yourusername/trivia-api/internal/domain/entity"
+	"github.com/yourusername/trivia-api/internal/domain/repository"
 	apperrors "github.com/yourusername/trivia-api/internal/pkg/errors"
 )
 
@@ -94,6 +95,46 @@ func (r *QuizRepo) List(limit, offset int) ([]entity.Quiz, error) {
 	var quizzes []entity.Quiz
 	err := r.db.Limit(limit).Offset(offset).Order("id DESC").Find(&quizzes).Error
 	return quizzes, err
+}
+
+// ListWithFilters возвращает список викторин с фильтрами и total count
+func (r *QuizRepo) ListWithFilters(filters repository.QuizFilters, limit, offset int) ([]entity.Quiz, int64, error) {
+	var quizzes []entity.Quiz
+	var total int64
+
+	// Строим базовый запрос
+	query := r.db.Model(&entity.Quiz{})
+
+	// Применяем фильтры
+	if filters.Status != "" {
+		query = query.Where("status = ?", filters.Status)
+	}
+
+	if filters.Search != "" {
+		search := "%" + filters.Search + "%"
+		query = query.Where("title ILIKE ? OR description ILIKE ?", search, search)
+	}
+
+	if filters.DateFrom != nil {
+		query = query.Where("scheduled_time >= ?", *filters.DateFrom)
+	}
+
+	if filters.DateTo != nil {
+		query = query.Where("scheduled_time <= ?", *filters.DateTo)
+	}
+
+	// Получаем total count
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	// Применяем пагинацию и сортировку
+	err := query.Limit(limit).Offset(offset).Order("scheduled_time DESC").Find(&quizzes).Error
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return quizzes, total, nil
 }
 
 // Delete удаляет викторину

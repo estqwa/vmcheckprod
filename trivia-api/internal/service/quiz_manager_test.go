@@ -11,7 +11,9 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"github.com/yourusername/trivia-api/internal/domain/entity"
+	"github.com/yourusername/trivia-api/internal/domain/repository"
 	"github.com/yourusername/trivia-api/internal/websocket"
+	"gorm.io/gorm"
 )
 
 // Создаем мок-объекты для интерфейсов
@@ -76,6 +78,15 @@ func (m *MockQuizRepository) List(limit, offset int) ([]entity.Quiz, error) {
 func (m *MockQuizRepository) Delete(id uint) error {
 	args := m.Called(id)
 	return args.Error(0)
+}
+
+// Добавляем недостающий метод ListWithFilters
+func (m *MockQuizRepository) ListWithFilters(filters repository.QuizFilters, limit, offset int) ([]entity.Quiz, int64, error) {
+	args := m.Called(filters, limit, offset)
+	if args.Get(0) == nil {
+		return nil, args.Get(1).(int64), args.Error(2)
+	}
+	return args.Get(0).([]entity.Quiz), args.Get(1).(int64), args.Error(2)
 }
 
 // Мок для cache repository
@@ -214,17 +225,17 @@ func (m *MockResultRepository) SaveUserAnswer(answer *entity.UserAnswer) error {
 	return args.Error(0)
 }
 
-func (m *MockResultRepository) CalculateRanks(quizID uint) error {
-	args := m.Called(quizID)
+func (m *MockResultRepository) CalculateRanks(tx *gorm.DB, quizID uint) error {
+	args := m.Called(tx, quizID)
 	return args.Error(0)
 }
 
-func (m *MockResultRepository) GetQuizResults(quizID uint) ([]entity.Result, error) {
-	args := m.Called(quizID)
+func (m *MockResultRepository) GetQuizResults(quizID uint, limit, offset int) ([]entity.Result, int64, error) {
+	args := m.Called(quizID, limit, offset)
 	if args.Get(0) == nil {
-		return nil, args.Error(1)
+		return nil, 0, args.Error(2)
 	}
-	return args.Get(0).([]entity.Result), args.Error(1)
+	return args.Get(0).([]entity.Result), args.Get(1).(int64), args.Error(2)
 }
 
 // Добавляем недостающий метод GetUserAnswers
@@ -249,15 +260,45 @@ func (m *MockResultRepository) GetUserResult(userID, quizID uint) (*entity.Resul
 }
 
 // Добавляем недостающий метод GetUserResults
-func (m *MockResultRepository) GetUserResults(userID uint, limit, offset int) ([]entity.Result, error) {
+func (m *MockResultRepository) GetUserResults(userID uint, limit, offset int) ([]entity.Result, int64, error) {
 	args := m.Called(userID, limit, offset)
-	return args.Get(0).([]entity.Result), args.Error(1)
+	if args.Get(0) == nil {
+		return nil, 0, args.Error(2)
+	}
+	return args.Get(0).([]entity.Result), args.Get(1).(int64), args.Error(2)
 }
 
 // Добавляем недостающий метод GetQuizUserAnswers
 func (m *MockResultRepository) GetQuizUserAnswers(quizID uint) ([]entity.UserAnswer, error) {
 	args := m.Called(quizID)
 	return args.Get(0).([]entity.UserAnswer), args.Error(1)
+}
+
+// Добавляем недостающий метод GetAllQuizResults
+func (m *MockResultRepository) GetAllQuizResults(quizID uint) ([]entity.Result, error) {
+	args := m.Called(quizID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]entity.Result), args.Error(1)
+}
+
+// Добавляем недостающий метод GetQuizWinners
+func (m *MockResultRepository) GetQuizWinners(quizID uint) ([]entity.Result, error) {
+	args := m.Called(quizID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]entity.Result), args.Error(1)
+}
+
+// Добавляем недостающий метод FindAndUpdateWinners
+func (m *MockResultRepository) FindAndUpdateWinners(tx *gorm.DB, quizID uint, questionCount int, totalPrizeFund int) ([]uint, int, error) {
+	args := m.Called(tx, quizID, questionCount, totalPrizeFund)
+	if args.Get(0) == nil {
+		return nil, 0, args.Error(2)
+	}
+	return args.Get(0).([]uint), args.Get(1).(int), args.Error(2)
 }
 
 // Мок для вопросов

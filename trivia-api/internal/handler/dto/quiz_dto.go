@@ -35,19 +35,21 @@ type QuizResponse struct {
 
 // ResultResponse представляет результат викторины в формате для ответа клиенту
 type ResultResponse struct {
-	ID             uint      `json:"id"`
-	UserID         uint      `json:"user_id"`
-	QuizID         uint      `json:"quiz_id"`
-	Username       string    `json:"username"`
-	ProfilePicture string    `json:"profile_picture,omitempty"`
-	Score          int       `json:"score"`
-	CorrectAnswers int       `json:"correct_answers"`
-	TotalQuestions int       `json:"total_questions"`
-	Rank           int       `json:"rank"`
-	IsWinner       bool      `json:"is_winner"`
-	PrizeFund      int       `json:"prize_fund"`
-	IsEliminated   bool      `json:"is_eliminated"`
-	CompletedAt    time.Time `json:"completed_at"`
+	ID                   uint      `json:"id"`
+	UserID               uint      `json:"user_id"`
+	QuizID               uint      `json:"quiz_id"`
+	Username             string    `json:"username"`
+	ProfilePicture       string    `json:"profile_picture,omitempty"`
+	Score                int       `json:"score"`
+	CorrectAnswers       int       `json:"correct_answers"`
+	TotalQuestions       int       `json:"total_questions"`
+	Rank                 int       `json:"rank"`
+	IsWinner             bool      `json:"is_winner"`
+	PrizeFund            int       `json:"prize_fund"`
+	IsEliminated         bool      `json:"is_eliminated"`
+	EliminatedOnQuestion *int      `json:"eliminated_on_question,omitempty"`
+	EliminationReason    *string   `json:"elimination_reason,omitempty"`
+	CompletedAt          time.Time `json:"completed_at"`
 }
 
 // PaginatedResultResponse представляет пагинированный список результатов
@@ -117,19 +119,21 @@ func NewResultResponse(result *entity.Result) *ResultResponse {
 		return nil
 	}
 	return &ResultResponse{
-		ID:             result.ID,
-		UserID:         result.UserID,
-		QuizID:         result.QuizID,
-		Username:       result.Username,
-		ProfilePicture: result.ProfilePicture,
-		Score:          result.Score,
-		CorrectAnswers: result.CorrectAnswers,
-		TotalQuestions: result.TotalQuestions,
-		Rank:           result.Rank,
-		IsWinner:       result.IsWinner,
-		PrizeFund:      result.PrizeFund,
-		IsEliminated:   result.IsEliminated,
-		CompletedAt:    result.CompletedAt,
+		ID:                   result.ID,
+		UserID:               result.UserID,
+		QuizID:               result.QuizID,
+		Username:             result.Username,
+		ProfilePicture:       result.ProfilePicture,
+		Score:                result.Score,
+		CorrectAnswers:       result.CorrectAnswers,
+		TotalQuestions:       result.TotalQuestions,
+		Rank:                 result.Rank,
+		IsWinner:             result.IsWinner,
+		PrizeFund:            result.PrizeFund,
+		IsEliminated:         result.IsEliminated,
+		EliminatedOnQuestion: result.EliminatedOnQuestion,
+		EliminationReason:    result.EliminationReason,
+		CompletedAt:          result.CompletedAt,
 	}
 }
 

@@ -239,7 +239,7 @@ func main() {
 	authHandler := handler.NewAuthHandler(authService, tokenManager, wsHub)
 	quizHandler := handler.NewQuizHandler(quizService, resultService, quizManagerService)
 	wsHandler := handler.NewWSHandler(wsHub, wsManager, quizManagerService, jwtService, cfg.WebSocket)
-	userHandler := handler.NewUserHandler(userService)
+	userHandler := handler.NewUserHandler(userService, resultService)
 	adHandler := handler.NewAdHandler(adService, quizAdSlotService)
 
 	// Инициализируем middleware
@@ -329,6 +329,7 @@ func main() {
 		users.Use(authMiddleware.RequireAuth())
 		{
 			users.GET("/me", authHandler.GetMe)
+			users.GET("/me/results", userHandler.GetMyResults) // История игр
 			users.PUT("/me", authMiddleware.RequireCSRF(), authHandler.UpdateProfile)
 			users.PUT("/me/language", authMiddleware.RequireCSRF(), authHandler.UpdateLanguage)
 		}
@@ -367,6 +368,9 @@ func main() {
 					adminQuizzes.PUT("/schedule", quizHandler.ScheduleQuiz)
 					adminQuizzes.PUT("/cancel", quizHandler.CancelQuiz)
 					adminQuizzes.POST("/duplicate", quizHandler.DuplicateQuiz)
+					adminQuizzes.GET("/results/export", quizHandler.ExportQuizResults) // CSV/Excel экспорт
+					adminQuizzes.GET("/statistics", quizHandler.GetQuizStatistics)     // Расширенная статистика
+					adminQuizzes.GET("/winners", quizHandler.GetQuizWinners)           // Список победителей
 
 					// Рекламные слоты викторины
 					adminQuizzes.POST("/ad-slots", adHandler.CreateAdSlot)

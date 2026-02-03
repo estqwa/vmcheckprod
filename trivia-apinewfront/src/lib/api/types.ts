@@ -67,6 +67,8 @@ export interface QuizResult {
     is_winner: boolean;
     prize_fund: number;
     is_eliminated: boolean;
+    eliminated_on_question?: number; // Номер вопроса, на котором выбыл
+    elimination_reason?: string;      // Причина выбытия
     completed_at: string;
 }
 

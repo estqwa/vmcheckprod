@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import { getQuizResults, getQuiz, Quiz, QuizResult } from '@/lib/api';
+import { getQuizResults, getQuiz, getQuizStatistics, getQuizWinners, Quiz, QuizResult, QuizStatistics } from '@/lib/api';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -18,19 +18,44 @@ function WinnersPageContent() {
 
     const [quiz, setQuiz] = useState<Quiz | null>(null);
     const [winners, setWinners] = useState<QuizResult[]>([]);
+    const [allResults, setAllResults] = useState<QuizResult[]>([]);
+    const [showAllParticipants, setShowAllParticipants] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
+    const [statistics, setStatistics] = useState<QuizStatistics | null>(null);
+    const [currentPage, setCurrentPage] = useState(1);
+    const [totalPages, setTotalPages] = useState(1);
+    const PAGE_SIZE = 50;
+
+    const translateEliminationReason = (reason?: string): string => {
+        if (!reason) return '';
+        switch (reason) {
+            case 'time_exceeded':
+            case 'no_answer_timeout':
+                return 'Время истекло';
+            case 'incorrect_answer':
+                return 'Неверный ответ';
+            case 'disconnected':
+                return 'Отключился';
+            default:
+                return reason;
+        }
+    };
 
     useEffect(() => {
         const fetchData = async () => {
             try {
-                const [quizData, resultsData] = await Promise.all([
+                const [quizData, winnersData, statsData] = await Promise.all([
                     getQuiz(quizId),
-                    getQuizResults(quizId, { page: 1, page_size: 100 })
+                    getQuizWinners(quizId), // Используем новый API для победителей
+                    getQuizStatistics(quizId)
                 ]);
 
                 setQuiz(quizData);
-                const winnersList = resultsData.results.filter(r => r.is_winner);
-                setWinners(winnersList);
+                setStatistics(statsData);
+                setWinners(winnersData.winners);
+
+                // Загружаем выбывших с пагинацией
+                await loadEliminatedPage(1);
             } catch (error) {
                 console.error('Failed to fetch winners data:', error);
                 toast.error('Ошибка загрузки данных');
@@ -41,6 +66,18 @@ function WinnersPageContent() {
 
         fetchData();
     }, [quizId]);
+
+    // Функция загрузки страницы выбывших
+    const loadEliminatedPage = async (page: number) => {
+        try {
+            const resultsData = await getQuizResults(quizId, { page, page_size: PAGE_SIZE });
+            setAllResults(resultsData.results);
+            setTotalPages(Math.ceil(resultsData.total / PAGE_SIZE));
+            setCurrentPage(page);
+        } catch (error) {
+            console.error('Failed to load eliminated page:', error);
+        }
+    };
 
     const getRankIcon = (rank: number) => {
         switch (rank) {
@@ -70,6 +107,7 @@ function WinnersPageContent() {
     if (!quiz) return <div className="p-8 text-center">Викторина не найдена</div>;
 
     const totalPrizePool = winners.reduce((sum, w) => sum + (w.prize_fund || 0), 0);
+    const eliminatedParticipants = allResults.filter(r => r.is_eliminated);
 
     return (
         <div className="min-h-screen">
@@ -92,19 +130,25 @@ function WinnersPageContent() {
             <main className="container max-w-4xl mx-auto px-4 py-8">
                 <div className="mb-8">
                     <h1 className="text-3xl font-bold flex items-center gap-2">
-                        🏆 Победители: {quiz.title}
+                        🏆 Результаты: {quiz.title}
                     </h1>
                     <p className="text-muted-foreground">
                         Проведена {new Date(quiz.scheduled_time).toLocaleDateString('ru-RU')}
                     </p>
                 </div>
 
-                {/* Stats */}
-                <div className="grid gap-4 md:grid-cols-3 mb-8">
+                {/* Stats - используем statistics API для точных счётчиков */}
+                <div className="grid gap-4 md:grid-cols-4 mb-8">
                     <Card className="card-elevated border-0 rounded-xl">
                         <CardContent className="pt-6 text-center">
-                            <p className="text-3xl font-bold text-primary">{winners.length}</p>
+                            <p className="text-3xl font-bold text-primary">{statistics?.total_winners ?? winners.length}</p>
                             <p className="text-muted-foreground text-sm">Победителей</p>
+                        </CardContent>
+                    </Card>
+                    <Card className="card-elevated border-0 rounded-xl">
+                        <CardContent className="pt-6 text-center">
+                            <p className="text-3xl font-bold text-red-500">{statistics?.total_eliminated ?? eliminatedParticipants.length}</p>
+                            <p className="text-muted-foreground text-sm">Выбыло</p>
                         </CardContent>
                     </Card>
                     <Card className="card-elevated border-0 rounded-xl">
@@ -115,20 +159,21 @@ function WinnersPageContent() {
                     </Card>
                     <Card className="card-elevated border-0 rounded-xl">
                         <CardContent className="pt-6 text-center">
-                            <Badge className="bg-gray-100 text-gray-700 border-0 text-lg px-3 py-1">Завершена</Badge>
+                            <p className="text-3xl font-bold">{statistics?.total_participants ?? allResults.length}</p>
+                            <p className="text-muted-foreground text-sm">Всего участников</p>
                         </CardContent>
                     </Card>
                 </div>
 
                 {/* Winners List */}
-                <Card className="card-elevated border-0 rounded-2xl">
+                <Card className="card-elevated border-0 rounded-2xl mb-6">
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2">
                             <span className="text-xl">🏆</span>
-                            Список победителей
+                            Победители
                         </CardTitle>
                         <CardDescription>
-                            Участники, ответившие правильно на все вопросы и разделившие призовой фонд.
+                            Участники, ответившие правильно на все вопросы.
                         </CardDescription>
                     </CardHeader>
                     <CardContent>
@@ -175,6 +220,87 @@ function WinnersPageContent() {
                         )}
                     </CardContent>
                 </Card>
+
+                {/* Eliminated Participants */}
+                {eliminatedParticipants.length > 0 && (
+                    <Card className="card-elevated border-0 rounded-2xl">
+                        <CardHeader className="cursor-pointer" onClick={() => setShowAllParticipants(!showAllParticipants)}>
+                            <CardTitle className="flex items-center justify-between">
+                                <span className="flex items-center gap-2">
+                                    <span className="text-xl">💔</span>
+                                    Выбывшие участники ({eliminatedParticipants.length})
+                                </span>
+                                <Button variant="ghost" size="sm">
+                                    {showAllParticipants ? '▲ Свернуть' : '▼ Развернуть'}
+                                </Button>
+                            </CardTitle>
+                        </CardHeader>
+                        {showAllParticipants && (
+                            <CardContent>
+                                <div className="space-y-2">
+                                    {eliminatedParticipants.map((participant) => (
+                                        <div
+                                            key={participant.id}
+                                            className="flex items-center justify-between p-3 rounded-xl bg-secondary/30"
+                                        >
+                                            <div className="flex items-center gap-3">
+                                                <Avatar className="h-10 w-10">
+                                                    <AvatarImage src={participant.profile_picture} />
+                                                    <AvatarFallback className="bg-muted text-muted-foreground">
+                                                        {participant.username.substring(0, 2).toUpperCase()}
+                                                    </AvatarFallback>
+                                                </Avatar>
+                                                <div>
+                                                    <div className="font-medium">{participant.username}</div>
+                                                    <div className="text-sm text-muted-foreground">
+                                                        Очки: {participant.score} • Верных: {participant.correct_answers}/{participant.total_questions}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div className="text-right">
+                                                {participant.eliminated_on_question && (
+                                                    <Badge variant="outline" className="text-red-600 border-red-300">
+                                                        Вопрос #{participant.eliminated_on_question}
+                                                    </Badge>
+                                                )}
+                                                {participant.elimination_reason && (
+                                                    <p className="text-xs text-muted-foreground mt-1">
+                                                        {translateEliminationReason(participant.elimination_reason)}
+                                                    </p>
+                                                )}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+
+                                {/* Пагинация */}
+                                {totalPages > 1 && (
+                                    <div className="flex items-center justify-center gap-2 mt-4 pt-4 border-t">
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            disabled={currentPage === 1}
+                                            onClick={() => loadEliminatedPage(currentPage - 1)}
+                                        >
+                                            ← Назад
+                                        </Button>
+                                        <span className="text-sm text-muted-foreground px-4">
+                                            Страница {currentPage} из {totalPages}
+                                        </span>
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            disabled={currentPage === totalPages}
+                                            onClick={() => loadEliminatedPage(currentPage + 1)}
+                                        >
+                                            Вперёд →
+                                        </Button>
+                                    </div>
+                                )}
+                            </CardContent>
+                        )}
+                    </Card>
+                )}
             </main>
         </div>
     );

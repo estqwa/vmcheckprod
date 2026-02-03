@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Input } from '@/components/ui/input';
 
 const statusColors: Record<string, { bg: string; text: string; label: string }> = {
     scheduled: { bg: 'bg-blue-100', text: 'text-blue-700', label: 'Запланирована' },
@@ -21,11 +22,13 @@ function AdminDashboard() {
     const router = useRouter();
     const [quizzes, setQuizzes] = useState<Quiz[]>([]);
     const [isLoading, setIsLoading] = useState(true);
+    const [searchQuery, setSearchQuery] = useState('');
+    const [statusFilter, setStatusFilter] = useState<string>('all');
 
     useEffect(() => {
         const fetchQuizzes = async () => {
             try {
-                const data = await getQuizzes({ page: 1, page_size: 50 });
+                const data = await getQuizzes({ page: 1, page_size: 100 });
                 const sorted = data.sort((a, b) =>
                     new Date(b.scheduled_time).getTime() - new Date(a.scheduled_time).getTime()
                 );
@@ -39,6 +42,15 @@ function AdminDashboard() {
 
         fetchQuizzes();
     }, []);
+
+    // Фильтрация на клиенте
+    const filteredQuizzes = quizzes.filter(quiz => {
+        const matchesSearch = searchQuery === '' ||
+            quiz.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            (quiz.description && quiz.description.toLowerCase().includes(searchQuery.toLowerCase()));
+        const matchesStatus = statusFilter === 'all' || quiz.status === statusFilter;
+        return matchesSearch && matchesStatus;
+    });
 
     const formatDate = (dateStr: string) => {
         return new Date(dateStr).toLocaleString('ru-RU');
@@ -121,10 +133,31 @@ function AdminDashboard() {
                 {/* Quizzes List */}
                 <Card className="card-elevated border-0 rounded-2xl">
                     <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
-                            <span className="text-xl">📋</span>
-                            Все викторины
-                        </CardTitle>
+                        <div className="flex flex-col md:flex-row gap-4 md:items-center justify-between">
+                            <CardTitle className="flex items-center gap-2">
+                                <span className="text-xl">📋</span>
+                                Все викторины ({filteredQuizzes.length})
+                            </CardTitle>
+                            <div className="flex flex-col sm:flex-row gap-2">
+                                <Input
+                                    placeholder="🔍 Поиск по названию..."
+                                    value={searchQuery}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                    className="w-full sm:w-64"
+                                />
+                                <select
+                                    value={statusFilter}
+                                    onChange={(e) => setStatusFilter(e.target.value)}
+                                    className="h-10 px-3 rounded-md border border-input bg-background text-sm"
+                                >
+                                    <option value="all">Все статусы</option>
+                                    <option value="scheduled">Запланированные</option>
+                                    <option value="in_progress">Активные</option>
+                                    <option value="completed">Завершённые</option>
+                                    <option value="cancelled">Отменённые</option>
+                                </select>
+                            </div>
+                        </div>
                     </CardHeader>
                     <CardContent>
                         {isLoading ? (
@@ -133,17 +166,21 @@ function AdminDashboard() {
                                     <Skeleton key={i} className="h-20 w-full rounded-xl" />
                                 ))}
                             </div>
-                        ) : quizzes.length === 0 ? (
+                        ) : filteredQuizzes.length === 0 ? (
                             <div className="text-center py-12">
-                                <span className="text-5xl mb-4 block">🎮</span>
-                                <p className="text-muted-foreground mb-4">Викторин пока нет</p>
-                                <Link href="/admin/quizzes/new">
-                                    <Button className="btn-coral">Создать первую викторину</Button>
-                                </Link>
+                                <span className="text-5xl mb-4 block">🔍</span>
+                                <p className="text-muted-foreground mb-4">
+                                    {quizzes.length === 0 ? 'Викторин пока нет' : 'Ничего не найдено'}
+                                </p>
+                                {quizzes.length === 0 && (
+                                    <Link href="/admin/quizzes/new">
+                                        <Button className="btn-coral">Создать первую викторину</Button>
+                                    </Link>
+                                )}
                             </div>
                         ) : (
                             <div className="space-y-3">
-                                {quizzes.map((quiz) => {
+                                {filteredQuizzes.map((quiz) => {
                                     const status = statusColors[quiz.status] || statusColors.scheduled;
                                     return (
                                         <div

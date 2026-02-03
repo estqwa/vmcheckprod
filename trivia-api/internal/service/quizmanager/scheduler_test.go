@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"github.com/yourusername/trivia-api/internal/domain/entity"
+	"github.com/yourusername/trivia-api/internal/domain/repository"
 )
 
 // ============================================================================
@@ -78,6 +79,14 @@ func (m *MockQuizRepoForScheduler) List(limit, offset int) ([]entity.Quiz, error
 func (m *MockQuizRepoForScheduler) Delete(id uint) error {
 	args := m.Called(id)
 	return args.Error(0)
+}
+
+func (m *MockQuizRepoForScheduler) ListWithFilters(filters repository.QuizFilters, limit, offset int) ([]entity.Quiz, int64, error) {
+	args := m.Called(filters, limit, offset)
+	if args.Get(0) == nil {
+		return nil, args.Get(1).(int64), args.Error(2)
+	}
+	return args.Get(0).([]entity.Quiz), args.Get(1).(int64), args.Error(2)
 }
 
 // MockWSManagerForScheduler реализует минимальный интерфейс WebSocket Manager

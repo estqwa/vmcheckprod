@@ -69,12 +69,12 @@ func (m *MockResultRepoForResultService) GetUserResult(userID uint, quizID uint)
 	return args.Get(0).(*entity.Result), args.Error(1)
 }
 
-func (m *MockResultRepoForResultService) GetUserResults(userID uint, limit, offset int) ([]entity.Result, error) {
+func (m *MockResultRepoForResultService) GetUserResults(userID uint, limit, offset int) ([]entity.Result, int64, error) {
 	args := m.Called(userID, limit, offset)
 	if args.Get(0) == nil {
-		return nil, args.Error(1)
+		return nil, 0, args.Error(2)
 	}
-	return args.Get(0).([]entity.Result), args.Error(1)
+	return args.Get(0).([]entity.Result), args.Get(1).(int64), args.Error(2)
 }
 
 func (m *MockResultRepoForResultService) CalculateRanks(tx *gorm.DB, quizID uint) error {
@@ -231,18 +231,20 @@ func TestResultService_GetUserResults_Pagination(t *testing.T) {
 		{ID: 1, UserID: 42, QuizID: 1, Score: 100},
 		{ID: 2, UserID: 42, QuizID: 2, Score: 80},
 	}
+	expectedTotal := int64(5)
 
 	// page=2, pageSize=2 -> offset=2, limit=2
-	mockResultRepo.On("GetUserResults", uint(42), 2, 2).Return(expectedResults, nil)
+	mockResultRepo.On("GetUserResults", uint(42), 2, 2).Return(expectedResults, expectedTotal, nil)
 
 	resultService := createTestResultService(mockResultRepo)
 
 	// Act
-	results, err := resultService.GetUserResults(42, 2, 2)
+	results, total, err := resultService.GetUserResults(42, 2, 2)
 
 	// Assert
 	require.NoError(t, err, "Получение результатов пользователя должно быть успешным")
 	assert.Equal(t, 2, len(results))
+	assert.Equal(t, int64(5), total)
 	mockResultRepo.AssertExpectations(t)
 }
 

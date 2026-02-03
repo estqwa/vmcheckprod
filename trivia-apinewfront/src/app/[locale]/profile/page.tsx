@@ -142,6 +142,15 @@ function ProfileContent() {
                                 <p className="text-muted-foreground text-sm">{t('totalPrize')}</p>
                             </div>
                         </div>
+                        {user.games_played > 0 && (
+                            <div className="mt-4 pt-4 border-t border-border/50">
+                                <Link href="/profile/history">
+                                    <Button variant="outline" className="w-full">
+                                        📜 {t('gameHistory') || 'История игр'}
+                                    </Button>
+                                </Link>
+                            </div>
+                        )}
                     </CardContent>
                 </Card>
 

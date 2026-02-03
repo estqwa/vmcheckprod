@@ -305,11 +305,29 @@ function QuizDetailsContent() {
                             </Button>
                         )}
                         {canViewWinners && (
-                            <Link href={`/admin/quizzes/${quizId}/winners`}>
-                                <Button className="bg-yellow-400 hover:bg-yellow-500 text-yellow-900">
-                                    🏆 Победители
+                            <>
+                                <Link href={`/admin/quizzes/${quizId}/winners`}>
+                                    <Button className="bg-yellow-400 hover:bg-yellow-500 text-yellow-900">
+                                        🏆 Победители
+                                    </Button>
+                                </Link>
+                                <Button
+                                    variant="outline"
+                                    onClick={() => {
+                                        window.open(`${process.env.NEXT_PUBLIC_API_URL}/api/quizzes/${quizId}/results/export?format=csv`, '_blank');
+                                    }}
+                                >
+                                    📥 CSV
                                 </Button>
-                            </Link>
+                                <Button
+                                    variant="outline"
+                                    onClick={() => {
+                                        window.open(`${process.env.NEXT_PUBLIC_API_URL}/api/quizzes/${quizId}/results/export?format=xlsx`, '_blank');
+                                    }}
+                                >
+                                    📊 Excel
+                                </Button>
+                            </>
                         )}
                     </CardContent>
                 </Card>

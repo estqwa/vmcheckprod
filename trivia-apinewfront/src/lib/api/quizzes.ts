@@ -135,3 +135,51 @@ export async function cancelQuiz(quizId: number): Promise<void> {
 export async function duplicateQuiz(quizId: number, scheduledTime: string): Promise<Quiz> {
     return api.post<Quiz>(`/api/quizzes/${quizId}/duplicate`, { scheduled_time: scheduledTime });
 }
+
+// ============ Statistics Types ============
+
+export interface QuestionElimination {
+    question_number: number;
+    question_id: number;
+    eliminated_count: number;
+    by_timeout: number;
+    by_wrong_answer: number;
+    avg_response_ms: number;
+}
+
+export interface EliminationReasons {
+    timeout: number;
+    wrong_answer: number;
+    disconnected: number;
+    other: number;
+}
+
+export interface QuizStatistics {
+    quiz_id: number;
+    total_participants: number;
+    total_winners: number;
+    total_eliminated: number;
+    avg_response_time_ms: number;
+    avg_correct_answers: number;
+    eliminations_by_question: QuestionElimination[];
+    elimination_reasons: EliminationReasons;
+}
+
+/**
+ * Get quiz statistics (admin only)
+ */
+export async function getQuizStatistics(quizId: number): Promise<QuizStatistics> {
+    return api.get<QuizStatistics>(`/api/quizzes/${quizId}/statistics`);
+}
+
+interface WinnersResponse {
+    winners: QuizResult[];
+    total: number;
+}
+
+/**
+ * Get quiz winners (admin only) - returns ALL winners without pagination
+ */
+export async function getQuizWinners(quizId: number): Promise<WinnersResponse> {
+    return api.get<WinnersResponse>(`/api/quizzes/${quizId}/winners`);
+}

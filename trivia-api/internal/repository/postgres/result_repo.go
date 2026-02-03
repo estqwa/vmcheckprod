@@ -111,14 +111,22 @@ func (r *ResultRepo) GetUserResult(userID uint, quizID uint) (*entity.Result, er
 }
 
 // GetUserResults возвращает все результаты пользователя с пагинацией
-func (r *ResultRepo) GetUserResults(userID uint, limit, offset int) ([]entity.Result, error) {
+func (r *ResultRepo) GetUserResults(userID uint, limit, offset int) ([]entity.Result, int64, error) {
 	var results []entity.Result
+	var total int64
+
+	// Сначала получаем общее количество
+	if err := r.db.Model(&entity.Result{}).Where("user_id = ?", userID).Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	// Затем получаем результаты с пагинацией
 	err := r.db.Where("user_id = ?", userID).
 		Order("created_at DESC").
 		Limit(limit).
 		Offset(offset).
 		Find(&results).Error
-	return results, err
+	return results, total, err
 }
 
 // CalculateRanks вычисляет и сохраняет ранги всех участников викторины, используя SQL.

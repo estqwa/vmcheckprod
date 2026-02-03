@@ -89,7 +89,8 @@
         "logoutAll": "Выйти со всех устройств",
         "logoutSuccess": "Вы вышли из аккаунта",
         "logoutAllSuccess": "Вы вышли со всех устройств",
-        "sessionRevoked": "Сессия завершена"
+        "sessionRevoked": "Сессия завершена",
+        "gameHistory": "История игр"
     },
     "leaderboard": {
         "title": "Рейтинг игроков",
@@ -100,6 +101,21 @@
         "player": "Игрок",
         "wins": "побед",
         "prize": "приз"
+    },
+    "history": {
+        "title": "История игр",
+        "description": "Ваши прошлые викторины и результаты",
+        "noGames": "Вы ещё не участвовали в викторинах",
+        "playNow": "Начать играть",
+        "winner": "Победитель",
+        "eliminated": "Выбыл",
+        "finished": "Завершено",
+        "score": "Очки",
+        "correct": "Правильных",
+        "rank": "Место",
+        "prize": "Приз",
+        "viewResults": "Результаты",
+        "page": "Страница"
     },
     "home": {
         "welcome": "Добро пожаловать в QazaQuiz!",

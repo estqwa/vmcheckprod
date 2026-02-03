@@ -119,8 +119,8 @@ func (m *MockResultRepoForAnswerProcessor) GetAllQuizResults(quizID uint) ([]ent
 func (m *MockResultRepoForAnswerProcessor) GetUserResult(userID uint, quizID uint) (*entity.Result, error) {
 	return nil, nil
 }
-func (m *MockResultRepoForAnswerProcessor) GetUserResults(userID uint, limit, offset int) ([]entity.Result, error) {
-	return nil, nil
+func (m *MockResultRepoForAnswerProcessor) GetUserResults(userID uint, limit, offset int) ([]entity.Result, int64, error) {
+	return nil, 0, nil
 }
 func (m *MockResultRepoForAnswerProcessor) CalculateRanks(tx *gorm.DB, quizID uint) error {
 	return nil

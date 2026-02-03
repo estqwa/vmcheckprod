@@ -260,6 +260,26 @@ func (qm *QuestionManager) RunQuizQuestions(ctx context.Context, quizState *Acti
 						eliminationReason := "no_answer_timeout"
 						log.Printf("[QuestionManager] Пользователь #%d выбывает из викторины #%d. Причина: %s (Вопрос #%d). Установка ключа %s...", userID, quizState.Quiz.ID, eliminationReason, question.ID, eliminationKey)
 
+						// === СОХРАНЯЕМ UserAnswer В БД ДЛЯ СТАТИСТИКИ ===
+						// Это необходимо для корректного расчёта elimination_reasons в CalculateQuizStatistics
+						userAnswer := &entity.UserAnswer{
+							UserID:            uint(userID),
+							QuizID:            quizState.Quiz.ID,
+							QuestionID:        question.ID,
+							SelectedOption:    -1, // -1 означает "не ответил"
+							IsCorrect:         false,
+							ResponseTimeMs:    0,
+							Score:             0,
+							IsEliminated:      true,
+							EliminationReason: eliminationReason,
+						}
+						if err := qm.deps.ResultRepo.SaveUserAnswer(userAnswer); err != nil {
+							log.Printf("[QuestionManager] WARNING: Не удалось сохранить user_answer для таймаута User #%d: %v", userID, err)
+							// Продолжаем — Redis ключ всё равно нужно установить
+						} else {
+							log.Printf("[QuestionManager][DEBUG] Сохранён user_answer для таймаута User #%d на вопрос #%d", userID, question.ID)
+						}
+
 						// Устанавливаем статус выбывшего в Redis
 						if errSet := qm.deps.CacheRepo.Set(eliminationKey, "1", 24*time.Hour); errSet != nil {
 							log.Printf("[QuestionManager] WARNING: Не удалось установить ключ выбывания %s в Redis: %v", eliminationKey, errSet)
@@ -269,6 +289,7 @@ func (qm *QuestionManager) RunQuizQuestions(ctx context.Context, quizState *Acti
 
 						// Отправляем уведомление о выбывании
 						qm.sendEliminationNotification(uint(userID), quizState.Quiz.ID, eliminationReason)
+
 
 					} else {
 						log.Printf("[QuestionManager][DEBUG] Викторина #%d, Вопрос #%d: User #%d не ответил, но УЖЕ был выбывший (ключ %s существует).", quizState.Quiz.ID, question.ID, userID, eliminationKey)

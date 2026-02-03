@@ -89,7 +89,8 @@
         "logoutAll": "Барлық құрылғылардан шығу",
         "logoutSuccess": "Сіз шықтыңыз",
         "logoutAllSuccess": "Барлық құрылғылардан шықтыңыз",
-        "sessionRevoked": "Сессия аяқталды"
+        "sessionRevoked": "Сессия аяқталды",
+        "gameHistory": "Ойындар тарихы"
     },
     "leaderboard": {
         "title": "Ойыншылар рейтингі",
@@ -100,6 +101,21 @@
         "player": "Ойыншы",
         "wins": "жеңіс",
         "prize": "жүлде"
+    },
+    "history": {
+        "title": "Ойындар тарихы",
+        "description": "Сіздің өткен викториналарыңыз және нәтижелеріңіз",
+        "noGames": "Сіз әлі викториналарға қатысқан жоқсыз",
+        "playNow": "Ойнауды бастау",
+        "winner": "Жеңімпаз",
+        "eliminated": "Шығып қалды",
+        "finished": "Аяқталды",
+        "score": "Ұпай",
+        "correct": "Дұрыс",
+        "rank": "Орын",
+        "prize": "Жүлде",
+        "viewResults": "Нәтижелер",
+        "page": "Бет"
     },
     "home": {
         "welcome": "QazaQuiz-ке қош келдіңіз!",

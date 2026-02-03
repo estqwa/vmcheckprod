@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"encoding/csv"
 	"errors"
 	"fmt"
 	"log"
@@ -9,7 +10,9 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/xuri/excelize/v2"
 	"github.com/yourusername/trivia-api/internal/domain/entity"
+	"github.com/yourusername/trivia-api/internal/domain/repository"
 	"github.com/yourusername/trivia-api/internal/handler/dto"
 	apperrors "github.com/yourusername/trivia-api/internal/pkg/errors"
 	"github.com/yourusername/trivia-api/internal/service"
@@ -264,7 +267,29 @@ func (h *QuizHandler) GetUserQuizResult(c *gin.Context) {
 	c.JSON(http.StatusOK, dto.NewResultResponse(result))
 }
 
-// ListQuizzes возвращает список викторин с пагинацией
+// GetQuizWinners возвращает список всех победителей викторины (без пагинации)
+func (h *QuizHandler) GetQuizWinners(c *gin.Context) {
+	quizID := c.MustGet("quizID").(uint)
+
+	winners, err := h.resultService.GetQuizWinners(quizID)
+	if err != nil {
+		h.handleQuizError(c, err)
+		return
+	}
+
+	// Конвертируем в DTO
+	response := make([]dto.ResultResponse, len(winners))
+	for i, w := range winners {
+		response[i] = *dto.NewResultResponse(&w)
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"winners": response,
+		"total":   len(winners),
+	})
+}
+
+// ListQuizzes возвращает список викторин с пагинацией и фильтрацией
 func (h *QuizHandler) ListQuizzes(c *gin.Context) {
 	pageStr := c.DefaultQuery("page", "1")
 	pageSizeStr := c.DefaultQuery("page_size", "10")
@@ -279,13 +304,51 @@ func (h *QuizHandler) ListQuizzes(c *gin.Context) {
 		pageSize = 10
 	}
 
-	quizzes, err := h.quizService.ListQuizzes(page, pageSize)
-	if err != nil {
-		h.handleQuizError(c, err)
-		return
+	// Собираем фильтры из query-параметров
+	filters := repository.QuizFilters{
+		Status: c.Query("status"), // scheduled, in_progress, completed, cancelled
+		Search: c.Query("search"), // Поиск по title/description
 	}
 
-	c.JSON(http.StatusOK, dto.NewListQuizResponse(quizzes))
+	// Парсим даты если переданы
+	if dateFromStr := c.Query("date_from"); dateFromStr != "" {
+		if dateFrom, err := time.Parse(time.RFC3339, dateFromStr); err == nil {
+			filters.DateFrom = &dateFrom
+		}
+	}
+	if dateToStr := c.Query("date_to"); dateToStr != "" {
+		if dateTo, err := time.Parse(time.RFC3339, dateToStr); err == nil {
+			filters.DateTo = &dateTo
+		}
+	}
+
+	// Проверяем, есть ли какие-либо фильтры
+	hasFilters := filters.Status != "" || filters.Search != "" || filters.DateFrom != nil || filters.DateTo != nil
+
+	if hasFilters {
+		// Используем метод с фильтрами
+		quizzes, total, err := h.quizService.ListQuizzesWithFilters(page, pageSize, filters)
+		if err != nil {
+			h.handleQuizError(c, err)
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"quizzes": dto.NewListQuizResponse(quizzes),
+			"total":   total,
+			"page":    page,
+			"size":    pageSize,
+		})
+	} else {
+		// Используем обычный метод без фильтров
+		quizzes, err := h.quizService.ListQuizzes(page, pageSize)
+		if err != nil {
+			h.handleQuizError(c, err)
+			return
+		}
+
+		c.JSON(http.StatusOK, dto.NewListQuizResponse(quizzes))
+	}
 }
 
 // DuplicateQuizRequest представляет запрос на дублирование викторины
@@ -323,6 +386,185 @@ func (h *QuizHandler) DuplicateQuiz(c *gin.Context) {
 	// Отправляем ответ с данными новой викторины
 	// Указываем false, чтобы не включать вопросы в ответ (они только что созданы)
 	c.JSON(http.StatusCreated, dto.NewQuizResponse(newQuiz, false))
+}
+
+// ExportQuizResults экспортирует результаты викторины в CSV или Excel формате
+// GET /api/quizzes/:id/results/export?format=csv|xlsx
+func (h *QuizHandler) ExportQuizResults(c *gin.Context) {
+	quizID := c.MustGet("quizID").(uint)
+	format := c.DefaultQuery("format", "csv")
+
+	// Получаем ВСЕ результаты без пагинации для экспорта
+	results, err := h.resultService.GetQuizResultsAll(quizID)
+	if err != nil {
+		h.handleQuizError(c, err)
+		return
+	}
+
+	// Получаем информацию о викторине для имени файла
+	quiz, err := h.quizService.GetQuizByID(quizID)
+	if err != nil {
+		h.handleQuizError(c, err)
+		return
+	}
+
+	filename := fmt.Sprintf("quiz_%d_results_%s", quizID, time.Now().Format("2006-01-02"))
+
+	switch format {
+	case "xlsx":
+		h.exportXLSX(c, results, quiz, filename)
+	default:
+		h.exportCSV(c, results, quiz, filename)
+	}
+}
+
+// exportCSV экспортирует результаты в CSV с правильным экранированием спецсимволов
+func (h *QuizHandler) exportCSV(c *gin.Context, results []entity.Result, quiz *entity.Quiz, filename string) {
+	c.Header("Content-Type", "text/csv; charset=utf-8")
+	c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s.csv\"", filename))
+
+	// BOM для корректного отображения UTF-8 в Excel
+	c.Writer.Write([]byte{0xEF, 0xBB, 0xBF})
+
+	// Используем encoding/csv для правильного экранирования запятых/кавычек
+	writer := csv.NewWriter(c.Writer)
+	defer writer.Flush()
+
+	// Заголовки
+	writer.Write([]string{"Место", "Пользователь", "Очки", "Правильных", "Всего вопросов", "Победитель", "Выбыл", "Вопрос выбытия", "Причина выбытия", "Приз"})
+
+	// Данные
+	for _, r := range results {
+		winner := "Нет"
+		if r.IsWinner {
+			winner = "Да"
+		}
+		eliminated := "Нет"
+		if r.IsEliminated {
+			eliminated = "Да"
+		}
+		elimQuestion := ""
+		if r.EliminatedOnQuestion != nil {
+			elimQuestion = strconv.Itoa(*r.EliminatedOnQuestion)
+		}
+		elimReason := ""
+		if r.EliminationReason != nil {
+			elimReason = translateEliminationReason(*r.EliminationReason)
+		}
+		prize := ""
+		if r.PrizeFund > 0 {
+			prize = fmt.Sprintf("%d ₸", r.PrizeFund)
+		}
+
+		writer.Write([]string{
+			strconv.Itoa(r.Rank),
+			r.Username,
+			strconv.Itoa(r.Score),
+			strconv.Itoa(r.CorrectAnswers),
+			strconv.Itoa(r.TotalQuestions),
+			winner,
+			eliminated,
+			elimQuestion,
+			elimReason,
+			prize,
+		})
+	}
+}
+
+// exportXLSX экспортирует результаты в Excel с использованием StreamWriter
+func (h *QuizHandler) exportXLSX(c *gin.Context, results []entity.Result, quiz *entity.Quiz, filename string) {
+	// Импорт excelize будет добавлен в начало файла
+	// Используем StreamWriter для эффективной работы с большими файлами
+
+	c.Header("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+	c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s.xlsx\"", filename))
+
+	f := excelize.NewFile()
+	defer f.Close()
+
+	sheetName := "Результаты"
+	f.SetSheetName("Sheet1", sheetName)
+
+	sw, err := f.NewStreamWriter(sheetName)
+	if err != nil {
+		log.Printf("[QuizHandler] Ошибка создания StreamWriter: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create Excel file"})
+		return
+	}
+
+	// Заголовки
+	headers := []interface{}{"Место", "Пользователь", "Очки", "Правильных", "Всего вопросов", "Победитель", "Выбыл", "Вопрос выбытия", "Причина выбытия", "Приз (₸)"}
+	if err := sw.SetRow("A1", headers); err != nil {
+		log.Printf("[QuizHandler] Ошибка записи заголовков: %v", err)
+	}
+
+	// Данные
+	for i, r := range results {
+		rowNum := i + 2 // Начинаем с 2 строки (1 - заголовки)
+		cell := fmt.Sprintf("A%d", rowNum)
+
+		winner := "Нет"
+		if r.IsWinner {
+			winner = "Да"
+		}
+		eliminated := "Нет"
+		if r.IsEliminated {
+			eliminated = "Да"
+		}
+		elimQuestion := ""
+		if r.EliminatedOnQuestion != nil {
+			elimQuestion = strconv.Itoa(*r.EliminatedOnQuestion)
+		}
+		elimReason := ""
+		if r.EliminationReason != nil {
+			elimReason = translateEliminationReason(*r.EliminationReason)
+		}
+		prize := 0
+		if r.PrizeFund > 0 {
+			prize = r.PrizeFund
+		}
+
+		row := []interface{}{r.Rank, r.Username, r.Score, r.CorrectAnswers, r.TotalQuestions, winner, eliminated, elimQuestion, elimReason, prize}
+		if err := sw.SetRow(cell, row); err != nil {
+			log.Printf("[QuizHandler] Ошибка записи строки %d: %v", rowNum, err)
+		}
+	}
+
+	if err := sw.Flush(); err != nil {
+		log.Printf("[QuizHandler] Ошибка при Flush: %v", err)
+	}
+
+	// Записываем в response
+	if err := f.Write(c.Writer); err != nil {
+		log.Printf("[QuizHandler] Ошибка записи Excel в response: %v", err)
+	}
+}
+
+// translateEliminationReason переводит причину выбытия на русский
+func translateEliminationReason(reason string) string {
+	switch reason {
+	case "time_exceeded", "no_answer_timeout":
+		return "Время истекло"
+	case "incorrect_answer":
+		return "Неверный ответ"
+	case "disconnected":
+		return "Отключился"
+	default:
+		return reason
+	}
+}
+
+// GetQuizStatistics возвращает расширенную статистику викторины
+func (h *QuizHandler) GetQuizStatistics(c *gin.Context) {
+	quizID := c.MustGet("quizID").(uint)
+
+	stats, err := h.resultService.CalculateQuizStatistics(quizID)
+	if err != nil {
+		h.handleQuizError(c, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, stats)
 }
 
 // handleQuizError обрабатывает ошибки от сервисов викторин и отправляет соответствующий HTTP ответ

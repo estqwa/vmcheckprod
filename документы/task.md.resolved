@@ -1,0 +1,229 @@
+# 🔍 План ревью проекта Trivia API
+
+> **Цель:** Тщательная проверка каждого файла и функции перед локальным тестированием
+
+---
+
+## Этап 1: Domain Entities (8 файлов) ✅ ЗАВЕРШЁН
+> Проверка моделей данных, GORM тегов, бизнес-логики в сущностях
+
+- [x] **user.go** - User entity
+  - [x] Проверить GORM теги (primaryKey, unique, size) ✅ Исправлено: uniqueIndex, int64
+  - [x] [BeforeSave()](file:///c:/project/trivia-api/internal/domain/entity/user.go#33-50) — логика проверки bcrypt-преФИКСов ✅ Убрано логирование
+  - [x] [CheckPassword()](file:///c:/project/trivia-api/internal/domain/entity/user.go#51-56) — bcrypt.CompareHashAndPassword ✅ Упрощено, security fix
+  
+- [x] **quiz.go** - Quiz entity
+  - [x] Статусы: "scheduled", "in_progress", "completed" ✅ Добавлены константы
+  - [x] Методы [IsActive()](file:///c:/project/trivia-api/internal/domain/entity/quiz.go#33-37), [IsScheduled()](file:///c:/project/trivia-api/internal/domain/entity/quiz.go#38-42), [IsCompleted()](file:///c:/project/trivia-api/internal/domain/entity/quiz.go#43-47) ✅ Используют константы
+  
+- [x] **question.go** - Question entity
+  - [x] `StringArray` — Scan/Value для JSONB ✅ Исправлен nil handling
+  - [x] `CorrectOption` скрыт через `json:"-"` ✅
+  - [x] [CalculatePoints()](file:///c:/project/trivia-api/internal/domain/entity/question.go#68-77) — текущая логика vs закомментированная ✅ Удалён мёртвый код
+  
+- [x] **result.go** - Result entity
+  - [x] Денормализованные поля (Username, ProfilePicture) ✅ Добавлены GORM теги
+  
+- [x] **user_answer.go** - UserAnswer entity
+  - [x] Поля выбывания (IsEliminated, EliminationReason) ✅ Добавлены GORM теги
+  
+- [x] **refresh_token.go** - RefreshToken entity
+  - [x] [IsValid()](file:///c:/project/trivia-api/internal/domain/entity/refresh_token.go#36-40) логика ✅ **CRITICAL FIX: добавлена проверка RevokedAt**
+  - [x] [SessionInfo()](file:///c:/project/trivia-api/internal/handler/auth_handler.go#79-87) для отображения пользователю ✅
+  
+- [x] **jwt_key.go** - JWTKey entity
+  - [x] Поля для ротации ключей ✅ Добавлены методы IsExpired(), CanBeUsedForSigning()
+  
+- [x] **invalid_token.go** - InvalidToken entity ✅ Добавлен метод IsTokenInvalidAt()
+
+---
+
+## Этап 2: Repository Interfaces (8 файлов) ✅ ЗАВЕРШЁН
+> Проверка контрактов репозиториев
+
+- [x] **user_repo.go** - 11 методов ✅
+- [x] **quiz_repo.go** - 9 методов ✅
+- [x] **question_repo.go** - 7 методов ✅
+- [x] **result_repo.go** - 11 методов ⚠️ **ТЕХДОЛГ:** gorm.DB в интерфейсе
+- [x] **refresh_token_repo.go** - 12 методов ✅ Удалён мёртвый код
+- [x] **jwt_key_repo.go** - 7 методов ✅
+- [x] **invalid_token_repo.go** - 5 методов ✅
+- [x] **cache_repo.go** - 9 методов ✅
+
+---
+
+## Этап 3: Repository Implementations (8 файлов) ✅ ЗАВЕРШЁН
+> Проверка реализации репозиториев
+
+### PostgreSQL (7 файлов)
+- [x] **user_repo.go** - SQL queries ✅
+- [x] **quiz_repo.go** - связи с Questions ✅ Использует константы статусов
+- [x] **question_repo.go** - JSONB Options ✅ **ОПТИМИЗИРОВАНО: TABLESAMPLE**
+- [x] **result_repo.go** ✅ **CRITICAL FIX: пустой winnerIDs**
+- [x] **refresh_token_repo.go** ✅ Удалён мёртвый код
+- [x] **jwt_key_repo.go** - шифрование ключей ✅
+- [x] **invalid_token_repo.go** ✅
+
+### Redis (1 файл)
+- [x] **cache_repo.go** - JSON сериализация ✅
+
+---
+
+## Этап 4: Services (9 файлов) ✅ ЗАВЕРШЁН
+> Проверка бизнес-логики — **ПОДТВЕРЖДЕНА КОРРЕКТНОЙ**
+
+### Основные сервисы (5 файлов)
+- [x] **auth_service.go** (500 строк) ✅ Удалён мёртвый код (tokenService)
+- [x] **quiz_service.go** (264 строки) ✅ Magic strings → константы
+- [x] **quiz_manager.go** (333 строки) ✅ status → entity.QuizStatusCompleted
+- [x] **result_service.go** (342 строки) ✅ Удалена мёртвая функция (44 строки)
+- [x] **user_service.go** (69 строк) ✅ Удалён TODO
+
+### QuizManager Components (4 файла)
+- [x] **types.go** ✅ Config, Dependencies, ActiveQuizState
+- [x] **scheduler.go** (350 строк) ✅ Magic strings → константы
+- [x] **question_manager.go** (446 строк) ✅
+- [x] **answer_processor.go** (234 строки) ✅
+
+---
+
+## Этап 5: Handlers (7 файлов) ✅ ЗАВЕРШЁН
+> HTTP обработчики, валидация, DTO
+
+### Handlers (4 файла)
+- [x] **auth_handler.go** (907 строк) ✅ Исправлен context key `"user_id"`
+- [x] **quiz_handler.go** (340 строк) ✅
+- [x] **user_handler.go** (58 строк) ✅ Удалены TODO комментарии
+- [x] **ws_handler.go** (212 строк) ✅ Буферы 4096, TODO для CheckOrigin
+
+### DTO и Helper (3 файла)
+- [x] **dto/quiz_dto.go** (162 строки) ✅
+- [x] **dto/user_dto.go** (20 строк) ✅
+- [x] **helper/converter.go** ✅ QuestionOption ID теперь 0-based
+
+---
+
+## Этап 6: Middlewares (2 файла) ✅ ЗАВЕРШЁН
+> Аутентификация, CSRF защита
+
+- [x] **auth_middleware.go** (250 строк) ✅
+  - [x] RequireAuth — cookie + header fallback
+  - [x] AdminOnly — проверка is_admin (TODO для ролей)
+  - [x] RequireCSRF — Double Submit Cookie ✅
+  - [x] Удалён мёртвый код, исправлено логирование
+
+- [x] **param_middleware.go** (28 строк) ✅ ExtractUintParam
+
+
+---
+
+## Этап 7: WebSocket (9 файлов) ✅ ЗАВЕРШЁН
+> Real-time подсистема викторин
+
+- [x] **interfaces.go** ✅ HubInterface, MetricsProvider
+- [x] **message_types.go** ✅ QUIZ_START, TOKEN_EXPIRED и др.
+- [x] **client.go** (525 строк) ✅
+  - [x] Добавлена константа `maxBufferWarnings = 3`
+  - [x] Добавлен флаг `debugLogging = false` для production
+  - [x] Удалён закомментированный код, verbose логи в debug check
+- [x] **shard.go** (731 строка) ✅
+  - [x] Удалён неиспользуемый ClientStore interface
+  - [x] Заменены hardcoded maxWarnings на константу
+- [x] **sharded_hub.go** (865 строк) ✅ WorkerPool, шардирование
+- [x] **manager.go** (292 строки) ✅ HandleMessage, BroadcastEventToQuiz
+- [x] **pubsub.go** (691 строка) ✅ RedisPubSub, NoOpPubSub
+- [x] **api.go** ✅ Prometheus metrics, health check
+- [x] **metrics.go** ✅ HubMetrics
+
+---
+
+## Этап 8: Auth Package (2 файла) ✅ ЗАВЕРШЁН
+> Проверка JWT и управления токенами
+
+- [x] **jwt.go** (662 строки) ✅
+  - [x] Multi-key JWT с `kid` header
+  - [x] Pub/Sub синхронизация инвалидаций
+  - [x] Исправлен context в ParseToken
+  - [x] Удалён мёртвый код (min(), commented block)
+  
+- [x] **token_manager.go** (860 строк) ✅
+  - [x] Key rotation (90-дней lifecycle)
+  - [x] CSRF Double Submit Cookie
+  - [x] Session limiting (max 10 tokens)
+  - [x] Cookie security (HttpOnly, Secure, SameSite)
+
+---
+
+## Этап 9: Config и Main (3 файла) ✅ ЗАВЕРШЁН
+> Конфигурация и инициализация приложения
+
+- [x] **config/config.yaml** ✅
+  - [x] Все секции (Server, Database, Redis, JWT, Auth, WebSocket)
+  - [x] Удалён hardcoded пароль БД
+  
+- [x] **internal/config/config.go** (257 строк) ✅
+  - [x] ENV bindings для всех критичных параметров
+  - [x] Логирование только в debug режиме
+  
+- [x] **cmd/api/main.go** (409 строк) ✅
+  - [x] Удалён мёртвый код (~25 строк)
+  - [x] Добавлены ReadTimeout/WriteTimeout
+  - [x] Graceful shutdown с контекстом
+  - [x] Циклическая зависимость решена setter injection
+
+---
+
+## Этап 10: Финальная проверка и DTOs ✅ ЗАВЕРШЁН (аудит)
+> Вспомогательные файлы — всё чисто, исправлений не требуется
+
+- [x] **handler/dto/quiz_dto.go** ✅ Преобразования entity → response
+- [x] **handler/dto/user_dto.go** ✅ Лидерборд DTO
+- [x] **handler/helper/converter.go** ✅ 0-based индексация
+- [x] **internal/pkg/errors/errors.go** ✅ Централизованные ошибки
+- [x] **service/errors.go** ⚠️ Есть дубликаты (техдолг)
+- [x] **pkg/database/postgres.go** ✅ Connection pooling (25 max)
+- [x] **pkg/database/redis.go** ✅ single/sentinel/cluster
+- [x] **Dockerfile** ✅ Multi-stage build
+- [x] **docker-compose.yml** ⚠️ Hardcoded пароль (DEV only)
+- [x] **Makefile** ✅
+- [x] **go.mod** ✅ Go 1.24, актуальные зависимости
+
+---
+
+## 🚀 После ревью: Интеграционное тестирование
+
+### 1. Локальный запуск
+```bash
+# Поднять зависимости
+docker-compose up -d postgres redis
+
+# Запустить API
+go run cmd/api/main.go
+
+# Или через make
+make run
+```
+
+### 2. Тестирование Auth
+- [ ] POST /api/auth/register
+- [ ] POST /api/auth/login
+- [ ] GET /api/auth/csrf
+- [ ] POST /api/auth/refresh
+- [ ] POST /api/auth/logout
+
+### 3. Тестирование Quiz (Admin)
+- [ ] POST /api/quizzes (создание)
+- [ ] POST /api/quizzes/:id/questions
+- [ ] PUT /api/quizzes/:id/schedule
+
+### 4. WebSocket тест
+- [ ] WS /ws с ticket
+- [ ] Подписка на викторину
+- [ ] Отправка ответа
+
+---
+
+## 📝 Примечания
+- Ревью проводится файл за файлом
+- При обнаружении проблем — документируем и исправляем
+- Каждый чеклист-пункт отмечается после проверки

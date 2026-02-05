@@ -1,0 +1,18 @@
+
+
+## Что делать при деплое на VM
+
+1. **Добавить домен VM в CORS и CheckOrigin:**
+   ```go
+   // main.go - CORS AllowOrigins
+   "https://your-vm-domain.com"
+   
+   // ws_handler.go - allowedOrigins
+   "https://your-vm-domain.com"
+   ```
+
+2. **Настроить доверенные прокси (если используете балансировщик):**
+   ```go
+   // main.go - после router := gin.Default()
+   router.SetTrustedProxies([]string{"IP_БАЛАНСИРОВЩИКА"})
+   ```

@@ -77,6 +77,7 @@
 - `POST /api/ent/attempts/start`
 - `POST /api/ent/attempts/{id}/answer`
 - `POST /api/ent/attempts/{id}/finish`
+- `GET /api/ent/attempts/{id}/result`
 - `POST /api/ent/attempts/{id}/action`
 - `GET /api/ent/profile`
 - `GET /api/ent/recommendations`

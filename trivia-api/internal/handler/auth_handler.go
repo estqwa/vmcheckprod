@@ -298,6 +298,8 @@ func (h *AuthHandler) GetMe(c *gin.Context) {
 		"games_played":    user.GamesPlayed,
 		"total_score":     user.TotalScore,
 		"highest_score":   user.HighestScore,
+		"wins_count":      user.WinsCount,
+		"total_prize_won": user.TotalPrizeWon,
 	})
 }
 

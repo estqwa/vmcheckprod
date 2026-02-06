@@ -13,15 +13,16 @@ function QuizLayoutInner({ children }: { children: ReactNode }) {
 
     const quizId = Number(params.id);
 
-    // Connect when entering quiz flow
+    // Connect when entering quiz flow (but not on results page - it uses REST API only)
     useEffect(() => {
-        if (!quizId || isNaN(quizId)) return;
+        const isResultsPage = pathname?.endsWith('/results');
+        if (!quizId || isNaN(quizId) || isResultsPage) return;
 
         // Connect if not connected or connected to different quiz
         if (!isConnected || connectedQuizId !== quizId) {
             connect(quizId);
         }
-    }, [quizId, isConnected, connectedQuizId, connect]);
+    }, [quizId, isConnected, connectedQuizId, connect, pathname]);
 
     // Disconnect only when leaving quiz flow entirely
     useEffect(() => {

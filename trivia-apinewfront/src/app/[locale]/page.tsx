@@ -283,11 +283,7 @@ export default function HomePage() {
                             </div>
 
                             {/* Stats */}
-                            <div className="flex justify-between text-sm text-muted-foreground">
-                                <div className="flex items-center gap-1">
-                                    <span>👥</span>
-                                    <span>{tQuiz('participants', { count: 0 })}</span>
-                                </div>
+                            <div className="flex justify-center text-sm text-muted-foreground">
                                 <div className="flex items-center gap-1">
                                     <span>⏱</span>
                                     <span>{upcomingQuiz.question_count} {tQuiz('question', { current: '', total: '' })}</span>

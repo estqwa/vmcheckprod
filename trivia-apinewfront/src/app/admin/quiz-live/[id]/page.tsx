@@ -116,7 +116,7 @@ function QuizLivePageContent() {
 
                         case 'adaptive:question_stats': {
                             const data = msg.data as AdaptiveQuestionStats;
-                            setRemainingPlayers(data.remaining_players);
+                            setRemainingPlayers(data.passed_count); // passed_count = активные (прошедшие вопрос)
 
                             const stats: QuestionStats = {
                                 questionNumber: data.question_number,

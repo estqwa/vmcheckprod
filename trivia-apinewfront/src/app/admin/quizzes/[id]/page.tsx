@@ -338,6 +338,14 @@ function QuizDetailsContent() {
                                 </Button>
                             </>
                         )}
+                        {/* Live мониторинг — доступен для scheduled и in_progress */}
+                        {(quiz.status === 'scheduled' || quiz.status === 'in_progress') && (
+                            <Link href={`/admin/quiz-live/${quizId}`}>
+                                <Button variant="outline" className="border-green-300 text-green-700 hover:bg-green-50">
+                                    📡 Live мониторинг
+                                </Button>
+                            </Link>
+                        )}
                     </CardContent>
                 </Card>
 

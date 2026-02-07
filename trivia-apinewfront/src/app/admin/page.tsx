@@ -90,6 +90,9 @@ function AdminDashboard() {
                         <Link href="/admin/ads">
                             <Button variant="outline">📺 Реклама</Button>
                         </Link>
+                        <Link href="/admin/question-pool">
+                            <Button variant="outline">📦 Пул вопросов</Button>
+                        </Link>
                         <Link href="/admin/quizzes/new">
                             <Button className="btn-coral">+ Создать викторину</Button>
                         </Link>

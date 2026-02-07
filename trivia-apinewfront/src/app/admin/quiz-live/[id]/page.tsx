@@ -90,6 +90,13 @@ function QuizLivePageContent() {
             ws.onopen = () => {
                 setWsState('connected');
                 console.log('[QuizLive] WebSocket connected');
+
+                // ВАЖНО: подписываемся на конкретный quiz через user:ready
+                ws.send(JSON.stringify({
+                    type: 'user:ready',
+                    data: { quiz_id: quizId }
+                }));
+                console.log('[QuizLive] Subscribed to quiz:', quizId);
             };
 
             ws.onmessage = (event) => {

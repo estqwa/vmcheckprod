@@ -128,8 +128,7 @@ function StatisticsPageContent() {
             <main className="container max-w-5xl mx-auto px-4 py-8">
                 <h2 className="text-2xl font-bold mb-6">📊 Расширенная статистика</h2>
 
-                {/* Summary Cards */}
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
                     <StatCard
                         icon="👥"
                         title="Участников"
@@ -154,6 +153,20 @@ function StatisticsPageContent() {
                         value={stats.avg_response_time_ms > 0 ? `${(stats.avg_response_time_ms / 1000).toFixed(1)}с` : '—'}
                         subtitle="на ответ"
                         color="yellow"
+                    />
+                    <StatCard
+                        icon="📊"
+                        title="Avg Pass Rate"
+                        value={stats.avg_pass_rate > 0 ? `${(stats.avg_pass_rate * 100).toFixed(0)}%` : '—'}
+                        subtitle="среднее прохождение"
+                        color="primary"
+                    />
+                    <StatCard
+                        icon="📦"
+                        title="Из пула"
+                        value={stats.pool_questions_used}
+                        subtitle="вопросов"
+                        color="primary"
                     />
                 </div>
 
@@ -204,6 +217,41 @@ function StatisticsPageContent() {
                     </CardContent>
                 </Card>
 
+                {/* Difficulty Distribution - NEW */}
+                <Card className="card-elevated border-0 rounded-2xl mb-8">
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                            <span className="text-xl">🎯</span>
+                            Распределение сложности
+                        </CardTitle>
+                        <CardDescription>Сколько вопросов каждого уровня сложности</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="grid grid-cols-5 gap-3">
+                            <div className="text-center p-4 rounded-xl bg-green-50">
+                                <p className="text-3xl font-bold text-green-600">{stats.difficulty_distribution?.difficulty_1 || 0}</p>
+                                <p className="text-sm text-muted-foreground">⭐ Очень легко</p>
+                            </div>
+                            <div className="text-center p-4 rounded-xl bg-lime-50">
+                                <p className="text-3xl font-bold text-lime-600">{stats.difficulty_distribution?.difficulty_2 || 0}</p>
+                                <p className="text-sm text-muted-foreground">⭐⭐ Легко</p>
+                            </div>
+                            <div className="text-center p-4 rounded-xl bg-yellow-50">
+                                <p className="text-3xl font-bold text-yellow-600">{stats.difficulty_distribution?.difficulty_3 || 0}</p>
+                                <p className="text-sm text-muted-foreground">⭐⭐⭐ Средне</p>
+                            </div>
+                            <div className="text-center p-4 rounded-xl bg-orange-50">
+                                <p className="text-3xl font-bold text-orange-600">{stats.difficulty_distribution?.difficulty_4 || 0}</p>
+                                <p className="text-sm text-muted-foreground">⭐⭐⭐⭐ Сложно</p>
+                            </div>
+                            <div className="text-center p-4 rounded-xl bg-red-50">
+                                <p className="text-3xl font-bold text-red-600">{stats.difficulty_distribution?.difficulty_5 || 0}</p>
+                                <p className="text-sm text-muted-foreground">⭐⭐⭐⭐⭐ Очень сложно</p>
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
+
                 {/* Eliminations by Question */}
                 <Card className="card-elevated border-0 rounded-2xl">
                     <CardHeader>
@@ -221,11 +269,21 @@ function StatisticsPageContent() {
                                 {stats.eliminations_by_question.map((q) => {
                                     const maxElim = Math.max(...stats.eliminations_by_question.map(e => e.eliminated_count), 1);
                                     const barWidth = (q.eliminated_count / maxElim) * 100;
+                                    const difficultyColors: Record<number, string> = {
+                                        1: 'bg-green-100 text-green-700',
+                                        2: 'bg-lime-100 text-lime-700',
+                                        3: 'bg-yellow-100 text-yellow-700',
+                                        4: 'bg-orange-100 text-orange-700',
+                                        5: 'bg-red-100 text-red-700',
+                                    };
 
                                     return (
                                         <div key={q.question_id} className="flex items-center gap-4">
-                                            <div className="w-20 text-sm font-medium">
+                                            <div className="w-24 text-sm font-medium flex items-center gap-2">
                                                 Вопрос {q.question_number}
+                                                <span className={`text-xs px-1.5 py-0.5 rounded ${difficultyColors[q.difficulty] || 'bg-gray-100'}`}>
+                                                    {q.difficulty || '?'}
+                                                </span>
                                             </div>
                                             <div className="flex-1 h-8 bg-secondary/30 rounded-full overflow-hidden relative">
                                                 <div
@@ -236,7 +294,13 @@ function StatisticsPageContent() {
                                                     {q.eliminated_count} выбыло
                                                 </span>
                                             </div>
-                                            <div className="w-32 text-right text-xs text-muted-foreground">
+                                            <div className="w-20 text-center">
+                                                <span className={`text-sm font-medium ${q.pass_rate >= 0.7 ? 'text-green-600' : q.pass_rate >= 0.5 ? 'text-yellow-600' : 'text-red-600'}`}>
+                                                    {q.pass_rate > 0 ? `${(q.pass_rate * 100).toFixed(0)}%` : '—'}
+                                                </span>
+                                                <p className="text-xs text-muted-foreground">pass rate</p>
+                                            </div>
+                                            <div className="w-28 text-right text-xs text-muted-foreground">
                                                 <span className="text-orange-600">⏰ {q.by_timeout}</span>
                                                 {' / '}
                                                 <span className="text-red-600">❌ {q.by_wrong_answer}</span>

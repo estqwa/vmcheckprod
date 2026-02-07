@@ -30,6 +30,7 @@ interface QuestionFormData {
     correct_option: number;
     time_limit_sec: number;
     point_value: number;
+    difficulty: number; // Уровень сложности 1-5
 }
 
 function QuizDetailsContent() {
@@ -126,8 +127,9 @@ function QuizDetailsContent() {
             options: ['', '', '', ''],
             options_kk: ['', '', '', ''],
             correct_option: 0,
-            time_limit_sec: 15,
+            time_limit_sec: 10,
             point_value: 1,
+            difficulty: 3, // По умолчанию Medium
         }]);
     };
 
@@ -147,6 +149,8 @@ function QuizDetailsContent() {
             updated[index].time_limit_sec = value as number;
         } else if (field === 'point_value') {
             updated[index].point_value = value as number;
+        } else if (field === 'difficulty') {
+            updated[index].difficulty = value as number;
         }
         setQuestions(updated);
     };
@@ -421,7 +425,7 @@ function QuizDetailsContent() {
                                             ))}
                                         </div>
                                     </div>
-                                    <div className="grid grid-cols-3 gap-4">
+                                    <div className="grid grid-cols-4 gap-4">
                                         <div>
                                             <Label>Верный ответ (0-3)</Label>
                                             <Input type="number" min={0} max={3} value={q.correct_option} onChange={(e) => updateQuestion(qIndex, 'correct_option', parseInt(e.target.value))} className="h-11" />
@@ -433,6 +437,20 @@ function QuizDetailsContent() {
                                         <div>
                                             <Label>Очки</Label>
                                             <Input type="number" min={1} value={q.point_value} onChange={(e) => updateQuestion(qIndex, 'point_value', parseInt(e.target.value))} className="h-11" />
+                                        </div>
+                                        <div>
+                                            <Label>Сложность</Label>
+                                            <select
+                                                value={q.difficulty}
+                                                onChange={(e) => updateQuestion(qIndex, 'difficulty', parseInt(e.target.value))}
+                                                className="w-full h-11 px-3 rounded-md border border-input bg-background"
+                                            >
+                                                <option value={1}>1 - Очень легко</option>
+                                                <option value={2}>2 - Легко</option>
+                                                <option value={3}>3 - Средне</option>
+                                                <option value={4}>4 - Сложно</option>
+                                                <option value={5}>5 - Очень сложно</option>
+                                            </select>
                                         </div>
                                     </div>
                                 </div>

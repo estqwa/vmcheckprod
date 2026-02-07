@@ -16,3 +16,18 @@
    // main.go - после router := gin.Default()
    router.SetTrustedProxies([]string{"IP_БАЛАНСИРОВЩИКА"})
    ```
+
+
+
+
+Хороший вопрос! Смотрю как устроен существующий 
+AddQuestionsRequest
+ и что используется в entity:
+
+В существующем AddQuestionsRequest (для добавления вопросов к конкретной викторине) эти поля обязательные:
+
+time_limit_sec — required, min=5, max=60
+point_value — required, min=1, max=100
+В моём новом BulkUploadQuestionPoolRequest я сделал их опциональными с дефолтами (20 сек, 10 очков).
+
+Вопрос: Хотите сделать их обязательными как в стандартном API, или оставить опциональными с дефолтами для упрощения bulk-загрузки?

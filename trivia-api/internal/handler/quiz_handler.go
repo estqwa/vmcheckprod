@@ -567,6 +567,82 @@ func (h *QuizHandler) GetQuizStatistics(c *gin.Context) {
 	c.JSON(http.StatusOK, stats)
 }
 
+// BulkUploadQuestionPoolRequest представляет запрос на массовую загрузку вопросов
+type BulkUploadQuestionPoolRequest struct {
+	Questions []struct {
+		Text          string   `json:"text" binding:"required,min=3,max=500"`
+		TextKK        string   `json:"text_kk,omitempty"`
+		Options       []string `json:"options" binding:"required,min=2,max=5"`
+		OptionsKK     []string `json:"options_kk,omitempty"`
+		CorrectOption int      `json:"correct_option" binding:"required,min=0"`
+		Difficulty    int      `json:"difficulty" binding:"required,min=1,max=5"` // ОБЯЗАТЕЛЬНОЕ поле
+		TimeLimitSec  int      `json:"time_limit_sec,omitempty"`                  // По умолчанию 20 сек
+		PointValue    int      `json:"point_value,omitempty"`                     // По умолчанию 10
+	} `json:"questions" binding:"required,min=1"`
+}
+
+// BulkUploadQuestionPool загружает вопросы в пул для адаптивной системы
+// POST /api/admin/question-pool
+func (h *QuizHandler) BulkUploadQuestionPool(c *gin.Context) {
+	var req BulkUploadQuestionPoolRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Преобразуем данные в формат entity.Question
+	questions := make([]entity.Question, 0, len(req.Questions))
+	for i, q := range req.Questions {
+		if q.CorrectOption < 0 || q.CorrectOption >= len(q.Options) {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error": fmt.Sprintf("invalid correct_option index %d for question #%d", q.CorrectOption, i+1),
+			})
+			return
+		}
+
+		// Дефолтные значения
+		timeLimitSec := q.TimeLimitSec
+		if timeLimitSec == 0 {
+			timeLimitSec = 10 // 10 секунд по умолчанию
+		}
+		pointValue := q.PointValue
+		if pointValue == 0 {
+			pointValue = 1 // 1 очко по умолчанию
+		}
+
+		questions = append(questions, entity.Question{
+			QuizID:        0, // Вопросы в пуле не привязаны к викторине
+			Text:          q.Text,
+			TextKK:        q.TextKK,
+			Options:       entity.StringArray(q.Options),
+			OptionsKK:     entity.StringArray(q.OptionsKK),
+			CorrectOption: q.CorrectOption,
+			Difficulty:    q.Difficulty,
+			IsUsed:        false, // Новые вопросы не использованы
+			TimeLimitSec:  timeLimitSec,
+			PointValue:    pointValue,
+		})
+	}
+
+	// Сохраняем через сервис
+	if err := h.quizService.BulkUploadQuestionPool(questions); err != nil {
+		h.handleQuizError(c, err)
+		return
+	}
+
+	// Подсчитываем вопросы по сложности для ответа
+	difficultyCount := make(map[int]int)
+	for _, q := range questions {
+		difficultyCount[q.Difficulty]++
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message":       "Questions uploaded successfully",
+		"total":         len(questions),
+		"by_difficulty": difficultyCount,
+	})
+}
+
 // handleQuizError обрабатывает ошибки от сервисов викторин и отправляет соответствующий HTTP ответ
 func (h *QuizHandler) handleQuizError(c *gin.Context, err error) {
 	if errors.Is(err, apperrors.ErrNotFound) {

@@ -13,4 +13,9 @@ type QuestionRepository interface {
 	Update(question *entity.Question) error
 	Delete(id uint) error
 	GetRandomQuestions(limit int) ([]entity.Question, error)
+
+	// Методы для адаптивной системы сложности
+	GetRandomByDifficulty(difficulty int, limit int, excludeIDs []uint) ([]entity.Question, error)
+	MarkAsUsed(questionIDs []uint) error
+	CountByDifficulty(difficulty int) (int64, error)
 }

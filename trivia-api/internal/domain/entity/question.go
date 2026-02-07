@@ -53,6 +53,8 @@ type Question struct {
 	CorrectOption int         `gorm:"not null" json:"-"`                      // Скрыто от клиента
 	TimeLimitSec  int         `gorm:"not null;default:10" json:"time_limit_sec"`
 	PointValue    int         `gorm:"not null;default:10" json:"point_value"`
+	Difficulty    int         `gorm:"not null;default:3" json:"difficulty"`  // 1-5: very_easy to very_hard
+	IsUsed        bool        `gorm:"not null;default:false" json:"-"`       // Исключён из автовыбора после использования
 	CreatedAt     time.Time   `json:"created_at"`
 	UpdatedAt     time.Time   `json:"updated_at"`
 }

@@ -176,6 +176,12 @@ func (ap *AnswerProcessor) ProcessAnswer(
 		log.Printf("[AnswerProcessor] WARNING: Не удалось установить флаг ответа в Redis для user #%d, question #%d: %v", userID, questionID, errCache)
 	}
 
+	// === ЗАПИСЫВАЕМ СТАТИСТИКУ ДЛЯ АДАПТИВНОЙ СИСТЕМЫ ===
+	// questionNumber передаётся через quizState.CurrentQuestionNumber
+	if quizState.CurrentQuestionNumber > 0 {
+		ap.recordAdaptiveStats(quizID, quizState.CurrentQuestionNumber, !userShouldBeEliminated)
+	}
+
 	// Отправляем результат пользователю
 	answerResultEvent := map[string]interface{}{
 		"question_id":         questionID,
@@ -259,6 +265,12 @@ func (ap *AnswerProcessor) HandleReadyEvent(ctx context.Context, userID uint, qu
 
 // Новый вспомогательный метод для отправки уведомления о выбывании
 func (ap *AnswerProcessor) sendEliminationNotification(userID uint, quizID uint, reason string) {
+	// Nil-check для безопасности в тестах
+	if ap.deps.WSManager == nil {
+		log.Printf("[AnswerProcessor] WARNING: WSManager is nil, skipping elimination notification for user #%d", userID)
+		return
+	}
+
 	eliminationEvent := map[string]interface{}{
 		"quiz_id": quizID,
 		"user_id": userID, // Включаем UserID, чтобы клиент мог это проверить
@@ -313,4 +325,24 @@ func (ap *AnswerProcessor) GetUserQuizStatus(ctx context.Context, userID uint, q
 	}
 
 	return status, nil
+}
+
+// recordAdaptiveStats записывает статистику ответа для адаптивной системы сложности
+// questionNumber — номер вопроса (1-indexed)
+// passed — true если пользователь прошёл вопрос (правильно + в срок)
+func (ap *AnswerProcessor) recordAdaptiveStats(quizID uint, questionNumber int, passed bool) {
+	totalKey := fmt.Sprintf("quiz:%d:q%d:total", quizID, questionNumber)
+	passedKey := fmt.Sprintf("quiz:%d:q%d:passed", quizID, questionNumber)
+
+	// Инкрементируем total
+	if _, err := ap.deps.CacheRepo.Increment(totalKey); err != nil {
+		log.Printf("[AnswerProcessor] WARNING: Не удалось инкрементировать total для Q%d: %v", questionNumber, err)
+	}
+
+	// Инкрементируем passed если прошёл
+	if passed {
+		if _, err := ap.deps.CacheRepo.Increment(passedKey); err != nil {
+			log.Printf("[AnswerProcessor] WARNING: Не удалось инкрементировать passed для Q%d: %v", questionNumber, err)
+		}
+	}
 }

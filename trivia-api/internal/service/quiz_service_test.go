@@ -66,6 +66,24 @@ func (m *MockQuestionRepoForQuizService) GetRandomQuestions(limit int) ([]entity
 	return args.Get(0).([]entity.Question), args.Error(1)
 }
 
+func (m *MockQuestionRepoForQuizService) GetRandomByDifficulty(difficulty int, limit int, excludeIDs []uint) ([]entity.Question, error) {
+	args := m.Called(difficulty, limit, excludeIDs)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]entity.Question), args.Error(1)
+}
+
+func (m *MockQuestionRepoForQuizService) MarkAsUsed(questionIDs []uint) error {
+	args := m.Called(questionIDs)
+	return args.Error(0)
+}
+
+func (m *MockQuestionRepoForQuizService) CountByDifficulty(difficulty int) (int64, error) {
+	args := m.Called(difficulty)
+	return args.Get(0).(int64), args.Error(1)
+}
+
 // ============================================================================
 // createTestQuizService создаёт QuizService для тестирования
 // ============================================================================

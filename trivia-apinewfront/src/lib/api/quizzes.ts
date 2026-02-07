@@ -99,6 +99,7 @@ interface QuestionData {
     correct_option: number;
     time_limit_sec: number;
     point_value: number;
+    difficulty?: number; // Уровень сложности 1-5 (опционально для обратной совместимости)
 }
 
 /**
@@ -145,6 +146,9 @@ export interface QuestionElimination {
     by_timeout: number;
     by_wrong_answer: number;
     avg_response_ms: number;
+    difficulty: number;      // NEW: сложность вопроса (1-5)
+    pass_rate: number;       // NEW: % прошедших (0-1)
+    total_answers: number;   // NEW: всего ответов
 }
 
 export interface EliminationReasons {
@@ -152,6 +156,14 @@ export interface EliminationReasons {
     wrong_answer: number;
     disconnected: number;
     other: number;
+}
+
+export interface DifficultyDistribution {
+    difficulty_1: number;
+    difficulty_2: number;
+    difficulty_3: number;
+    difficulty_4: number;
+    difficulty_5: number;
 }
 
 export interface QuizStatistics {
@@ -163,6 +175,9 @@ export interface QuizStatistics {
     avg_correct_answers: number;
     eliminations_by_question: QuestionElimination[];
     elimination_reasons: EliminationReasons;
+    difficulty_distribution: DifficultyDistribution; // NEW
+    pool_questions_used: number;                     // NEW
+    avg_pass_rate: number;                           // NEW
 }
 
 /**

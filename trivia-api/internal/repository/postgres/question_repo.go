@@ -109,3 +109,37 @@ func (r *QuestionRepo) Update(question *entity.Question) error {
 func (r *QuestionRepo) Delete(id uint) error {
 	return r.db.Delete(&entity.Question{}, id).Error
 }
+
+// GetRandomByDifficulty возвращает случайные неиспользованные вопросы заданной сложности
+func (r *QuestionRepo) GetRandomByDifficulty(difficulty int, limit int, excludeIDs []uint) ([]entity.Question, error) {
+	var questions []entity.Question
+
+	query := r.db.Where("difficulty = ? AND is_used = ?", difficulty, false)
+
+	// Исключаем уже использованные в текущей викторине вопросы
+	if len(excludeIDs) > 0 {
+		query = query.Where("id NOT IN ?", excludeIDs)
+	}
+
+	err := query.Order("RANDOM()").Limit(limit).Find(&questions).Error
+	return questions, err
+}
+
+// MarkAsUsed помечает вопросы как использованные (исключаются из будущего автовыбора)
+func (r *QuestionRepo) MarkAsUsed(questionIDs []uint) error {
+	if len(questionIDs) == 0 {
+		return nil
+	}
+	return r.db.Model(&entity.Question{}).
+		Where("id IN ?", questionIDs).
+		Update("is_used", true).Error
+}
+
+// CountByDifficulty возвращает количество неиспользованных вопросов заданной сложности
+func (r *QuestionRepo) CountByDifficulty(difficulty int) (int64, error) {
+	var count int64
+	err := r.db.Model(&entity.Question{}).
+		Where("difficulty = ? AND is_used = ?", difficulty, false).
+		Count(&count).Error
+	return count, err
+}

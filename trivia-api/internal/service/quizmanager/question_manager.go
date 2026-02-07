@@ -20,16 +20,23 @@ type QuestionManager struct {
 	// Зависимости
 	deps *Dependencies
 
+	// Адаптивный селектор вопросов
+	adaptiveSelector *AdaptiveQuestionSelector
+
 	// Канал для сигнализации о завершении вопроса
 	questionDoneCh chan struct{}
 }
 
 // NewQuestionManager создает новый менеджер вопросов
 func NewQuestionManager(config *Config, deps *Dependencies) *QuestionManager {
+	// Создаём конфигурацию адаптивной сложности
+	difficultyConfig := DefaultDifficultyConfig()
+
 	return &QuestionManager{
-		config:         config,
-		deps:           deps,
-		questionDoneCh: make(chan struct{}, 1),
+		config:           config,
+		deps:             deps,
+		adaptiveSelector: NewAdaptiveQuestionSelector(difficultyConfig, deps),
+		questionDoneCh:   make(chan struct{}, 1),
 	}
 }
 
@@ -136,10 +143,11 @@ func (qm *QuestionManager) AutoFillQuizQuestions(ctx context.Context, quizID uin
 	return nil
 }
 
-// RunQuizQuestions последовательно отправляет вопросы и управляет таймерами
+// RunQuizQuestions последовательно выбирает и отправляет вопросы с адаптивной сложностью
 func (qm *QuestionManager) RunQuizQuestions(ctx context.Context, quizState *ActiveQuizState) error {
-	log.Printf("[QuestionManager] Начинаю процесс отправки вопросов для викторины #%d. Всего вопросов: %d",
-		quizState.Quiz.ID, len(quizState.Quiz.Questions))
+	totalQuestions := qm.config.MaxQuestionsPerQuiz
+	log.Printf("[QuestionManager] Начинаю адаптивный процесс отправки вопросов для викторины #%d. Всего вопросов: %d",
+		quizState.Quiz.ID, totalQuestions)
 
 	// Создаем контекст для этой конкретной викторины
 	quizCtx, quizCancel := context.WithCancel(ctx)
@@ -148,53 +156,58 @@ func (qm *QuestionManager) RunQuizQuestions(ctx context.Context, quizState *Acti
 	// WaitGroup для синхронизации всех таймеров вопросов
 	var timerWg sync.WaitGroup
 
+	// Список ID использованных вопросов в этой викторине
+	usedQuestionIDs := make([]uint, 0, totalQuestions)
+
 	// NOTE: quiz:start уже отправлен Scheduler.triggerQuizStart() перед вызовом QuestionManager.
 	// Здесь мы сразу начинаем отправку вопросов.
 
-	for i, question := range quizState.Quiz.Questions {
+	for i := 1; i <= totalQuestions; i++ {
+		// === АДАПТИВНЫЙ ВЫБОР ВОПРОСА ===
+		question, err := qm.adaptiveSelector.SelectNextQuestion(quizCtx, quizState.Quiz.ID, i, usedQuestionIDs)
+		if err != nil {
+			log.Printf("[QuestionManager] КРИТИЧЕСКАЯ ОШИБКА: Не удалось выбрать вопрос #%d для викторины #%d: %v. Завершаем викторину.",
+				i, quizState.Quiz.ID, err)
+			break // Завершаем если нет вопросов
+		}
+
+		// Добавляем в список использованных
+		usedQuestionIDs = append(usedQuestionIDs, question.ID)
+
 		// Устанавливаем текущий вопрос в состоянии
-		quizState.SetCurrentQuestion(&question, i+1)
+		quizState.SetCurrentQuestion(question, i)
 
 		// Добавляем задержку перед отправкой вопроса для синхронизации с фронтендом
 		time.Sleep(time.Duration(qm.config.QuestionDelayMs) * time.Millisecond)
 
 		// Получить точное время отправки вопроса
 		sendTimeMs := time.Now().UnixNano() / int64(time.Millisecond)
-
-		// ===>>> ДОБАВИТЬ ВЫЗОВ <<<===
 		quizState.SetCurrentQuestionStartTime(sendTimeMs)
-		// ===>>> КОНЕЦ ИЗМЕНЕНИЯ <<<===
 
 		// Отправляем вопрос всем участникам
 		// Включаем оба языка — Frontend выбирает нужный по настройке пользователя
 		questionEvent := map[string]interface{}{
 			"question_id":      question.ID,
 			"quiz_id":          quizState.Quiz.ID,
-			"number":           i + 1,
+			"number":           i,
 			"text":             question.Text,
 			"text_kk":          question.TextKK, // Казахский текст (может быть пустым)
 			"options":          helper.ConvertOptionsToObjects(question.Options),
 			"options_kk":       helper.ConvertOptionsToObjects(question.OptionsKK), // Казахские варианты
 			"time_limit":       question.TimeLimitSec,
-			"total_questions":  len(quizState.Quiz.Questions),
+			"total_questions":  totalQuestions,
 			"start_time":       sendTimeMs,
 			"server_timestamp": sendTimeMs,
 		}
 
 		// Отправка с повторными попытками при ошибке
-		// FIX: Изменено с фатальной ошибки на предупреждение.
-		// Раньше: ошибка WS → вся викторина останавливалась для всех.
-		// Теперь: логируем ошибку, но продолжаем — "best effort" подход.
-		// Клиенты с проблемами могут переподключиться через resync.
 		if err := qm.sendEventWithRetry(quizCtx, quizState.Quiz.ID, "quiz:question", questionEvent); err != nil {
 			log.Printf("[QuestionManager] WARNING: Не удалось отправить вопрос #%d для викторины #%d: %v. Продолжаем викторину.",
 				question.ID, quizState.Quiz.ID, err)
-			// НЕ возвращаем ошибку — викторина продолжается
 		}
 
 		// Сохраняем время начала вопроса для подсчета времени ответа
 		questionStartKey := fmt.Sprintf("question:%d:start_time", question.ID)
-		// Логируем ошибку Redis, но не прерываем викторину
 		if err := qm.deps.CacheRepo.Set(questionStartKey, fmt.Sprintf("%d", sendTimeMs), time.Hour); err != nil {
 			log.Printf("[QuestionManager] WARNING: Не удалось сохранить время начала вопроса #%d в Redis: %v", question.ID, err)
 		}
@@ -203,103 +216,26 @@ func (qm *QuestionManager) RunQuizQuestions(ctx context.Context, quizState *Acti
 		timeLimit := time.Duration(question.TimeLimitSec) * time.Second
 		endTime := time.Now().Add(timeLimit)
 		timerWg.Add(1)
-		go qm.runQuestionTimer(quizCtx, quizState.Quiz, &question, i+1, endTime, &timerWg)
+		go qm.runQuestionTimer(quizCtx, quizState.Quiz, question, i, endTime, &timerWg)
 
 		// Ждем завершения времени на вопрос
 		log.Printf("[QuestionManager][DEBUG] Викторина #%d, Вопрос #%d: Ожидание завершения таймера (%v)...", quizState.Quiz.ID, question.ID, timeLimit)
 		select {
 		case <-time.After(timeLimit):
-			// Продолжаем
 			log.Printf("[QuestionManager] Викторина #%d, Вопрос #%d (%d из %d): Время истекло. Начинаем проверку не ответивших.",
-				quizState.Quiz.ID, question.ID, i+1, len(quizState.Quiz.Questions))
+				quizState.Quiz.ID, question.ID, i, totalQuestions)
 		case <-quizCtx.Done():
 			log.Printf("[QuestionManager] Процесс викторины #%d был прерван на вопросе #%d",
-				quizState.Quiz.ID, i+1)
+				quizState.Quiz.ID, i)
 			return nil
 		}
 
-		// ===>>> ЛОГИКА ВЫБЫВАНИЯ ПРИ ОТСУТСТВИИ ОТВЕТА <<<===
-		// ZOMBIE FIX: Используем Redis Set вместо WebSocket sync.Map
-		// Это гарантирует, что даже отключенные игроки будут проверены на выбывание
-		participantsKey := fmt.Sprintf("quiz:%d:participants", quizState.Quiz.ID)
-		log.Printf("[QuestionManager][DEBUG] Викторина #%d, Вопрос #%d: Получение участников из Redis Set %s...", quizState.Quiz.ID, question.ID, participantsKey)
+		// === ЛОГИКА ВЫБЫВАНИЯ ПРИ ОТСУТСТВИИ ОТВЕТА ===
+		qm.processNoAnswerEliminations(quizCtx, quizState, question, i)
 
-		participantStrings, err := qm.deps.CacheRepo.SMembers(participantsKey)
-		if err != nil {
-			log.Printf("[QuestionManager] WARNING: Не удалось получить список участников из Redis для викторины #%d: %v", quizState.Quiz.ID, err)
-		} else {
-			log.Printf("[QuestionManager][DEBUG] Викторина #%d, Вопрос #%d: SMembers вернул %d участников", quizState.Quiz.ID, question.ID, len(participantStrings))
-
-			// Для каждого участника (из Redis Set, а не из WebSocket!) проверяем, ответил ли он
-			for _, userIDStr := range participantStrings {
-				userID, parseErr := strconv.ParseUint(userIDStr, 10, 64)
-				if parseErr != nil {
-					log.Printf("[QuestionManager][WARN] Не удалось распарсить userID '%s': %v", userIDStr, parseErr)
-					continue
-				}
-
-				answerKey := fmt.Sprintf("quiz:%d:user:%d:question:%d", quizState.Quiz.ID, userID, question.ID)
-				eliminationKey := fmt.Sprintf("quiz:%d:eliminated:%d", quizState.Quiz.ID, userID)
-
-				log.Printf("[QuestionManager][DEBUG] Викторина #%d, Вопрос #%d: Проверка ответа для User #%d (Ключ: %s)", quizState.Quiz.ID, question.ID, userID, answerKey)
-				answered, existsErr := qm.deps.CacheRepo.Exists(answerKey)
-				if existsErr != nil {
-					log.Printf("[QuestionManager][WARN] Ошибка Redis при проверке ключа ответа %s: %v", answerKey, existsErr)
-				}
-
-				if !answered {
-					// Пользователь не ответил вовремя, проверяем, не выбыл ли он УЖЕ по другой причине
-					log.Printf("[QuestionManager][DEBUG] Викторина #%d, Вопрос #%d: User #%d НЕ ответил. Проверка ключа выбывания %s...", quizState.Quiz.ID, question.ID, userID, eliminationKey)
-					alreadyEliminated, elimExistsErr := qm.deps.CacheRepo.Exists(eliminationKey)
-					if elimExistsErr != nil {
-						log.Printf("[QuestionManager][WARN] Ошибка Redis при проверке ключа выбывания %s: %v", eliminationKey, elimExistsErr)
-					}
-
-					if !alreadyEliminated {
-						// Пользователь активен, но не ответил -> выбывание
-						eliminationReason := "no_answer_timeout"
-						log.Printf("[QuestionManager] Пользователь #%d выбывает из викторины #%d. Причина: %s (Вопрос #%d). Установка ключа %s...", userID, quizState.Quiz.ID, eliminationReason, question.ID, eliminationKey)
-
-						// === СОХРАНЯЕМ UserAnswer В БД ДЛЯ СТАТИСТИКИ ===
-						// Это необходимо для корректного расчёта elimination_reasons в CalculateQuizStatistics
-						userAnswer := &entity.UserAnswer{
-							UserID:            uint(userID),
-							QuizID:            quizState.Quiz.ID,
-							QuestionID:        question.ID,
-							SelectedOption:    -1, // -1 означает "не ответил"
-							IsCorrect:         false,
-							ResponseTimeMs:    0,
-							Score:             0,
-							IsEliminated:      true,
-							EliminationReason: eliminationReason,
-						}
-						if err := qm.deps.ResultRepo.SaveUserAnswer(userAnswer); err != nil {
-							log.Printf("[QuestionManager] WARNING: Не удалось сохранить user_answer для таймаута User #%d: %v", userID, err)
-							// Продолжаем — Redis ключ всё равно нужно установить
-						} else {
-							log.Printf("[QuestionManager][DEBUG] Сохранён user_answer для таймаута User #%d на вопрос #%d", userID, question.ID)
-						}
-
-						// Устанавливаем статус выбывшего в Redis
-						if errSet := qm.deps.CacheRepo.Set(eliminationKey, "1", 24*time.Hour); errSet != nil {
-							log.Printf("[QuestionManager] WARNING: Не удалось установить ключ выбывания %s в Redis: %v", eliminationKey, errSet)
-						} else {
-							log.Printf("[QuestionManager][DEBUG] Успешно установлен ключ выбывания %s для User #%d", eliminationKey, userID)
-						}
-
-						// Отправляем уведомление о выбывании
-						qm.sendEliminationNotification(uint(userID), quizState.Quiz.ID, eliminationReason)
-
-
-					} else {
-						log.Printf("[QuestionManager][DEBUG] Викторина #%d, Вопрос #%d: User #%d не ответил, но УЖЕ был выбывший (ключ %s существует).", quizState.Quiz.ID, question.ID, userID, eliminationKey)
-					}
-				} else {
-					log.Printf("[QuestionManager][DEBUG] Викторина #%d, Вопрос #%d: User #%d УСПЕЛ ответить (ключ %s существует).", quizState.Quiz.ID, question.ID, userID, answerKey)
-				}
-			}
-		}
-		// ===>>> КОНЕЦ ЛОГИКИ ВЫБЫВАНИЯ <<<===
+		// === ОТПРАВКА REALTIME СТАТИСТИКИ АДАПТИВНОЙ СИСТЕМЫ ===
+		remainingPlayers := qm.deps.WSManager.GetSubscriberCount(quizState.Quiz.ID)
+		qm.sendAdaptiveQuestionStats(quizCtx, quizState.Quiz.ID, i, question.Difficulty, remainingPlayers)
 
 		// Добавляем задержку перед отправкой правильного ответа
 		time.Sleep(time.Duration(qm.config.AnswerRevealDelayMs) * time.Millisecond)
@@ -310,66 +246,32 @@ func (qm *QuestionManager) RunQuizQuestions(ctx context.Context, quizState *Acti
 			"question_id":    question.ID,
 			"correct_option": question.CorrectOption,
 		}
-
-		// Отправка с повторными попытками
-		// Логируем ошибку, но не прерываем викторину, т.к. ответ уже не критичен
 		if err := qm.sendEventWithRetry(quizCtx, quizState.Quiz.ID, "quiz:answer_reveal", revealEvent); err != nil {
 			log.Printf("[QuestionManager] WARNING: Не удалось отправить ответ на вопрос #%d: %v", question.ID, err)
 		}
 
 		// === РЕКЛАМНЫЙ БЛОК ===
-		// Проверяем, есть ли рекламный слот после этого вопроса
-		if qm.deps.QuizAdSlotRepo != nil {
-			slot, slotErr := qm.deps.QuizAdSlotRepo.GetByQuizAndQuestionAfter(quizState.Quiz.ID, i+1)
-			if slotErr != nil {
-				log.Printf("[QuestionManager] WARNING: Ошибка получения рекламного слота для вопроса %d: %v", i+1, slotErr)
-			} else if slot != nil && slot.IsActive && slot.AdAsset != nil {
-				log.Printf("[QuestionManager] Показ рекламы #%d после вопроса %d (длительность: %d сек)",
-					slot.AdAsset.ID, i+1, slot.AdAsset.DurationSec)
+		qm.processAdBreak(quizCtx, quizState, i, totalQuestions)
 
-				// Отправляем событие начала рекламы
-				adEvent := map[string]interface{}{
-					"quiz_id":      quizState.Quiz.ID,
-					"media_type":   slot.AdAsset.MediaType,
-					"media_url":    slot.AdAsset.URL,
-					"duration_sec": slot.AdAsset.DurationSec,
-				}
-				if err := qm.sendEventWithRetry(quizCtx, quizState.Quiz.ID, "quiz:ad_break", adEvent); err != nil {
-					log.Printf("[QuestionManager] WARNING: Не удалось отправить quiz:ad_break: %v", err)
-				}
-
-				// Ждём заданное время показа рекламы
-				adDuration := time.Duration(slot.AdAsset.DurationSec) * time.Second
-				select {
-				case <-time.After(adDuration):
-					log.Printf("[QuestionManager] Реклама завершена, продолжаем викторину")
-				case <-quizCtx.Done():
-					return nil
-				}
-
-				// Отправляем событие окончания рекламы
-				adEndEvent := map[string]interface{}{
-					"quiz_id": quizState.Quiz.ID,
-				}
-				if err := qm.sendEventWithRetry(quizCtx, quizState.Quiz.ID, "quiz:ad_break_end", adEndEvent); err != nil {
-					log.Printf("[QuestionManager] WARNING: Не удалось отправить quiz:ad_break_end: %v", err)
-				}
-			}
-		}
-		// === КОНЕЦ РЕКЛАМНОГО БЛОКА ===
-
-		// Увеличиваем паузу между вопросами
-		if i < len(quizState.Quiz.Questions)-1 {
+		// Пауза между вопросами
+		if i < totalQuestions {
 			pauseTime := time.Duration(qm.config.InterQuestionDelayMs) * time.Millisecond
-			log.Printf("[QuestionManager] Пауза %v между вопросами %d и %d",
-				pauseTime, i+1, i+2)
-
+			log.Printf("[QuestionManager] Пауза %v между вопросами %d и %d", pauseTime, i, i+1)
 			select {
 			case <-time.After(pauseTime):
 				// Продолжаем
 			case <-quizCtx.Done():
 				return nil
 			}
+		}
+	}
+
+	// === ПОМЕЧАЕМ ВОПРОСЫ КАК ИСПОЛЬЗОВАННЫЕ ===
+	if len(usedQuestionIDs) > 0 {
+		if err := qm.deps.QuestionRepo.MarkAsUsed(usedQuestionIDs); err != nil {
+			log.Printf("[QuestionManager] WARNING: Не удалось пометить вопросы как использованные: %v", err)
+		} else {
+			log.Printf("[QuestionManager] Помечено %d вопросов как использованные", len(usedQuestionIDs))
 		}
 	}
 
@@ -388,6 +290,143 @@ func (qm *QuestionManager) RunQuizQuestions(ctx context.Context, quizState *Acti
 	}
 
 	return nil
+}
+
+// processNoAnswerEliminations обрабатывает выбывание игроков, не ответивших на вопрос
+func (qm *QuestionManager) processNoAnswerEliminations(ctx context.Context, quizState *ActiveQuizState, question *entity.Question, questionNumber int) {
+	participantsKey := fmt.Sprintf("quiz:%d:participants", quizState.Quiz.ID)
+	log.Printf("[QuestionManager][DEBUG] Викторина #%d, Вопрос #%d: Получение участников из Redis Set %s...",
+		quizState.Quiz.ID, question.ID, participantsKey)
+
+	participantStrings, err := qm.deps.CacheRepo.SMembers(participantsKey)
+	if err != nil {
+		log.Printf("[QuestionManager] WARNING: Не удалось получить список участников из Redis для викторины #%d: %v",
+			quizState.Quiz.ID, err)
+		return
+	}
+
+	log.Printf("[QuestionManager][DEBUG] Викторина #%d, Вопрос #%d: SMembers вернул %d участников",
+		quizState.Quiz.ID, question.ID, len(participantStrings))
+
+	for _, userIDStr := range participantStrings {
+		userID, parseErr := strconv.ParseUint(userIDStr, 10, 64)
+		if parseErr != nil {
+			log.Printf("[QuestionManager][WARN] Не удалось распарсить userID '%s': %v", userIDStr, parseErr)
+			continue
+		}
+
+		answerKey := fmt.Sprintf("quiz:%d:user:%d:question:%d", quizState.Quiz.ID, userID, question.ID)
+		eliminationKey := fmt.Sprintf("quiz:%d:eliminated:%d", quizState.Quiz.ID, userID)
+
+		log.Printf("[QuestionManager][DEBUG] Викторина #%d, Вопрос #%d: Проверка ответа для User #%d (Ключ: %s)",
+			quizState.Quiz.ID, question.ID, userID, answerKey)
+
+		answered, existsErr := qm.deps.CacheRepo.Exists(answerKey)
+		if existsErr != nil {
+			log.Printf("[QuestionManager][WARN] Ошибка Redis при проверке ключа ответа %s: %v", answerKey, existsErr)
+		}
+
+		if !answered {
+			log.Printf("[QuestionManager][DEBUG] Викторина #%d, Вопрос #%d: User #%d НЕ ответил. Проверка ключа выбывания %s...",
+				quizState.Quiz.ID, question.ID, userID, eliminationKey)
+
+			alreadyEliminated, elimExistsErr := qm.deps.CacheRepo.Exists(eliminationKey)
+			if elimExistsErr != nil {
+				log.Printf("[QuestionManager][WARN] Ошибка Redis при проверке ключа выбывания %s: %v", eliminationKey, elimExistsErr)
+			}
+
+			if !alreadyEliminated {
+				eliminationReason := "no_answer_timeout"
+				log.Printf("[QuestionManager] Пользователь #%d выбывает из викторины #%d. Причина: %s (Вопрос #%d). Установка ключа %s...",
+					userID, quizState.Quiz.ID, eliminationReason, question.ID, eliminationKey)
+
+				// Сохраняем UserAnswer в БД для статистики
+				userAnswer := &entity.UserAnswer{
+					UserID:            uint(userID),
+					QuizID:            quizState.Quiz.ID,
+					QuestionID:        question.ID,
+					SelectedOption:    -1,
+					IsCorrect:         false,
+					ResponseTimeMs:    0,
+					Score:             0,
+					IsEliminated:      true,
+					EliminationReason: eliminationReason,
+				}
+				if err := qm.deps.ResultRepo.SaveUserAnswer(userAnswer); err != nil {
+					log.Printf("[QuestionManager] WARNING: Не удалось сохранить user_answer для таймаута User #%d: %v", userID, err)
+				} else {
+					log.Printf("[QuestionManager][DEBUG] Сохранён user_answer для таймаута User #%d на вопрос #%d", userID, question.ID)
+				}
+
+				// Устанавливаем статус выбывшего в Redis
+				if errSet := qm.deps.CacheRepo.Set(eliminationKey, "1", 24*time.Hour); errSet != nil {
+					log.Printf("[QuestionManager] WARNING: Не удалось установить ключ выбывания %s в Redis: %v", eliminationKey, errSet)
+				} else {
+					log.Printf("[QuestionManager][DEBUG] Успешно установлен ключ выбывания %s для User #%d", eliminationKey, userID)
+				}
+
+				// Отправляем уведомление о выбывании
+				qm.sendEliminationNotification(uint(userID), quizState.Quiz.ID, eliminationReason)
+
+				// === ЗАПИСЫВАЕМ СТАТИСТИКУ ДЛЯ АДАПТАЦИИ ===
+				qm.adaptiveSelector.RecordQuestionResult(quizState.Quiz.ID, questionNumber, false)
+			} else {
+				log.Printf("[QuestionManager][DEBUG] Викторина #%d, Вопрос #%d: User #%d не ответил, но УЖЕ был выбывший (ключ %s существует).",
+					quizState.Quiz.ID, question.ID, userID, eliminationKey)
+			}
+		} else {
+			log.Printf("[QuestionManager][DEBUG] Викторина #%d, Вопрос #%d: User #%d УСПЕЛ ответить (ключ %s существует).",
+				quizState.Quiz.ID, question.ID, userID, answerKey)
+		}
+	}
+}
+
+// processAdBreak обрабатывает показ рекламы между вопросами
+func (qm *QuestionManager) processAdBreak(ctx context.Context, quizState *ActiveQuizState, questionNumber, totalQuestions int) {
+	if qm.deps.QuizAdSlotRepo == nil {
+		return
+	}
+
+	slot, slotErr := qm.deps.QuizAdSlotRepo.GetByQuizAndQuestionAfter(quizState.Quiz.ID, questionNumber)
+	if slotErr != nil {
+		log.Printf("[QuestionManager] WARNING: Ошибка получения рекламного слота для вопроса %d: %v", questionNumber, slotErr)
+		return
+	}
+
+	if slot == nil || !slot.IsActive || slot.AdAsset == nil {
+		return
+	}
+
+	log.Printf("[QuestionManager] Показ рекламы #%d после вопроса %d (длительность: %d сек)",
+		slot.AdAsset.ID, questionNumber, slot.AdAsset.DurationSec)
+
+	// Отправляем событие начала рекламы
+	adEvent := map[string]interface{}{
+		"quiz_id":      quizState.Quiz.ID,
+		"media_type":   slot.AdAsset.MediaType,
+		"media_url":    slot.AdAsset.URL,
+		"duration_sec": slot.AdAsset.DurationSec,
+	}
+	if err := qm.sendEventWithRetry(ctx, quizState.Quiz.ID, "quiz:ad_break", adEvent); err != nil {
+		log.Printf("[QuestionManager] WARNING: Не удалось отправить quiz:ad_break: %v", err)
+	}
+
+	// Ждём заданное время показа рекламы
+	adDuration := time.Duration(slot.AdAsset.DurationSec) * time.Second
+	select {
+	case <-time.After(adDuration):
+		log.Printf("[QuestionManager] Реклама завершена, продолжаем викторину")
+	case <-ctx.Done():
+		return
+	}
+
+	// Отправляем событие окончания рекламы
+	adEndEvent := map[string]interface{}{
+		"quiz_id": quizState.Quiz.ID,
+	}
+	if err := qm.sendEventWithRetry(ctx, quizState.Quiz.ID, "quiz:ad_break_end", adEndEvent); err != nil {
+		log.Printf("[QuestionManager] WARNING: Не удалось отправить quiz:ad_break_end: %v", err)
+	}
 }
 
 // Новый метод для отправки уведомления о выбывании из QuestionManager
@@ -460,6 +499,49 @@ func (qm *QuestionManager) runQuestionTimer(
 			log.Printf("[QuestionManager] Таймер для вопроса #%d отменен", question.ID)
 			return
 		}
+	}
+}
+
+// sendAdaptiveQuestionStats отправляет realtime статистику адаптивной системы для мониторинга
+func (qm *QuestionManager) sendAdaptiveQuestionStats(ctx context.Context, quizID uint, questionNumber int, difficulty int, remainingPlayers int) {
+	// Получаем данные из Redis
+	totalKey := fmt.Sprintf("quiz:%d:q%d:total", quizID, questionNumber)
+	passedKey := fmt.Sprintf("quiz:%d:q%d:passed", quizID, questionNumber)
+
+	totalStr, _ := qm.deps.CacheRepo.Get(totalKey)
+	passedStr, _ := qm.deps.CacheRepo.Get(passedKey)
+
+	total, _ := strconv.Atoi(totalStr)
+	passed, _ := strconv.Atoi(passedStr)
+
+	// Вычисляем pass rate
+	var actualPassRate float64
+	if total > 0 {
+		actualPassRate = float64(passed) / float64(total)
+	}
+
+	// Получаем целевой pass rate из конфига
+	targetPassRate := qm.adaptiveSelector.config.GetTargetPassRate(questionNumber)
+
+	// Формируем событие
+	statsEvent := map[string]interface{}{
+		"quiz_id":           quizID,
+		"question_number":   questionNumber,
+		"difficulty_used":   difficulty,
+		"target_pass_rate":  targetPassRate,
+		"actual_pass_rate":  actualPassRate,
+		"total_answers":     total,
+		"passed_count":      passed,
+		"remaining_players": remainingPlayers,
+		"timestamp":         time.Now().Format(time.RFC3339),
+	}
+
+	// Отправляем через WebSocket
+	if err := qm.sendEventWithRetry(ctx, quizID, "adaptive:question_stats", statsEvent); err != nil {
+		log.Printf("[QuestionManager] WARNING: Не удалось отправить adaptive:question_stats для Q%d: %v", questionNumber, err)
+	} else {
+		log.Printf("[QuestionManager] adaptive:question_stats отправлен для Q%d: pass_rate=%.2f, target=%.2f",
+			questionNumber, actualPassRate, targetPassRate)
 	}
 }
 

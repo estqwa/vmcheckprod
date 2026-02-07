@@ -325,14 +325,17 @@ func (s *ResultService) GetQuizWinners(quizID uint) ([]entity.Result, error) {
 
 // QuizStatistics представляет статистику викторины
 type QuizStatistics struct {
-	QuizID             uint                  `json:"quiz_id"`
-	TotalParticipants  int                   `json:"total_participants"`
-	TotalWinners       int                   `json:"total_winners"`
-	TotalEliminated    int                   `json:"total_eliminated"`
-	AvgResponseTimeMs  float64               `json:"avg_response_time_ms"`
-	AvgCorrectAnswers  float64               `json:"avg_correct_answers"`
-	EliminationsByQ    []QuestionElimination `json:"eliminations_by_question"`
-	EliminationReasons EliminationReasons    `json:"elimination_reasons"`
+	QuizID                 uint                   `json:"quiz_id"`
+	TotalParticipants      int                    `json:"total_participants"`
+	TotalWinners           int                    `json:"total_winners"`
+	TotalEliminated        int                    `json:"total_eliminated"`
+	AvgResponseTimeMs      float64                `json:"avg_response_time_ms"`
+	AvgCorrectAnswers      float64                `json:"avg_correct_answers"`
+	EliminationsByQ        []QuestionElimination  `json:"eliminations_by_question"`
+	EliminationReasons     EliminationReasons     `json:"elimination_reasons"`
+	DifficultyDistribution DifficultyDistribution `json:"difficulty_distribution"` // NEW
+	PoolQuestionsUsed      int                    `json:"pool_questions_used"`     // NEW
+	AvgPassRate            float64                `json:"avg_pass_rate"`           // NEW
 }
 
 // QuestionElimination представляет статистику выбытий для вопроса
@@ -343,6 +346,18 @@ type QuestionElimination struct {
 	ByTimeout       int     `json:"by_timeout"`
 	ByWrongAnswer   int     `json:"by_wrong_answer"`
 	AvgResponseMs   float64 `json:"avg_response_ms"`
+	Difficulty      int     `json:"difficulty"`    // NEW: сложность вопроса (1-5)
+	PassRate        float64 `json:"pass_rate"`     // NEW: % прошедших (0-1)
+	TotalAnswers    int     `json:"total_answers"` // NEW: всего ответов
+}
+
+// DifficultyDistribution представляет распределение вопросов по сложности
+type DifficultyDistribution struct {
+	Difficulty1 int `json:"difficulty_1"` // Очень легко
+	Difficulty2 int `json:"difficulty_2"` // Легко
+	Difficulty3 int `json:"difficulty_3"` // Средне
+	Difficulty4 int `json:"difficulty_4"` // Сложно
+	Difficulty5 int `json:"difficulty_5"` // Очень сложно
 }
 
 // EliminationReasons представляет суммарные причины выбытия
@@ -403,13 +418,15 @@ func (s *ResultService) CalculateQuizStatistics(quizID uint) (*QuizStatistics, e
 		Where("quiz_id = ? AND response_time_ms > 0", quizID).
 		Scan(&stats.AvgResponseTimeMs)
 
-	// 3. Выбытия по вопросам с GROUP BY
+	// 3. Выбытия по вопросам с GROUP BY (расширенная статистика)
 	type elimByQ struct {
 		QuestionID      uint
 		EliminatedCount int
 		ByTimeout       int
 		ByWrongAnswer   int
 		AvgRespMs       float64
+		TotalAnswers    int // NEW: всего ответов
+		PassedCount     int // NEW: прошедших (правильно + вовремя)
 	}
 	var eliminations []elimByQ
 
@@ -419,26 +436,61 @@ func (s *ResultService) CalculateQuizStatistics(quizID uint) (*QuizStatistics, e
 			COUNT(*) FILTER (WHERE is_eliminated = true) as eliminated_count,
 			COUNT(*) FILTER (WHERE elimination_reason IN ('time_exceeded', 'no_answer_timeout')) as by_timeout,
 			COUNT(*) FILTER (WHERE elimination_reason = 'incorrect_answer') as by_wrong_answer,
-			AVG(response_time_ms) FILTER (WHERE response_time_ms > 0) as avg_resp_ms
+			AVG(response_time_ms) FILTER (WHERE response_time_ms > 0) as avg_resp_ms,
+			COUNT(*) as total_answers,
+			COUNT(*) FILTER (WHERE is_correct = true AND is_eliminated = false) as passed_count
 		`).
 		Where("quiz_id = ?", quizID).
 		Group("question_id").
 		Order("question_id").
 		Scan(&eliminations)
 
-	// Получаем вопросы для маппинга номеров
+	// Получаем вопросы для маппинга номеров и difficulty
 	questions, _ := s.questionRepo.GetByQuizID(quiz.ID)
 	questionOrder := make(map[uint]int)
+	questionDifficulty := make(map[uint]int) // NEW: маппинг difficulty
 	for i, q := range questions {
 		questionOrder[q.ID] = i + 1
+		questionDifficulty[q.ID] = q.Difficulty
 	}
 
+	// NEW: Подсчитать распределение сложности и pool questions
+	var diffDist DifficultyDistribution
+	var poolUsed int
+	for _, q := range questions {
+		switch q.Difficulty {
+		case 1:
+			diffDist.Difficulty1++
+		case 2:
+			diffDist.Difficulty2++
+		case 3:
+			diffDist.Difficulty3++
+		case 4:
+			diffDist.Difficulty4++
+		case 5:
+			diffDist.Difficulty5++
+		}
+		if q.IsUsed {
+			poolUsed++
+		}
+	}
+	stats.DifficultyDistribution = diffDist
+	stats.PoolQuestionsUsed = poolUsed
+
 	stats.EliminationsByQ = make([]QuestionElimination, 0, len(eliminations))
+	var totalPassRate float64
 	for _, e := range eliminations {
 		qNum := questionOrder[e.QuestionID]
 		if qNum == 0 {
 			qNum = int(e.QuestionID) // fallback
 		}
+		// NEW: вычисляем pass rate
+		var passRate float64
+		if e.TotalAnswers > 0 {
+			passRate = float64(e.PassedCount) / float64(e.TotalAnswers)
+		}
+		totalPassRate += passRate
+
 		stats.EliminationsByQ = append(stats.EliminationsByQ, QuestionElimination{
 			QuestionNumber:  qNum,
 			QuestionID:      e.QuestionID,
@@ -446,7 +498,15 @@ func (s *ResultService) CalculateQuizStatistics(quizID uint) (*QuizStatistics, e
 			ByTimeout:       e.ByTimeout,
 			ByWrongAnswer:   e.ByWrongAnswer,
 			AvgResponseMs:   e.AvgRespMs,
+			Difficulty:      questionDifficulty[e.QuestionID], // NEW
+			PassRate:        passRate,                         // NEW
+			TotalAnswers:    e.TotalAnswers,                   // NEW
 		})
+	}
+
+	// NEW: средний pass rate
+	if len(eliminations) > 0 {
+		stats.AvgPassRate = totalPassRate / float64(len(eliminations))
 	}
 
 	// 4. Общие причины выбытия

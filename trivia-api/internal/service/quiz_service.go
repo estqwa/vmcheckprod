@@ -278,6 +278,33 @@ func (s *QuizService) DuplicateQuiz(originalQuizID uint, newScheduledTime time.T
 	return newQuiz, nil
 }
 
+// BulkUploadQuestionPool загружает вопросы в пул для адаптивной системы
+// Вопросы добавляются с QuizID=0, что означает что они в общем пуле
+func (s *QuizService) BulkUploadQuestionPool(questions []entity.Question) error {
+	if len(questions) == 0 {
+		return fmt.Errorf("%w: no questions provided", apperrors.ErrValidation)
+	}
+
+	// Проверяем все вопросы
+	for i, q := range questions {
+		if q.Difficulty < 1 || q.Difficulty > 5 {
+			return fmt.Errorf("%w: invalid difficulty %d for question #%d", apperrors.ErrValidation, q.Difficulty, i+1)
+		}
+		if q.CorrectOption < 0 || q.CorrectOption >= len(q.Options) {
+			return fmt.Errorf("%w: invalid correct_option for question #%d", apperrors.ErrValidation, i+1)
+		}
+	}
+
+	// Сохраняем пакетом
+	if err := s.questionRepo.CreateBatch(questions); err != nil {
+		log.Printf("[QuizService] Ошибка при bulk upload вопросов: %v", err)
+		return fmt.Errorf("failed to upload questions: %w", err)
+	}
+
+	log.Printf("[QuizService] Bulk upload: добавлено %d вопросов в пул", len(questions))
+	return nil
+}
+
 // truncateDuplicateTitle создаёт название для дубликата с ограничением длины.
 // Если title уже заканчивается на "(Копия)" или "(Копия N)", убирает его и добавляет новый суффикс.
 func truncateDuplicateTitle(originalTitle string, maxLen int) string {

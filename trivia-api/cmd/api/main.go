@@ -398,6 +398,14 @@ func main() {
 			adminAds.GET("", adHandler.ListAdAssets)
 			adminAds.DELETE("/:id", adHandler.DeleteAdAsset)
 		}
+
+		// Пул вопросов для адаптивной системы (admin)
+		adminQuestionPool := api.Group("/admin/question-pool")
+		adminQuestionPool.Use(authMiddleware.RequireAuth(), authMiddleware.AdminOnly())
+		adminQuestionPool.Use(authMiddleware.RequireCSRF())
+		{
+			adminQuestionPool.POST("", quizHandler.BulkUploadQuestionPool)
+		}
 	}
 
 	// WebSocket маршрут

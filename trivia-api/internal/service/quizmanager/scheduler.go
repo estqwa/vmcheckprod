@@ -129,25 +129,10 @@ func (s *Scheduler) runQuizSequence(ctx context.Context, quiz *entity.Quiz) {
 	}()
 
 	// Таймауты для каждого события
-	autoFillTime := quiz.ScheduledTime.Add(-time.Duration(s.config.AutoFillThreshold) * time.Minute)
+	// Примечание: AutoFill удалён — адаптивная система динамически выбирает вопросы
 	announcementTime := quiz.ScheduledTime.Add(-time.Duration(s.config.AnnouncementMinutes) * time.Minute)
 	waitingRoomTime := quiz.ScheduledTime.Add(-time.Duration(s.config.WaitingRoomMinutes) * time.Minute)
 	countdownTime := quiz.ScheduledTime.Add(-time.Duration(s.config.CountdownSeconds) * time.Second)
-
-	// Планируем автозаполнение вопросов, если время еще не наступило
-	if autoFillTime.After(time.Now()) {
-		timeToAutoFill := time.Until(autoFillTime)
-		log.Printf("[Scheduler] Викторина #%d: планирую автозаполнение через %v", quiz.ID, timeToAutoFill)
-
-		select {
-		case <-time.After(timeToAutoFill):
-			// Запускаем автозаполнение
-			s.triggerAutoFill(ctx, quiz.ID)
-		case <-ctx.Done():
-			log.Printf("[Scheduler] Викторина #%d: автозаполнение отменено", quiz.ID)
-			return
-		}
-	}
 
 	// Планируем анонс, если время еще не наступило
 	if announcementTime.After(time.Now()) {
@@ -211,19 +196,6 @@ func (s *Scheduler) runQuizSequence(ctx context.Context, quiz *entity.Quiz) {
 		log.Printf("[Scheduler] Викторина #%d: время начала уже прошло, запускаю немедленно", quiz.ID)
 		s.triggerQuizStart(ctx, quiz)
 	}
-}
-
-// triggerAutoFill запускает автозаполнение вопросов
-func (s *Scheduler) triggerAutoFill(ctx context.Context, quizID uint) {
-	log.Printf("[Scheduler] Запуск автозаполнения вопросов для викторины #%d", quizID)
-
-	// Этот метод будет реализован в QuestionManager
-	// Здесь выполняем только оповещение других компонентов
-	autoFillEvent := map[string]interface{}{
-		"quiz_id": quizID,
-		"action":  "auto_fill",
-	}
-	s.deps.WSManager.BroadcastEvent("admin:quiz_action", autoFillEvent)
 }
 
 // triggerAnnouncement отправляет анонс о предстоящей викторине

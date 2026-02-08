@@ -143,3 +143,76 @@ func (r *QuestionRepo) CountByDifficulty(difficulty int) (int64, error) {
 		Count(&count).Error
 	return count, err
 }
+
+// GetQuizQuestionByDifficulty ищет неиспользованный вопрос викторины по сложности
+// Используется для гибридной адаптивной системы (приоритет вопросов викторины)
+func (r *QuestionRepo) GetQuizQuestionByDifficulty(quizID uint, difficulty int, excludeIDs []uint) (*entity.Question, error) {
+	var question entity.Question
+	query := r.db.Where("quiz_id = ? AND difficulty = ? AND is_used = ?", quizID, difficulty, false)
+	if len(excludeIDs) > 0 {
+		query = query.Where("id NOT IN ?", excludeIDs)
+	}
+	err := query.Order("RANDOM()").First(&question).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &question, nil
+}
+
+// GetPoolQuestionByDifficulty ищет вопрос в общем пуле (quiz_id IS NULL) по сложности
+// Используется адаптивной системой когда у викторины нет своих вопросов нужной сложности
+func (r *QuestionRepo) GetPoolQuestionByDifficulty(difficulty int, excludeIDs []uint) (*entity.Question, error) {
+	var question entity.Question
+	query := r.db.Where("quiz_id IS NULL AND difficulty = ? AND is_used = ?", difficulty, false)
+	if len(excludeIDs) > 0 {
+		query = query.Where("id NOT IN ?", excludeIDs)
+	}
+	err := query.Order("RANDOM()").First(&question).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &question, nil
+}
+
+// GetPoolStats возвращает статистику общего пула вопросов
+func (r *QuestionRepo) GetPoolStats() (total int64, available int64, byDifficulty map[int]int64, err error) {
+	byDifficulty = make(map[int]int64)
+
+	// Всего вопросов в пуле
+	if err = r.db.Model(&entity.Question{}).Where("quiz_id IS NULL").Count(&total).Error; err != nil {
+		return 0, 0, nil, err
+	}
+
+	// Доступных (не использованных)
+	if err = r.db.Model(&entity.Question{}).Where("quiz_id IS NULL AND is_used = ?", false).Count(&available).Error; err != nil {
+		return 0, 0, nil, err
+	}
+
+	// По сложности (только доступные)
+	for d := 1; d <= 5; d++ {
+		var count int64
+		if err = r.db.Model(&entity.Question{}).
+			Where("quiz_id IS NULL AND is_used = ? AND difficulty = ?", false, d).
+			Count(&count).Error; err != nil {
+			return 0, 0, nil, err
+		}
+		byDifficulty[d] = count
+	}
+
+	return total, available, byDifficulty, nil
+}
+
+// ResetPoolUsed сбрасывает is_used = false для всех вопросов пула
+// Позволяет переиспользовать вопросы после "истощения" пула
+func (r *QuestionRepo) ResetPoolUsed() (int64, error) {
+	result := r.db.Model(&entity.Question{}).
+		Where("quiz_id IS NULL AND is_used = ?", true).
+		Update("is_used", false)
+	return result.RowsAffected, result.Error
+}

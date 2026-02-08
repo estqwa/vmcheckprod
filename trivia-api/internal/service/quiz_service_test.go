@@ -17,6 +17,9 @@ import (
 // Добавляем только MockQuestionRepoForQuizService (переименовано для избежания конфликтов)
 // ============================================================================
 
+// helper для создания pointer
+func uintPtrForQS(v uint) *uint { return &v }
+
 // MockQuestionRepoForQuizService реализует repository.QuestionRepository
 type MockQuestionRepoForQuizService struct {
 	mock.Mock
@@ -81,6 +84,33 @@ func (m *MockQuestionRepoForQuizService) MarkAsUsed(questionIDs []uint) error {
 
 func (m *MockQuestionRepoForQuizService) CountByDifficulty(difficulty int) (int64, error) {
 	args := m.Called(difficulty)
+	return args.Get(0).(int64), args.Error(1)
+}
+
+// Новые методы для гибридной адаптивной системы
+func (m *MockQuestionRepoForQuizService) GetQuizQuestionByDifficulty(quizID uint, difficulty int, excludeIDs []uint) (*entity.Question, error) {
+	args := m.Called(quizID, difficulty, excludeIDs)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*entity.Question), args.Error(1)
+}
+
+func (m *MockQuestionRepoForQuizService) GetPoolQuestionByDifficulty(difficulty int, excludeIDs []uint) (*entity.Question, error) {
+	args := m.Called(difficulty, excludeIDs)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*entity.Question), args.Error(1)
+}
+
+func (m *MockQuestionRepoForQuizService) GetPoolStats() (int64, int64, map[int]int64, error) {
+	args := m.Called()
+	return args.Get(0).(int64), args.Get(1).(int64), args.Get(2).(map[int]int64), args.Error(3)
+}
+
+func (m *MockQuestionRepoForQuizService) ResetPoolUsed() (int64, error) {
+	args := m.Called()
 	return args.Get(0).(int64), args.Error(1)
 }
 
@@ -204,7 +234,7 @@ func TestQuizService_AddQuestions_MaxLimit(t *testing.T) {
 	// Уже есть 18 вопросов
 	existingQuestions := make([]entity.Question, 18)
 	for i := range existingQuestions {
-		existingQuestions[i] = entity.Question{ID: uint(i + 1), QuizID: 1, Text: "Q"}
+		existingQuestions[i] = entity.Question{ID: uint(i + 1), QuizID: uintPtrForQS(1), Text: "Q"}
 	}
 
 	// Пытаемся добавить 5 вопросов (18+5=23 > 20)

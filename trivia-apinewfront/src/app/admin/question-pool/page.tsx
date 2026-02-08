@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { Button } from '@/components/ui/button';
@@ -25,11 +25,47 @@ interface UploadResponse {
     count: number;
 }
 
+interface PoolStats {
+    total: number;
+    used: number;
+    available: number;
+    by_difficulty: Record<number, number>;
+}
+
 function QuestionPoolContent() {
     const [jsonInput, setJsonInput] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [preview, setPreview] = useState<PoolQuestion[] | null>(null);
     const [parseError, setParseError] = useState<string | null>(null);
+    const [stats, setStats] = useState<PoolStats | null>(null);
+    const [isResetting, setIsResetting] = useState(false);
+
+    const loadStats = useCallback(async () => {
+        try {
+            const data = await api.get<PoolStats>('/api/admin/question-pool/stats');
+            setStats(data);
+        } catch {
+            console.error('Failed to load pool stats');
+        }
+    }, []);
+
+    useEffect(() => {
+        loadStats();
+    }, [loadStats]);
+
+    const handleReset = async () => {
+        if (!confirm('Сбросить флаг is_used для всех вопросов пула? Это позволит использовать все вопросы повторно.')) return;
+        setIsResetting(true);
+        try {
+            const result = await api.post<{ count: number }>('/api/admin/question-pool/reset', {});
+            toast.success(`Сброшено ${result.count} вопросов`);
+            loadStats();
+        } catch {
+            toast.error('Ошибка сброса');
+        } finally {
+            setIsResetting(false);
+        }
+    };
 
     const handleParsePreview = () => {
         try {
@@ -89,6 +125,7 @@ function QuestionPoolContent() {
             toast.success(`Загружено ${response.count || preview.length} вопросов!`);
             setJsonInput('');
             setPreview(null);
+            loadStats(); // Обновляем статистику
         } catch (error: unknown) {
             const err = error as { error?: string };
             toast.error(err.error || 'Ошибка загрузки');
@@ -155,6 +192,54 @@ function QuestionPoolContent() {
                         </p>
                     </CardContent>
                 </Card>
+
+                {/* Pool Stats */}
+                {stats && (
+                    <Card className="mb-6 card-elevated border-0 rounded-2xl">
+                        <CardHeader>
+                            <CardTitle className="flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                    <span className="text-xl">📊</span>
+                                    Статистика пула
+                                </div>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={handleReset}
+                                    disabled={isResetting || stats.used === 0}
+                                >
+                                    {isResetting ? 'Сброс...' : '🔄 Сбросить is_used'}
+                                </Button>
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="grid grid-cols-3 gap-4 mb-4">
+                                <div className="text-center p-4 bg-secondary/50 rounded-xl">
+                                    <div className="text-3xl font-bold text-primary">{stats.total}</div>
+                                    <div className="text-sm text-muted-foreground">Всего</div>
+                                </div>
+                                <div className="text-center p-4 bg-green-50 rounded-xl">
+                                    <div className="text-3xl font-bold text-green-600">{stats.available}</div>
+                                    <div className="text-sm text-muted-foreground">Доступно</div>
+                                </div>
+                                <div className="text-center p-4 bg-orange-50 rounded-xl">
+                                    <div className="text-3xl font-bold text-orange-600">{stats.used}</div>
+                                    <div className="text-sm text-muted-foreground">Использовано</div>
+                                </div>
+                            </div>
+                            {stats.by_difficulty && Object.keys(stats.by_difficulty).length > 0 && (
+                                <div className="grid grid-cols-5 gap-2 text-center text-sm">
+                                    {[1, 2, 3, 4, 5].map(d => (
+                                        <div key={d} className={`p-2 rounded-lg ${difficultyLabels[d]?.color || 'bg-gray-100'}`}>
+                                            <div className="font-bold">{stats.by_difficulty[d] || 0}</div>
+                                            <div className="text-xs">{difficultyLabels[d]?.label}</div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </CardContent>
+                    </Card>
+                )}
 
                 {/* JSON Input */}
                 <Card className="mb-6 card-elevated border-0 rounded-2xl">

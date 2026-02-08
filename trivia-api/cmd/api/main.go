@@ -405,6 +405,8 @@ func main() {
 		adminQuestionPool.Use(authMiddleware.RequireCSRF())
 		{
 			adminQuestionPool.POST("", quizHandler.BulkUploadQuestionPool)
+			adminQuestionPool.GET("/stats", quizHandler.GetPoolStats)
+			adminQuestionPool.POST("/reset", quizHandler.ResetPoolUsed)
 		}
 	}
 

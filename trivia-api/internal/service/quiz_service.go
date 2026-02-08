@@ -113,7 +113,7 @@ func (s *QuizService) AddQuestions(quizID uint, questions []entity.Question) err
 
 	// Устанавливаем quizID для всех вопросов
 	for i := range questions {
-		questions[i].QuizID = quizID
+		questions[i].QuizID = &quizID
 	}
 
 	// Сохраняем вопросы в БД
@@ -241,9 +241,10 @@ func (s *QuizService) DuplicateQuiz(originalQuizID uint, newScheduledTime time.T
 
 		// 5б. Подготовить Новые Вопросы
 		newQuestions := make([]entity.Question, 0, len(originalQuiz.Questions))
+		newQuizIDCopy := newQuiz.ID // Копируем для создания pointer
 		for _, origQuestion := range originalQuiz.Questions {
 			newQuestion := entity.Question{
-				QuizID:        newQuiz.ID, // *** Привязка к НОВОЙ викторине ***
+				QuizID:        &newQuizIDCopy, // *** Привязка к НОВОЙ викторине ***
 				Text:          origQuestion.Text,
 				Options:       origQuestion.Options, // Тип StringArray должен копироваться по значению
 				CorrectOption: origQuestion.CorrectOption,
@@ -303,6 +304,21 @@ func (s *QuizService) BulkUploadQuestionPool(questions []entity.Question) error 
 
 	log.Printf("[QuizService] Bulk upload: добавлено %d вопросов в пул", len(questions))
 	return nil
+}
+
+// GetPoolStats возвращает статистику пула вопросов
+func (s *QuizService) GetPoolStats() (totalCount int64, usedCount int64, byDifficulty map[int]int64, err error) {
+	return s.questionRepo.GetPoolStats()
+}
+
+// ResetPoolUsed сбрасывает флаг is_used для всех вопросов пула
+func (s *QuizService) ResetPoolUsed() (int64, error) {
+	count, err := s.questionRepo.ResetPoolUsed()
+	if err != nil {
+		return 0, err
+	}
+	log.Printf("[QuizService] Reset pool: обновлено %d вопросов", count)
+	return count, nil
 }
 
 // truncateDuplicateTitle создаёт название для дубликата с ограничением длины.

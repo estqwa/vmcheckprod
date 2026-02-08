@@ -12,6 +12,9 @@ import (
 	"gorm.io/gorm"
 )
 
+// helper для создания pointer
+func uintPtr(v uint) *uint { return &v }
+
 // ============================================================================
 // Моки для AnswerProcessor
 // ============================================================================
@@ -183,7 +186,7 @@ func TestAnswerProcessor_ProcessAnswer_AlreadyEliminated(t *testing.T) {
 	// Подготовка данных
 	question := &entity.Question{
 		ID:            1,
-		QuizID:        1,
+		QuizID:        uintPtr(1),
 		Text:          "Вопрос",
 		CorrectOption: 0,
 		TimeLimitSec:  30,
@@ -226,7 +229,7 @@ func TestAnswerProcessor_ProcessAnswer_DuplicateAnswer(t *testing.T) {
 	// Подготовка данных
 	question := &entity.Question{
 		ID:            1,
-		QuizID:        1,
+		QuizID:        uintPtr(1),
 		Text:          "Вопрос",
 		CorrectOption: 0,
 		TimeLimitSec:  30,

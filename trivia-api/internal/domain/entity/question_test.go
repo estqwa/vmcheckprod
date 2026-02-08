@@ -7,11 +7,14 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// helper для создания pointer
+func uintPtr(v uint) *uint { return &v }
+
 func TestQuestion_IsCorrect_CorrectAnswer(t *testing.T) {
 	// Arrange
 	question := &Question{
 		ID:            1,
-		QuizID:        1,
+		QuizID:        uintPtr(1),
 		Text:          "Какой язык используется в Go?",
 		Options:       StringArray{"Python", "Go", "Java", "Rust"},
 		CorrectOption: 1, // "Go" — индекс 1

@@ -41,15 +41,15 @@ func (s *AdaptiveQuestionSelector) SelectNextQuestion(
 	log.Printf("[AdaptiveSelector] Quiz #%d, Q%d: prev_pass_rate=%.2f, target_difficulty=%d",
 		quizID, questionNumber, actualPassRate, targetDifficulty)
 
-	// 3. Пытаемся найти вопрос нужной сложности
-	question, err := s.findQuestionByDifficulty(targetDifficulty, usedQuestionIDs)
+	// 3. Пытаемся найти вопрос нужной сложности (гибридная логика)
+	question, err := s.findQuestionByDifficultyHybrid(quizID, targetDifficulty, usedQuestionIDs)
 	if err != nil {
 		log.Printf("[AdaptiveSelector] Error finding question at difficulty %d: %v", targetDifficulty, err)
 	}
 
 	// 4. Если не нашли — fallback на другие уровни
 	if question == nil {
-		question, err = s.findQuestionWithFallback(targetDifficulty, usedQuestionIDs)
+		question, err = s.findQuestionWithFallbackHybrid(quizID, targetDifficulty, usedQuestionIDs)
 		if err != nil {
 			return nil, fmt.Errorf("failed to find question with fallback: %w", err)
 		}
@@ -93,7 +93,61 @@ func (s *AdaptiveQuestionSelector) getActualPassRate(quizID uint, questionNumber
 	return float64(passed) / float64(total)
 }
 
-// findQuestionByDifficulty ищет вопрос заданной сложности
+// findQuestionByDifficultyHybrid ищет вопрос гибридно: сначала в викторине, затем в пуле
+func (s *AdaptiveQuestionSelector) findQuestionByDifficultyHybrid(quizID uint, difficulty int, excludeIDs []uint) (*entity.Question, error) {
+	// 1. Сначала ищем вопрос, привязанный к данной викторине
+	question, err := s.deps.QuestionRepo.GetQuizQuestionByDifficulty(quizID, difficulty, excludeIDs)
+	if err == nil && question != nil {
+		log.Printf("[AdaptiveSelector] Found quiz-specific question ID=%d for quiz %d", question.ID, quizID)
+		return question, nil
+	}
+
+	// 2. Если не нашли — ищем в общем пуле
+	question, err = s.deps.QuestionRepo.GetPoolQuestionByDifficulty(difficulty, excludeIDs)
+	if err == nil && question != nil {
+		log.Printf("[AdaptiveSelector] Found pool question ID=%d (difficulty=%d)", question.ID, difficulty)
+		return question, nil
+	}
+
+	return nil, nil
+}
+
+// findQuestionWithFallbackHybrid ищет вопрос с fallback на другие уровни (гибридная логика)
+func (s *AdaptiveQuestionSelector) findQuestionWithFallbackHybrid(quizID uint, targetDifficulty int, excludeIDs []uint) (*entity.Question, error) {
+	var searchOrder []int
+
+	if s.config.FallbackToHigher {
+		// Сначала вверх (сложнее), потом вниз (легче)
+		for diff := targetDifficulty; diff <= s.config.MaxDifficulty; diff++ {
+			searchOrder = append(searchOrder, diff)
+		}
+		for diff := targetDifficulty - 1; diff >= s.config.MinDifficulty; diff-- {
+			searchOrder = append(searchOrder, diff)
+		}
+	} else {
+		// Сначала вниз (легче), потом вверх (сложнее)
+		for diff := targetDifficulty; diff >= s.config.MinDifficulty; diff-- {
+			searchOrder = append(searchOrder, diff)
+		}
+		for diff := targetDifficulty + 1; diff <= s.config.MaxDifficulty; diff++ {
+			searchOrder = append(searchOrder, diff)
+		}
+	}
+
+	for _, diff := range searchOrder {
+		q, err := s.findQuestionByDifficultyHybrid(quizID, diff, excludeIDs)
+		if err == nil && q != nil {
+			if diff != targetDifficulty {
+				log.Printf("[AdaptiveSelector] Fallback: found question at difficulty=%d (target was %d)", diff, targetDifficulty)
+			}
+			return q, nil
+		}
+	}
+
+	return nil, fmt.Errorf("no questions found at any difficulty level")
+}
+
+// findQuestionByDifficulty оставляем для обратной совместимости (использует только пул)
 func (s *AdaptiveQuestionSelector) findQuestionByDifficulty(difficulty int, excludeIDs []uint) (*entity.Question, error) {
 	questions, err := s.deps.QuestionRepo.GetRandomByDifficulty(difficulty, 1, excludeIDs)
 	if err != nil {

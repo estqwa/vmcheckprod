@@ -329,11 +329,6 @@ func (qm *QuizManager) GetActiveQuiz() *entity.Quiz {
 	return qm.activeQuizState.Quiz
 }
 
-// AutoFillQuizQuestions автоматически заполняет викторину вопросами
-func (qm *QuizManager) AutoFillQuizQuestions(quizID uint) error {
-	return qm.questionManager.AutoFillQuizQuestions(qm.ctx, quizID)
-}
-
 // QuizStateResponse представляет состояние викторины для resync
 type QuizStateResponse struct {
 	QuizID            uint           `json:"quiz_id"`

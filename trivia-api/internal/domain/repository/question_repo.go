@@ -18,4 +18,12 @@ type QuestionRepository interface {
 	GetRandomByDifficulty(difficulty int, limit int, excludeIDs []uint) ([]entity.Question, error)
 	MarkAsUsed(questionIDs []uint) error
 	CountByDifficulty(difficulty int) (int64, error)
+
+	// Гибридная адаптивная система: поиск с приоритетом викторины → пул
+	GetQuizQuestionByDifficulty(quizID uint, difficulty int, excludeIDs []uint) (*entity.Question, error)
+	GetPoolQuestionByDifficulty(difficulty int, excludeIDs []uint) (*entity.Question, error)
+
+	// Статистика и управление пулом
+	GetPoolStats() (total int64, available int64, byDifficulty map[int]int64, err error)
+	ResetPoolUsed() (int64, error)
 }

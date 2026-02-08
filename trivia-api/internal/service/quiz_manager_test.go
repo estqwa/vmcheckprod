@@ -16,6 +16,9 @@ import (
 	"gorm.io/gorm"
 )
 
+// helper для создания pointer
+func uintPtr(v uint) *uint { return &v }
+
 // Создаем мок-объекты для интерфейсов
 type MockQuizRepository struct {
 	mock.Mock
@@ -514,7 +517,7 @@ func TestQuizManagerWithWebSocketMock(t *testing.T) {
 			// Получаем вопрос
 			question := &entity.Question{
 				ID:            questionID,
-				QuizID:        1,
+				QuizID:        uintPtr(1),
 				Text:          "Test Question",
 				Options:       []string{"Option 1", "Option 2", "Option 3"},
 				CorrectOption: selectedOption,
@@ -527,11 +530,17 @@ func TestQuizManagerWithWebSocketMock(t *testing.T) {
 			mockWSManager.On("SendEventToUser", fmt.Sprintf("%d", userID), "quiz:answer_result", mock.Anything).
 				Return(webSocketError).Once()
 
+			// Используем question для создания ответа
+			quizIDValue := uint(1)
+			if question.QuizID != nil {
+				quizIDValue = *question.QuizID
+			}
+
 			// Создаем объект ответа
 			userAnswer := &entity.UserAnswer{
 				UserID:         userID,
-				QuizID:         question.QuizID,
-				QuestionID:     questionID,
+				QuizID:         quizIDValue,
+				QuestionID:     question.ID,
 				SelectedOption: selectedOption,
 				IsCorrect:      true,
 				Score:          10,
@@ -771,7 +780,7 @@ func TestQuizManager_SendsCorrectOptionsFormat(t *testing.T) {
 	// Подготавливаем тестовые данные
 	question := &entity.Question{
 		ID:      1,
-		QuizID:  1,
+		QuizID:  uintPtr(1),
 		Text:    "Test Question",
 		Options: []string{"Option 1", "Option 2", "Option 3"}, // Бэкенд хранит как []string
 	}

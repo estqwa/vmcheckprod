@@ -45,7 +45,7 @@ func (o StringArray) Value() (driver.Value, error) {
 // Question представляет вопрос в викторине
 type Question struct {
 	ID            uint        `gorm:"primaryKey" json:"id"`
-	QuizID        uint        `gorm:"not null;index" json:"quiz_id"`
+	QuizID        *uint       `gorm:"index" json:"quiz_id,omitempty"` // NULL = вопрос из общего пула
 	Text          string      `gorm:"size:500;not null" json:"text"`
 	Options       StringArray `gorm:"type:jsonb;not null" json:"options"`
 	TextKK        string      `gorm:"size:500" json:"text_kk,omitempty"`      // Казахский текст (опционально)
@@ -53,8 +53,8 @@ type Question struct {
 	CorrectOption int         `gorm:"not null" json:"-"`                      // Скрыто от клиента
 	TimeLimitSec  int         `gorm:"not null;default:10" json:"time_limit_sec"`
 	PointValue    int         `gorm:"not null;default:10" json:"point_value"`
-	Difficulty    int         `gorm:"not null;default:3" json:"difficulty"`  // 1-5: very_easy to very_hard
-	IsUsed        bool        `gorm:"not null;default:false" json:"-"`       // Исключён из автовыбора после использования
+	Difficulty    int         `gorm:"not null;default:3" json:"difficulty"` // 1-5: very_easy to very_hard
+	IsUsed        bool        `gorm:"not null;default:false" json:"-"`      // Исключён из автовыбора после использования
 	CreatedAt     time.Time   `json:"created_at"`
 	UpdatedAt     time.Time   `json:"updated_at"`
 }

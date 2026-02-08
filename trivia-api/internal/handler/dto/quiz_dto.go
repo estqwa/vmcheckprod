@@ -67,9 +67,8 @@ func NewQuestionResponse(q *entity.Question) QuestionResponse {
 	optionsDTO := helper.ConvertOptionsToObjects(q.Options)
 
 	// Логика скрытия CorrectOption остается в вызывающем коде (хэндлере).
-	return QuestionResponse{
+	resp := QuestionResponse{
 		ID:           q.ID,
-		QuizID:       q.QuizID,
 		Text:         q.Text,
 		Options:      optionsDTO, // Используем результат хелпера
 		TimeLimitSec: q.TimeLimitSec,
@@ -77,6 +76,11 @@ func NewQuestionResponse(q *entity.Question) QuestionResponse {
 		CreatedAt:    q.CreatedAt,
 		UpdatedAt:    q.UpdatedAt,
 	}
+	// QuizID может быть nil для вопросов пула
+	if q.QuizID != nil {
+		resp.QuizID = *q.QuizID
+	}
+	return resp
 }
 
 // NewQuizResponse создает DTO для викторины

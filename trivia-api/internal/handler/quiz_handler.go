@@ -611,7 +611,7 @@ func (h *QuizHandler) BulkUploadQuestionPool(c *gin.Context) {
 		}
 
 		questions = append(questions, entity.Question{
-			QuizID:        0, // Вопросы в пуле не привязаны к викторине
+			QuizID:        nil, // Вопросы в пуле не привязаны к викторине
 			Text:          q.Text,
 			TextKK:        q.TextKK,
 			Options:       entity.StringArray(q.Options),
@@ -640,6 +640,40 @@ func (h *QuizHandler) BulkUploadQuestionPool(c *gin.Context) {
 		"message":       "Questions uploaded successfully",
 		"total":         len(questions),
 		"by_difficulty": difficultyCount,
+	})
+}
+
+// GetPoolStats возвращает статистику пула вопросов
+// GET /api/admin/question-pool/stats
+func (h *QuizHandler) GetPoolStats(c *gin.Context) {
+	totalCount, availableCount, byDifficulty, err := h.quizService.GetPoolStats()
+	if err != nil {
+		log.Printf("[QuizHandler] Error getting pool stats: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get pool stats"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"total":         totalCount,
+		"used":          totalCount - availableCount,
+		"available":     availableCount,
+		"by_difficulty": byDifficulty,
+	})
+}
+
+// ResetPoolUsed сбрасывает флаг is_used для всех вопросов пула
+// POST /api/admin/question-pool/reset
+func (h *QuizHandler) ResetPoolUsed(c *gin.Context) {
+	resetCount, err := h.quizService.ResetPoolUsed()
+	if err != nil {
+		log.Printf("[QuizHandler] Error resetting pool: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to reset pool"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Pool questions reset successfully",
+		"count":   resetCount,
 	})
 }
 

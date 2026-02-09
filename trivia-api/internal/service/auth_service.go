@@ -168,7 +168,11 @@ func (s *AuthService) UpdateUserProfile(userID uint, username, profilePicture st
 
 	// Если имя пользователя изменилось, проверяем, что оно уникально
 	if username != user.Username {
-		existingUser, _ := s.userRepo.GetByUsername(username)
+		existingUser, err := s.userRepo.GetByUsername(username)
+		if err != nil && !errors.Is(err, apperrors.ErrNotFound) {
+			// Реальная DB ошибка — возвращаем её
+			return fmt.Errorf("failed to check username availability: %w", err)
+		}
 		if existingUser != nil {
 			return fmt.Errorf("%w: username '%s' already taken", apperrors.ErrConflict, username)
 		}
@@ -269,7 +273,7 @@ func (s *AuthService) LogoutAllDevices(userID uint) error {
 
 // ResetUserTokenInvalidation сбрасывает флаг инвалидации для пользователя
 // Использует jwtService и InvalidTokenRepository напрямую
-func (s *AuthService) ResetUserTokenInvalidation(userID uint) {
+func (s *AuthService) ResetUserTokenInvalidation(userID uint) error {
 	// Создаем контекст для вызова
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
@@ -280,8 +284,10 @@ func (s *AuthService) ResetUserTokenInvalidation(userID uint) {
 	// Удаление записи из БД
 	if err := s.invalidTokenRepo.RemoveInvalidToken(ctx, userID); err != nil {
 		log.Printf("[AuthService] Ошибка при удалении записи инвалидации из БД для пользователя ID=%d: %v", userID, err)
+		return fmt.Errorf("failed to reset token invalidation: %w", err)
 	}
 	log.Printf("[AuthService] Сброшена инвалидация токенов для пользователя ID=%d", userID)
+	return nil
 }
 
 // GetUserActiveSessions возвращает активные сессии пользователя
@@ -491,8 +497,8 @@ func (s *AuthService) GetActiveSessionsWithDetails(userID uint) ([]map[string]in
 
 // GenerateWsTicket генерирует короткоживущий тикет для аутентификации WebSocket
 // Использует jwtService напрямую
-func (s *AuthService) GenerateWsTicket(userID uint, email string) (string, error) {
-	ticket, err := s.jwtService.GenerateWSTicket(userID, email)
+func (s *AuthService) GenerateWsTicket(ctx context.Context, userID uint, email string) (string, error) {
+	ticket, err := s.jwtService.GenerateWSTicket(ctx, userID, email)
 	if err != nil {
 		log.Printf("[AuthService] Ошибка генерации WebSocket тикета для пользователя ID=%d: %v", userID, err)
 		return "", fmt.Errorf("ошибка генерации тикета")

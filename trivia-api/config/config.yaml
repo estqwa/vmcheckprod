@@ -26,6 +26,19 @@ auth:
   sessionLimit: 10  # Максимальное количество активных сессий на пользователя
   refreshTokenLifetime: 720  # Время жизни refresh-токена в часах (30 дней)
 
+# Настройки CORS (Cross-Origin Resource Sharing)
+cors:
+  allowed_origins:
+    - "https://triviafront.vercel.app"
+    - "https://triviafrontadmin.vercel.app"
+    - "http://localhost:5173"
+    - "http://localhost:8000"
+    - "http://localhost:3000"
+    - "http://34.159.126.18"
+    - "http://34.159.126.18:80"
+    - "https://qazaquiz.duckdns.org"
+    - "http://qazaquiz.duckdns.org"
+
 # Настройки WebSocket подсистемы
 websocket:
   # Настройки шардирования

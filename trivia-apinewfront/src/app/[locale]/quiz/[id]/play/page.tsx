@@ -305,6 +305,7 @@ export default function QuizPlayPage() {
                         </div>
 
                         <div className="flex items-center gap-2">
+                            <LanguageSwitcher />
                             {connectionState === 'disconnected' && (
                                 <Badge variant="destructive">{t('disconnected')}</Badge>
                             )}

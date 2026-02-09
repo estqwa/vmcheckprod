@@ -23,6 +23,7 @@ type WSHandler struct {
 	quizManager *service.QuizManager
 	jwtService  *auth.JWTService
 	wsConfig    config.WebSocketConfig // Конфигурация WebSocket для лимитов
+	upgrader    gorillaws.Upgrader     // Упгрейдер с origins из конфига
 }
 
 // NewWSHandler создает новый обработчик WebSocket
@@ -32,58 +33,43 @@ func NewWSHandler(
 	quizManager *service.QuizManager,
 	jwtService *auth.JWTService,
 	wsConfig config.WebSocketConfig,
+	allowedOrigins []string,
 ) *WSHandler {
+	// Создаём map для быстрого поиска origins
+	originsMap := make(map[string]bool)
+	for _, o := range allowedOrigins {
+		originsMap[o] = true
+	}
+
 	handler := &WSHandler{
 		wsHub:       wsHub,
 		wsManager:   wsManager,
 		quizManager: quizManager,
 		jwtService:  jwtService,
 		wsConfig:    wsConfig,
+		upgrader: gorillaws.Upgrader{
+			ReadBufferSize:    4096,
+			WriteBufferSize:   4096,
+			EnableCompression: true,
+			CheckOrigin: func(r *http.Request) bool {
+				origin := r.Header.Get("Origin")
+				// Если Origin пустой - это не браузерный клиент
+				if origin == "" {
+					return true
+				}
+				if originsMap[origin] {
+					return true
+				}
+				log.Printf("WebSocket: rejected unauthorized origin: %s", origin)
+				return false
+			},
+		},
 	}
 
 	// Регистрируем обработчики сообщений один раз при создании обработчика
 	handler.registerMessageHandlers()
 
 	return handler
-}
-
-var upgrader = gorillaws.Upgrader{
-	ReadBufferSize:  4096, // Увеличено с 1024 для лучшей производительности при 10k+ пользователей
-	WriteBufferSize: 4096, // Увеличено с 1024 для лучшей производительности при 10k+ пользователей
-	CheckOrigin: func(r *http.Request) bool {
-		origin := r.Header.Get("Origin")
-
-		// Если Origin пустой - это не браузерный клиент (мобильное приложение, curl и т.д.)
-		// Разрешаем такие подключения
-		if origin == "" {
-			return true
-		}
-
-		// Список разрешенных origin (синхронизирован с CORS в main.go)
-		// При добавлении новых доменов - добавьте их также в CORS config
-		allowedOrigins := []string{
-			"https://triviafront.vercel.app",
-			"https://triviafrontadmin.vercel.app",
-			"http://localhost:5173",
-			"http://localhost:8000",
-			"http://localhost:3000",
-			"http://34.159.126.18",
-			"http://34.159.126.18:80",
-			"https://qazaquiz.duckdns.org",
-			"http://qazaquiz.duckdns.org",
-		}
-
-		for _, allowed := range allowedOrigins {
-			if origin == allowed {
-				return true
-			}
-		}
-
-		log.Printf("WebSocket: rejected unauthorized origin: %s", origin)
-		return false
-	},
-	// Добавляем заголовки для CORS
-	EnableCompression: true,
 }
 
 // HandleConnection обрабатывает входящее WebSocket соединение
@@ -102,7 +88,7 @@ func (h *WSHandler) HandleConnection(c *gin.Context) {
 	}
 
 	// Проверяем тикет с использованием специальной функции ParseWSTicket
-	claims, err := h.jwtService.ParseWSTicket(ticket)
+	claims, err := h.jwtService.ParseWSTicket(c.Request.Context(), ticket)
 	if err != nil {
 		log.Printf("WebSocket: Invalid or expired ticket - %v", err)
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid or expired ticket"})
@@ -110,7 +96,7 @@ func (h *WSHandler) HandleConnection(c *gin.Context) {
 	}
 
 	// Устанавливаем соединение
-	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
+	conn, err := h.upgrader.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {
 		log.Printf("Error upgrading connection: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Failed to upgrade: %v", err)})

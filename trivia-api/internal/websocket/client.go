@@ -97,8 +97,9 @@ type Client struct {
 	// Флаг, указывающий что канал send закрыт (для предотвращения panic)
 	sendClosed atomic.Bool
 
-	// Время последней активности клиента
+	// Время последней активности клиента (защищено мьютексом)
 	lastActivity time.Time
+	activityMu   sync.RWMutex // FIX: Мьютекс для защиты lastActivity
 
 	// Канал для ожидания завершения регистрации
 	registrationComplete chan struct{}
@@ -119,6 +120,20 @@ type Client struct {
 	// Счетчик предупреждений о переполнении буфера
 	bufferWarningCount int32
 	bufferWarningMutex sync.Mutex // Мьютекс для защиты счетчика
+}
+
+// UpdateLastActivity обновляет время последней активности (thread-safe)
+func (c *Client) UpdateLastActivity() {
+	c.activityMu.Lock()
+	c.lastActivity = time.Now()
+	c.activityMu.Unlock()
+}
+
+// GetLastActivity возвращает время последней активности (thread-safe)
+func (c *Client) GetLastActivity() time.Time {
+	c.activityMu.RLock()
+	defer c.activityMu.RUnlock()
+	return c.lastActivity
 }
 
 // NewClient создает нового клиента с конфигурацией по умолчанию
@@ -201,7 +216,7 @@ func (c *Client) readPump(messageHandler func(message []byte, client *Client) er
 	c.conn.SetReadDeadline(time.Now().Add(c.config.PongWait))
 	c.conn.SetPongHandler(func(string) error {
 		c.conn.SetReadDeadline(time.Now().Add(c.config.PongWait))
-		c.lastActivity = time.Now() // Обновляем время активности при получении pong
+		c.UpdateLastActivity() // FIX: thread-safe обновление времени активности
 		return nil
 	})
 
@@ -223,7 +238,7 @@ func (c *Client) readPump(messageHandler func(message []byte, client *Client) er
 		// log.Printf("Received message from %s: %s", c.UserID, string(message))
 
 		// Обновляем время активности при получении сообщения
-		c.lastActivity = time.Now()
+		c.UpdateLastActivity() // FIX: thread-safe обновление
 
 		// Безопасный вызов обработчика с recover
 		if handlerErr := safeHandleMessage(message, c, messageHandler); handlerErr != nil {

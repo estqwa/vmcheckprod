@@ -250,6 +250,11 @@ func (s *QuizService) DuplicateQuiz(originalQuizID uint, newScheduledTime time.T
 				CorrectOption: origQuestion.CorrectOption,
 				TimeLimitSec:  origQuestion.TimeLimitSec,
 				PointValue:    origQuestion.PointValue,
+				// FIX: Добавлены недостающие поля для адаптивной системы и локализации
+				Difficulty: origQuestion.Difficulty,
+				TextKK:     origQuestion.TextKK,
+				OptionsKK:  origQuestion.OptionsKK,
+				// IsUsed НЕ копируем — новый вопрос должен быть доступен для использования
 				// ID, CreatedAt, UpdatedAt будут установлены GORM
 			}
 			newQuestions = append(newQuestions, newQuestion)

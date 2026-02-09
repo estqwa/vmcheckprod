@@ -68,14 +68,6 @@ function QuizLivePageContent() {
         5: 'bg-red-100 text-red-700',
     };
 
-    const difficultyLabels: Record<number, string> = {
-        1: '⭐ Очень легко',
-        2: '⭐⭐ Легко',
-        3: '⭐⭐⭐ Средне',
-        4: '⭐⭐⭐⭐ Сложно',
-        5: '⭐⭐⭐⭐⭐ Очень сложно',
-    };
-
     // Connect to WebSocket
     const connectWS = useCallback(async () => {
         try {

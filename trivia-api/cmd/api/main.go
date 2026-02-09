@@ -238,7 +238,7 @@ func main() {
 	// Инициализируем обработчики
 	authHandler := handler.NewAuthHandler(authService, tokenManager, wsHub)
 	quizHandler := handler.NewQuizHandler(quizService, resultService, quizManagerService)
-	wsHandler := handler.NewWSHandler(wsHub, wsManager, quizManagerService, jwtService, cfg.WebSocket)
+	wsHandler := handler.NewWSHandler(wsHub, wsManager, quizManagerService, jwtService, cfg.WebSocket, cfg.CORS.AllowedOrigins)
 	userHandler := handler.NewUserHandler(userService, resultService)
 	adHandler := handler.NewAdHandler(adService, quizAdSlotService)
 
@@ -266,8 +266,12 @@ func main() {
 	}
 
 	// Настройка CORS
+	// Fail-fast: если список origins пустой — это ошибка конфигурации
+	if len(cfg.CORS.AllowedOrigins) == 0 {
+		log.Fatal("CORS configuration error: allowed_origins list is empty. This would block all browser clients.")
+	}
 	router.Use(cors.New(cors.Config{
-		AllowOrigins:     []string{"https://triviafront.vercel.app", "https://triviafrontadmin.vercel.app", "http://localhost:5173", "http://localhost:8000", "http://localhost:3000", "http://34.159.126.18", "http://34.159.126.18:80", "https://qazaquiz.duckdns.org", "http://qazaquiz.duckdns.org"},
+		AllowOrigins:     cfg.CORS.AllowedOrigins,
 		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
 		AllowHeaders:     []string{"Origin", "Content-Type", "Accept", "Authorization", "X-CSRF-Token"},
 		ExposeHeaders:    []string{"Content-Length"},

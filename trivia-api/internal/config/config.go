@@ -16,6 +16,7 @@ type Config struct {
 	Redis     RedisConfig
 	JWT       JWTConfig
 	Auth      AuthConfig
+	CORS      CORSConfig
 	WebSocket WebSocketConfig
 }
 
@@ -78,6 +79,11 @@ type JWTConfig struct {
 type AuthConfig struct {
 	SessionLimit         int
 	RefreshTokenLifetime int
+}
+
+// CORSConfig содержит настройки CORS (Cross-Origin Resource Sharing)
+type CORSConfig struct {
+	AllowedOrigins []string `mapstructure:"allowed_origins"`
 }
 
 // WebSocketConfig содержит настройки WebSocket-подсистемы
@@ -234,9 +240,15 @@ func Load(configPath string) (*Config, error) {
 		return nil, fmt.Errorf("database configuration (host, dbname, user) is incomplete in config (check DATABASE_HOST, DATABASE_DBNAME, DATABASE_USER env vars)")
 	}
 	// Проверяем пароли для БД и Redis, если приложение не в режиме разработки (например, в production)
-	// Для этого нам нужен способ определить режим. Предположим, мы можем получить его из переменной окружения GIN_MODE.
-	ginMode := vip.GetString("GIN_MODE") // Попробуем получить GIN_MODE, если он установлен как env var
-	if ginMode != "debug" {              // Если не debug (т.е. release, test и т.д.), считаем production-like
+	// Для этого нам нужен способ определить режим. Сначала проверяем env var напрямую, потом viper.
+	ginMode := os.Getenv("GIN_MODE")
+	if ginMode == "" {
+		ginMode = vip.GetString("GIN_MODE")
+	}
+	if ginMode == "" {
+		ginMode = "debug" // fallback для локальной разработки
+	}
+	if ginMode != "debug" { // Если не debug (т.е. release, test и т.д.), считаем production-like
 		if cfg.Database.Password == "" {
 			return nil, fmt.Errorf("database password is required in production mode (check DATABASE_PASSWORD env var)")
 		}

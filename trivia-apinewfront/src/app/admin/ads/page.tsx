@@ -11,7 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from 'sonner';
 import { api } from '@/lib/api/client';
-import { useAuth } from '@/providers/AuthProvider';
+
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '';
 

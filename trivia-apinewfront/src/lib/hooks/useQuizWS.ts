@@ -15,8 +15,6 @@ const getWSUrl = () => {
     return 'wss://qazaquiz.duckdns.org';
 };
 
-const WS_URL = getWSUrl();
-
 interface WSMessage {
     type: string;
     data: Record<string, unknown>;
@@ -47,6 +45,9 @@ export function useQuizWS({
     const reconnectAttemptsRef = useRef(0);
     const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
     const heartbeatIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+    // Ref для connect функции (для использования в onclose до объявления)
+    const connectRef = useRef<(() => Promise<void>) | null>(null);
 
     const [isConnected, setIsConnected] = useState(false);
     const [isConnecting, setIsConnecting] = useState(false);
@@ -89,7 +90,8 @@ export function useQuizWS({
 
         try {
             const ticket = await getWsTicket();
-            const ws = new WebSocket(`${WS_URL}/ws?ticket=${ticket}`);
+            const wsUrl = getWSUrl(); // Вычисляем URL в runtime
+            const ws = new WebSocket(`${wsUrl}/ws?ticket=${ticket}`);
 
             ws.onopen = () => {
                 console.log('[WS] Connected');
@@ -177,7 +179,8 @@ export function useQuizWS({
 
                     reconnectTimeoutRef.current = setTimeout(() => {
                         reconnectAttemptsRef.current++;
-                        connect();
+                        // Используем ref для вызова актуальной версии connect
+                        connectRef.current?.();
                     }, delay);
                 } else {
                     toast.error('Connection lost. Please refresh the page.');
@@ -191,6 +194,11 @@ export function useQuizWS({
             toast.error('Failed to connect to game server');
         }
     }, [isConnecting, getWsTicket, quizId, autoReady, onConnect, onMessage, onDisconnect, clearTimers, logout, router]);
+
+    // Обновляем ref при каждом изменении connect
+    useEffect(() => {
+        connectRef.current = connect;
+    }, [connect]);
 
     // Disconnect
     const disconnect = useCallback(() => {
@@ -218,3 +226,4 @@ export function useQuizWS({
         sendAnswer,
     };
 }
+

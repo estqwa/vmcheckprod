@@ -77,7 +77,12 @@ func (h *UserHandler) GetMyResults(c *gin.Context) {
 	}
 
 	// Вызываем сервис
-	results, total, err := h.resultService.GetUserResults(userID.(uint), page, pageSize)
+	uid, ok := userID.(uint)
+	if !ok {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid user ID type in context"})
+		return
+	}
+	results, total, err := h.resultService.GetUserResults(uid, page, pageSize)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get game history"})
 		return

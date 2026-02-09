@@ -458,7 +458,7 @@ func (h *QuizHandler) exportCSV(c *gin.Context, results []entity.Result, quiz *e
 
 		writer.Write([]string{
 			strconv.Itoa(r.Rank),
-			r.Username,
+			sanitizeForExcel(r.Username),
 			strconv.Itoa(r.Score),
 			strconv.Itoa(r.CorrectAnswers),
 			strconv.Itoa(r.TotalQuestions),
@@ -524,7 +524,7 @@ func (h *QuizHandler) exportXLSX(c *gin.Context, results []entity.Result, quiz *
 			prize = r.PrizeFund
 		}
 
-		row := []interface{}{r.Rank, r.Username, r.Score, r.CorrectAnswers, r.TotalQuestions, winner, eliminated, elimQuestion, elimReason, prize}
+		row := []interface{}{r.Rank, sanitizeForExcel(r.Username), r.Score, r.CorrectAnswers, r.TotalQuestions, winner, eliminated, elimQuestion, elimReason, prize}
 		if err := sw.SetRow(cell, row); err != nil {
 			log.Printf("[QuizHandler] Ошибка записи строки %d: %v", rowNum, err)
 		}
@@ -538,6 +538,18 @@ func (h *QuizHandler) exportXLSX(c *gin.Context, results []entity.Result, quiz *
 	if err := f.Write(c.Writer); err != nil {
 		log.Printf("[QuizHandler] Ошибка записи Excel в response: %v", err)
 	}
+}
+
+// sanitizeForExcel экранирует данные для защиты от formula injection в Excel/CSV
+func sanitizeForExcel(s string) string {
+	if len(s) == 0 {
+		return s
+	}
+	// Символы, начинающие формулу в Excel/LibreOffice: = + - @ \t \r
+	if s[0] == '=' || s[0] == '+' || s[0] == '-' || s[0] == '@' || s[0] == '\t' || s[0] == '\r' {
+		return "'" + s
+	}
+	return s
 }
 
 // translateEliminationReason переводит причину выбытия на русский

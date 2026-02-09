@@ -19,7 +19,6 @@ export default function HomePage() {
     });
     const timerRef = useRef<NodeJS.Timeout | null>(null);
 
-    const t = useTranslations();
     const tNav = useTranslations('nav');
     const tHome = useTranslations('home');
     const tQuiz = useTranslations('quiz');
@@ -265,19 +264,19 @@ export default function HomePage() {
                                 <div className="flex justify-center gap-2">
                                     <div className="timer-block">
                                         <div className="value">{String(timeRemaining.days).padStart(2, '0')}</div>
-                                        <div className="label">Дней</div>
+                                        <div className="label">{tQuiz('days')}</div>
                                     </div>
                                     <div className="timer-block">
                                         <div className="value">{String(timeRemaining.hours).padStart(2, '0')}</div>
-                                        <div className="label">Часов</div>
+                                        <div className="label">{tQuiz('hours')}</div>
                                     </div>
                                     <div className="timer-block">
                                         <div className="value">{String(timeRemaining.minutes).padStart(2, '0')}</div>
-                                        <div className="label">Минут</div>
+                                        <div className="label">{tQuiz('minutes')}</div>
                                     </div>
                                     <div className="timer-block">
                                         <div className="value">{String(timeRemaining.seconds).padStart(2, '0')}</div>
-                                        <div className="label">Секунд</div>
+                                        <div className="label">{tQuiz('seconds')}</div>
                                     </div>
                                 </div>
                             </div>

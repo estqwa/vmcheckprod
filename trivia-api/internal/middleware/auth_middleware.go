@@ -80,13 +80,13 @@ func (m *AuthMiddleware) RequireAuth() gin.HandlerFunc {
 			return
 		}
 
-		// Устанавливаем ID пользователя в контекст
+		// Устанавливаем ID пользователя и роль в контекст
 		c.Set("user_id", claims.UserID)
 		c.Set("email", claims.Email)
+		c.Set("role", claims.Role)
 
-		// TODO [PRODUCTION]: Реализовать систему ролей вместо hardcoded ID == 1
-		// Добавить поле role/is_admin в entity.User и включать его в JWT claims
-		if claims.UserID == 1 {
+		// Проверяем роль из JWT claims
+		if claims.Role == "admin" {
 			c.Set("is_admin", true)
 		}
 
@@ -98,22 +98,20 @@ func (m *AuthMiddleware) RequireAuth() gin.HandlerFunc {
 func (m *AuthMiddleware) AdminOnly() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// Проверяем, аутентифицирован ли пользователь
-		userID, exists := c.Get("user_id")
+		_, exists := c.Get("user_id")
 		if !exists {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
 			c.Abort()
 			return
 		}
 
-		// Проверяем, является ли пользователь администратором
+		// Проверяем, является ли пользователь администратором (безопасный type assertion)
 		isAdmin, exists := c.Get("is_admin")
-		if !exists || !isAdmin.(bool) {
-			// TODO [PRODUCTION]: Заменить на проверку роли вместо hardcoded ID == 1
-			if userID.(uint) != 1 {
-				c.JSON(http.StatusForbidden, gin.H{"error": "Admin rights required"})
-				c.Abort()
-				return
-			}
+		isAdminBool, ok := isAdmin.(bool)
+		if !exists || !ok || !isAdminBool {
+			c.JSON(http.StatusForbidden, gin.H{"error": "Admin rights required"})
+			c.Abort()
+			return
 		}
 
 		c.Next()

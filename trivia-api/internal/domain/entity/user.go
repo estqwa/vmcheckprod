@@ -22,6 +22,7 @@ type User struct {
 	WinsCount      int64     `gorm:"not null;default:0;index:idx_users_leaderboard" json:"wins_count"`
 	TotalPrizeWon  int64     `gorm:"not null;default:0;index:idx_users_leaderboard" json:"total_prize_won"`
 	Language       string    `gorm:"size:5;not null;default:'ru'" json:"language"` // "ru" или "kk"
+	Role           string    `gorm:"size:20;not null;default:'user'" json:"-"`     // "user" или "admin"
 	CreatedAt      time.Time `json:"created_at"`
 	UpdatedAt      time.Time `json:"updated_at"`
 }

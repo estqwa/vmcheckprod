@@ -175,21 +175,25 @@ func (qm *QuizManager) handleQuizStart(quizID uint) {
 func (qm *QuizManager) finishQuiz(quizID uint) {
 	log.Printf("[QuizManager] Завершение викторины #%d", quizID)
 
-	// Блокируем для чтения и записи
+	// === 1. Быстро читаем состояние под lock ===
 	qm.stateMutex.Lock()
-	defer qm.stateMutex.Unlock() // Гарантируем разблокировку
-
 	if qm.activeQuizState == nil || qm.activeQuizState.Quiz == nil || qm.activeQuizState.Quiz.ID != quizID {
+		qm.stateMutex.Unlock()
 		log.Printf("[QuizManager] Ошибка: викторина #%d не является активной или уже завершена.", quizID)
 		return
 	}
 
-	// Обновляем статус викторины
+	// Копируем данные, которые нам нужны
 	quiz := qm.activeQuizState.Quiz
 	quiz.Status = entity.QuizStatusCompleted
-	// Для timestamp завершения используем текущее время
 	completedAt := time.Now()
 
+	// Сбрасываем активную викторину сразу
+	qm.activeQuizState = nil
+	qm.stateMutex.Unlock()
+	// === Lock освобождён — далее без блокировки ===
+
+	// === 2. DB операции БЕЗ lock ===
 	if err := qm.quizRepo.Update(quiz); err != nil {
 		log.Printf("[QuizManager] Ошибка при обновлении статуса викторины #%d: %v", quizID, err)
 		// Продолжаем несмотря на ошибку
@@ -223,7 +227,6 @@ func (qm *QuizManager) finishQuiz(quizID uint) {
 	participantStrings, err := qm.cacheRepo.SMembers(participantsKey)
 	if err != nil {
 		log.Printf("[QuizManager] КРИТИЧЕСКАЯ ОШИБКА: Не удалось получить участников викторины #%d из Redis: %v. Результаты не будут рассчитаны!", quizID, err)
-		qm.activeQuizState = nil
 		return
 	}
 
@@ -261,9 +264,7 @@ func (qm *QuizManager) finishQuiz(quizID uint) {
 		log.Printf("[QuizManager] Ошибка при определении победителей для викторины #%d: %v", quizID, err)
 	}
 	// Старый асинхронный вызов с задержкой удален
-
-	// Сбрасываем активную викторину
-	qm.activeQuizState = nil
+	// activeQuizState уже сброшен на L192 под lock
 }
 
 // ProcessAnswer обрабатывает ответ пользователя, находя соответствующее состояние викторины

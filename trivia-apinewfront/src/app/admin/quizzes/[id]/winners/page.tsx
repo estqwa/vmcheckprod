@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { getQuizResults, getQuiz, getQuizStatistics, getQuizWinners, Quiz, QuizResult, QuizStatistics } from '@/lib/api';
@@ -41,6 +41,18 @@ function WinnersPageContent() {
         }
     };
 
+    // Функция загрузки страницы выбывших (объявлена перед useEffect)
+    const loadEliminatedPage = useCallback(async (page: number) => {
+        try {
+            const resultsData = await getQuizResults(quizId, { page, page_size: PAGE_SIZE });
+            setAllResults(resultsData.results);
+            setTotalPages(Math.ceil(resultsData.total / PAGE_SIZE));
+            setCurrentPage(page);
+        } catch (error) {
+            console.error('Failed to load eliminated page:', error);
+        }
+    }, [quizId]);
+
     useEffect(() => {
         const fetchData = async () => {
             try {
@@ -65,19 +77,7 @@ function WinnersPageContent() {
         };
 
         fetchData();
-    }, [quizId]);
-
-    // Функция загрузки страницы выбывших
-    const loadEliminatedPage = async (page: number) => {
-        try {
-            const resultsData = await getQuizResults(quizId, { page, page_size: PAGE_SIZE });
-            setAllResults(resultsData.results);
-            setTotalPages(Math.ceil(resultsData.total / PAGE_SIZE));
-            setCurrentPage(page);
-        } catch (error) {
-            console.error('Failed to load eliminated page:', error);
-        }
-    };
+    }, [quizId, loadEliminatedPage]);
 
     const getRankIcon = (rank: number) => {
         switch (rank) {

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 
 interface AdBreakData {
     quiz_id: number;
@@ -16,32 +16,50 @@ interface AdBreakOverlayProps {
 }
 
 export function AdBreakOverlay({ adData, isVisible, onAdEnd }: AdBreakOverlayProps) {
+    // State для отображения таймера
     const [timeRemaining, setTimeRemaining] = useState(0);
 
-    // Инициализация и обратный отсчёт
+    // Refs для стабильных значений (не вызывают ре-рендер)
+    const onAdEndRef = useRef(onAdEnd);
+    const durationRef = useRef(0);
+
+    // Обновляем callback ref
+    useEffect(() => { onAdEndRef.current = onAdEnd; }, [onAdEnd]);
+
+    // Единый effect для таймера рекламы
+    // По React документации: setState вызывается ТОЛЬКО внутри setInterval callback
     useEffect(() => {
         if (!isVisible || !adData) {
-            setTimeRemaining(0);
             return;
         }
 
-        // Устанавливаем начальное время
-        setTimeRemaining(adData.duration_sec);
+        // Сохраняем duration для использования в callback
+        durationRef.current = adData.duration_sec;
 
-        // Запускаем таймер обратного отсчёта
-        const timer = setInterval(() => {
-            setTimeRemaining((prev) => {
-                if (prev <= 1) {
-                    clearInterval(timer);
-                    onAdEnd?.();
+        // Инициализируем через функциональное обновление из callback
+        // Используем setTimeout(0) чтобы setState был в callback, а не напрямую в effect body
+        const initTimer = setTimeout(() => {
+            setTimeRemaining(durationRef.current);
+        }, 0);
+
+        // Countdown таймер — setState только внутри setInterval callback (React паттерн)
+        const countdownTimer = setInterval(() => {
+            setTimeRemaining(prev => {
+                const next = prev - 1;
+                if (next <= 0) {
+                    clearInterval(countdownTimer);
+                    onAdEndRef.current?.();
                     return 0;
                 }
-                return prev - 1;
+                return next;
             });
         }, 1000);
 
-        return () => clearInterval(timer);
-    }, [isVisible, adData, onAdEnd]);
+        return () => {
+            clearTimeout(initTimer);
+            clearInterval(countdownTimer);
+        };
+    }, [isVisible, adData]);
 
     if (!isVisible || !adData) {
         return null;

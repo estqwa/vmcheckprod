@@ -1,12 +1,12 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { api } from '@/lib/api/client';
-import { useAuth } from '@/providers/AuthProvider';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '';
 
@@ -183,7 +183,7 @@ export function AdSlotsEditor({ quizId, questionCount }: AdSlotsEditorProps) {
                 {ads.length === 0 && (
                     <p className="text-sm text-muted-foreground">
                         Сначала загрузите рекламы в разделе{' '}
-                        <a href="/admin/ads" className="text-primary underline">Рекламные материалы</a>
+                        <Link href="/admin/ads" className="text-primary underline">Рекламные материалы</Link>
                     </p>
                 )}
 

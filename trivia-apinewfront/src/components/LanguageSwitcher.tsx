@@ -58,8 +58,8 @@ export function LanguageSwitcher() {
                 onClick={() => switchLanguage('ru')}
                 disabled={isLoading}
                 className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${currentLocale === 'ru'
-                        ? 'bg-primary text-primary-foreground shadow-sm'
-                        : 'text-muted-foreground hover:text-foreground'
+                    ? 'bg-primary text-primary-foreground shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground'
                     }`}
                 aria-label="Русский язык"
             >
@@ -69,8 +69,8 @@ export function LanguageSwitcher() {
                 onClick={() => switchLanguage('kk')}
                 disabled={isLoading}
                 className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${currentLocale === 'kk'
-                        ? 'bg-primary text-primary-foreground shadow-sm'
-                        : 'text-muted-foreground hover:text-foreground'
+                    ? 'bg-primary text-primary-foreground shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground'
                     }`}
                 aria-label="Қазақ тілі"
             >
@@ -82,18 +82,17 @@ export function LanguageSwitcher() {
 
 // Хук для получения текущего языка
 export function useLocale(): Locale {
-    const [locale, setLocale] = useState<Locale>('ru');
-
-    useEffect(() => {
+    // Инициализируем state сразу из cookie (избегаем setState в useEffect)
+    const [locale] = useState<Locale>(() => {
+        if (typeof document === 'undefined') return 'ru';
         const cookies = document.cookie.split(';');
         const localeCookie = cookies.find(c => c.trim().startsWith(`${LOCALE_COOKIE_NAME}=`));
         if (localeCookie) {
             const value = localeCookie.split('=')[1] as Locale;
-            if (value === 'ru' || value === 'kk') {
-                setLocale(value);
-            }
+            if (value === 'ru' || value === 'kk') return value;
         }
-    }, []);
+        return 'ru';
+    });
 
     return locale;
 }

@@ -160,9 +160,9 @@ func (s *JWTService) GenerateTokenWithKey(user *entity.User, csrfSecret string, 
 	}
 
 	claims := &JWTCustomClaims{
-		UserID: user.ID,
-		Email:  user.Email,
-		// Role:       user.Role, // TODO: Uncomment and ensure user.Role exists when roles are implemented
+		UserID:     user.ID,
+		Email:      user.Email,
+		Role:       user.Role,  // Роль пользователя (user/admin)
 		CSRFSecret: csrfSecret, // Включаем CSRF секрет
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour * time.Duration(s.expirationHrs))),
@@ -486,7 +486,7 @@ func (s *JWTService) DebugToken(tokenString string) map[string]interface{} {
 
 // ParseWSTicket проверяет JWT, используемый как WS тикет
 // Обновлено: использует Keyfunc для проверки подписи
-func (s *JWTService) ParseWSTicket(ticketString string) (*JWTCustomClaims, error) {
+func (s *JWTService) ParseWSTicket(ctx context.Context, ticketString string) (*JWTCustomClaims, error) {
 	claims := &JWTCustomClaims{}
 
 	// Используем ту же Keyfunc, что и в ParseToken
@@ -495,7 +495,7 @@ func (s *JWTService) ParseWSTicket(ticketString string) (*JWTCustomClaims, error
 		if !ok {
 			return nil, errors.New("ticket header missing 'kid' (Key ID)")
 		}
-		validationKeys, keyErr := s.keyProvider.GetKeysForValidation(context.Background())
+		validationKeys, keyErr := s.keyProvider.GetKeysForValidation(ctx)
 		if keyErr != nil {
 			return nil, fmt.Errorf("failed to get validation keys: %w", keyErr)
 		}
@@ -538,9 +538,9 @@ func (s *JWTService) ParseWSTicket(ticketString string) (*JWTCustomClaims, error
 
 // GenerateWSTicket создает короткоживущий JWT для аутентификации WebSocket
 // Обновлено: использует текущий активный ключ для подписи
-func (s *JWTService) GenerateWSTicket(userID uint, email string) (string, error) {
+func (s *JWTService) GenerateWSTicket(ctx context.Context, userID uint, email string) (string, error) {
 	// Получаем текущий ключ для подписи
-	signingKey, keyErr := s.keyProvider.GetCurrentSigningKey(context.Background())
+	signingKey, keyErr := s.keyProvider.GetCurrentSigningKey(ctx)
 	if keyErr != nil {
 		log.Printf("CRITICAL: Failed to get current signing key for GenerateWSTicket: %v", keyErr)
 		return "", errors.New("failed to get signing key for WS ticket")

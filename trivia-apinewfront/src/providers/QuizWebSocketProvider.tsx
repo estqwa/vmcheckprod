@@ -7,6 +7,7 @@ import {
     useEffect,
     useCallback,
     useRef,
+    useMemo,
     ReactNode,
 } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
@@ -95,7 +96,14 @@ export function QuizWebSocketProvider({ children }: { children: ReactNode }) {
     // State
     const [connectionState, setConnectionState] = useState<ConnectionState>('disconnected');
     const [quizId, setQuizId] = useState<number | null>(null);
-    const [currentPage, setCurrentPage] = useState<QuizPage>(null);
+
+    // Derived state from pathname (computed, not stored)
+    const currentPage = useMemo((): QuizPage => {
+        if (!pathname) return null;
+        const match = pathname.match(/\/quiz\/\d+\/(lobby|play|results)/);
+        if (match) return match[1] as QuizPage;
+        return null;
+    }, [pathname]);
 
     // Derived state
     const isConnected = connectionState === 'connected';
@@ -105,6 +113,9 @@ export function QuizWebSocketProvider({ children }: { children: ReactNode }) {
     // ========================================================================
 
     const isConnectingRef = useRef(false);
+
+    // Ref для doConnect функции (для использования в onclose до объявления)
+    const doConnectRef = useRef<((quizId: number, isReconnect: boolean) => Promise<void>) | null>(null);
 
     // ========================================================================
     // Helpers
@@ -130,22 +141,6 @@ export function QuizWebSocketProvider({ children }: { children: ReactNode }) {
             }
         });
     }, []);
-
-    // Detect current page from pathname
-    useEffect(() => {
-        if (!pathname) {
-            setCurrentPage(null);
-            return;
-        }
-
-        const match = pathname.match(/\/quiz\/(\d+)\/(lobby|play|results)/);
-        if (match) {
-            const page = match[2] as QuizPage;
-            setCurrentPage(page);
-        } else {
-            setCurrentPage(null);
-        }
-    }, [pathname]);
 
     // ========================================================================
     // Core WebSocket Logic
@@ -294,7 +289,8 @@ export function QuizWebSocketProvider({ children }: { children: ReactNode }) {
                     reconnectTimeoutRef.current = setTimeout(() => {
                         reconnectAttemptsRef.current++;
                         if (currentQuizIdRef.current !== null) {
-                            doConnect(currentQuizIdRef.current, true);
+                            // Используем ref для вызова актуальной версии doConnect
+                            doConnectRef.current?.(currentQuizIdRef.current, true);
                         }
                     }, delay);
                 } else if (reconnectAttemptsRef.current >= MAX_RECONNECT_ATTEMPTS) {
@@ -309,7 +305,12 @@ export function QuizWebSocketProvider({ children }: { children: ReactNode }) {
             setConnectionState('disconnected');
             toast.error('Failed to connect to game server');
         }
-    }, [getWsTicket, logout, router, clearTimers, notifyHandlers]);
+    }, [getWsTicket, logout, router, clearTimers, notifyHandlers, queryClient]);
+
+    // Обновляем ref при каждом изменении doConnect
+    useEffect(() => {
+        doConnectRef.current = doConnect;
+    }, [doConnect]);
 
     // ========================================================================
     // Public API

@@ -446,7 +446,11 @@ func (s *ResultService) CalculateQuizStatistics(quizID uint) (*QuizStatistics, e
 		Scan(&eliminations)
 
 	// Получаем вопросы для маппинга номеров и difficulty
-	questions, _ := s.questionRepo.GetByQuizID(quiz.ID)
+	questions, qErr := s.questionRepo.GetByQuizID(quiz.ID)
+	if qErr != nil {
+		log.Printf("[ResultService] WARNING: Не удалось получить вопросы для викторины #%d: %v", quiz.ID, qErr)
+		// Продолжаем с пустым списком для статистики
+	}
 	questionOrder := make(map[uint]int)
 	questionDifficulty := make(map[uint]int) // NEW: маппинг difficulty
 	for i, q := range questions {

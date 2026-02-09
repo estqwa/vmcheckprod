@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
+	"os"
 
 	"github.com/golang-migrate/migrate/v4"
 	"github.com/golang-migrate/migrate/v4/database/postgres"
@@ -12,9 +13,12 @@ import (
 )
 
 func main() {
-	// Hardcoded config for local dev fix as per user's env vars
-	// $env:DATABASE_HOST="localhost"; $env:DATABASE_PASSWORD="123456"
-	connStr := "host=localhost port=5432 user=postgres password=123456 dbname=trivia_db sslmode=disable"
+	// Читаем пароль из переменной окружения (без fallback для безопасности)
+	password := os.Getenv("DATABASE_PASSWORD")
+	if password == "" {
+		log.Fatal("DATABASE_PASSWORD environment variable is required")
+	}
+	connStr := fmt.Sprintf("host=localhost port=5432 user=postgres password=%s dbname=trivia_db sslmode=disable", password)
 
 	db, err := sql.Open("postgres", connStr)
 	if err != nil {

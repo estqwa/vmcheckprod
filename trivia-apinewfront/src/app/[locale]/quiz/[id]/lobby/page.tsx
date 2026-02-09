@@ -22,8 +22,6 @@ export default function QuizLobbyPage() {
     const { isConnected, connectionState, subscribe } = useQuizWebSocket();
 
     const t = useTranslations('quiz');
-    const tNav = useTranslations('nav');
-    const tCommon = useTranslations('common');
 
     const [quiz, setQuiz] = useState<Quiz | null>(null);
     const [isLoading, setIsLoading] = useState(true);

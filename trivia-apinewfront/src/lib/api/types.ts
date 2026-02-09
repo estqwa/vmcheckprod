@@ -10,6 +10,7 @@ export interface User {
     wins_count: number;
     total_prize_won: number;
     language: 'ru' | 'kk'; // Язык интерфейса пользователя
+    role?: 'user' | 'admin'; // Роль пользователя
     created_at: string;
     updated_at: string;
 }

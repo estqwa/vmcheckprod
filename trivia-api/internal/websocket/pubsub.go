@@ -158,11 +158,9 @@ func (ch *ClusterHub) Start() error {
 	}()
 
 	// Подписываемся на прямые сообщения
+	// NOTE: wg.Done() вызывается внутри handleDirectMessages()
 	ch.wg.Add(1)
-	go func() {
-		defer ch.wg.Done()
-		ch.handleDirectMessages()
-	}()
+	go ch.handleDirectMessages()
 
 	// Запускаем периодическую отправку метрик
 	ch.wg.Add(1)
@@ -171,13 +169,10 @@ func (ch *ClusterHub) Start() error {
 		ch.publishMetrics()
 	}()
 
-	// FIX: Запускаем обработку входящих метрик от других узлов кластера
-	// Без этого метрики публиковались, но никто их не принимал!
+	// Запускаем обработку входящих метрик от других узлов кластера
+	// NOTE: wg.Done() вызывается внутри handleMetricsMessages()
 	ch.wg.Add(1)
-	go func() {
-		defer ch.wg.Done()
-		ch.handleMetricsMessages()
-	}()
+	go ch.handleMetricsMessages()
 
 	return nil
 }

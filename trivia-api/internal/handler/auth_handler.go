@@ -75,6 +75,30 @@ type AuthResponse struct {
 	// Поле RefreshToken удалено, т.к. теперь используются HttpOnly cookies
 }
 
+// serializeUserForClient формирует безопасный и полный payload пользователя для frontend.
+// Важно: role нужен сразу после login/register для корректной работы admin-guard на фронте.
+func serializeUserForClient(user *entity.User) gin.H {
+	if user == nil {
+		return nil
+	}
+
+	return gin.H{
+		"id":              user.ID,
+		"username":        user.Username,
+		"email":           user.Email,
+		"profile_picture": user.ProfilePicture,
+		"games_played":    user.GamesPlayed,
+		"total_score":     user.TotalScore,
+		"highest_score":   user.HighestScore,
+		"wins_count":      user.WinsCount,
+		"total_prize_won": user.TotalPrizeWon,
+		"language":        user.Language,
+		"role":            user.Role,
+		"created_at":      user.CreatedAt,
+		"updated_at":      user.UpdatedAt,
+	}
+}
+
 // SessionInfo представляет информацию о сессии
 type SessionInfo struct {
 	ID        uint      `json:"id"`
@@ -141,7 +165,7 @@ func (h *AuthHandler) Register(c *gin.Context) {
 
 	// Возвращаем только необходимые данные в JSON
 	c.JSON(http.StatusCreated, gin.H{
-		"user":        user,                  // Возвращаем информацию о пользователе
+		"user":        serializeUserForClient(user),
 		"accessToken": tokenResp.AccessToken, // Access токен для информации (уже в куке)
 		"csrfToken":   tokenResp.CSRFToken,   // CSRF токен (хеш) для последующих запросов
 		"userId":      tokenResp.UserID,
@@ -195,7 +219,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
 
 	// Формируем ответ
 	c.JSON(http.StatusOK, gin.H{
-		"user":        user,
+		"user":        serializeUserForClient(user),
 		"accessToken": tokenResp.AccessToken,
 		"csrfToken":   tokenResp.CSRFToken, // Возвращаем хеш
 		"userId":      tokenResp.UserID,
@@ -290,17 +314,7 @@ func (h *AuthHandler) GetMe(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"id":              user.ID,
-		"username":        user.Username,
-		"email":           user.Email,
-		"profile_picture": user.ProfilePicture,
-		"games_played":    user.GamesPlayed,
-		"total_score":     user.TotalScore,
-		"highest_score":   user.HighestScore,
-		"wins_count":      user.WinsCount,
-		"total_prize_won": user.TotalPrizeWon,
-	})
+	c.JSON(http.StatusOK, serializeUserForClient(user))
 }
 
 // UpdateProfileRequest представляет запрос на обновление профиля
@@ -472,7 +486,8 @@ func (h *AuthHandler) ResetAuth(c *gin.Context) {
 	// Этот метод доступен только для администраторов
 	// Проверяем, что пользователь - администратор
 	isAdmin, exists := c.Get("is_admin")
-	if !exists || !isAdmin.(bool) {
+	isAdminBool, ok := isAdmin.(bool)
+	if !exists || !ok || !isAdminBool {
 		c.JSON(http.StatusForbidden, gin.H{"error": "Admin access required"})
 		return
 	}
@@ -491,7 +506,11 @@ func (h *AuthHandler) ResetAuth(c *gin.Context) {
 	log.Printf("[AuthHandler] Администратор ID=%d сбрасывает инвалидацию токенов для пользователя ID=%d", c.MustGet("user_id").(uint), req.UserID)
 
 	// Вызываем сервис для сброса статуса инвалидации в репозитории invalid_tokens
-	h.authService.ResetUserTokenInvalidation(req.UserID)
+	if err := h.authService.ResetUserTokenInvalidation(req.UserID); err != nil {
+		log.Printf("[AuthHandler] Ошибка сброса инвалидации для пользователя ID=%d: %v", req.UserID, err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to reset token invalidation"})
+		return
+	}
 
 	c.JSON(http.StatusOK, gin.H{"message": fmt.Sprintf("Token invalidation status reset for user %d", req.UserID)})
 }
@@ -638,7 +657,8 @@ func (h *AuthHandler) GetTokenInfo(c *gin.Context) {
 func (h *AuthHandler) DebugToken(c *gin.Context) {
 	// Этот метод доступен только для администраторов
 	isAdmin, exists := c.Get("is_admin")
-	if !exists || !isAdmin.(bool) {
+	isAdminBool, ok := isAdmin.(bool)
+	if !exists || !ok || !isAdminBool {
 		c.JSON(http.StatusForbidden, gin.H{"error": "Только для администраторов"})
 		return
 	}
@@ -687,7 +707,8 @@ func (h *AuthHandler) ChangePassword(c *gin.Context) {
 func (h *AuthHandler) AdminResetPassword(c *gin.Context) {
 	// Проверяем, что пользователь - администратор
 	isAdmin, exists := c.Get("is_admin")
-	if !exists || !isAdmin.(bool) {
+	isAdminBool, ok := isAdmin.(bool)
+	if !exists || !ok || !isAdminBool {
 		c.JSON(http.StatusForbidden, gin.H{"error": "Только для администраторов"})
 		return
 	}
@@ -816,7 +837,8 @@ func (h *AuthHandler) GetSessionLimit(c *gin.Context) {
 func (h *AuthHandler) UpdateSessionLimit(c *gin.Context) {
 	// Проверяем права администратора
 	isAdmin, exists := c.Get("is_admin")
-	if !exists || !isAdmin.(bool) {
+	isAdminBool, ok := isAdmin.(bool)
+	if !exists || !ok || !isAdminBool {
 		c.JSON(http.StatusForbidden, gin.H{"error": "Требуются права администратора", "error_type": "forbidden"})
 		return
 	}
@@ -850,7 +872,7 @@ func (h *AuthHandler) GenerateWsTicket(c *gin.Context) {
 	}
 
 	// Генерируем WS-тикет через JWTService
-	ticket, err := h.authService.GenerateWsTicket(userID.(uint), email.(string))
+	ticket, err := h.authService.GenerateWsTicket(c.Request.Context(), userID.(uint), email.(string))
 	if err != nil {
 		log.Printf("[AuthHandler] Ошибка генерации WS-тикета: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate WebSocket ticket"})

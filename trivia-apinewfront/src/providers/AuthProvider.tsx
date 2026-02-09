@@ -45,8 +45,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Комбинированный loading state
     const isLoading = isQueryLoading || isAuthAction;
 
-    // Check if user is admin (user.id === 1)
-    const isAdmin = user?.id === 1;
+    // Check if user is admin (based on role from backend)
+    const isAdmin = user?.role === 'admin';
     const isAuthenticated = !!user;
     const csrfToken = getCsrfToken();
 

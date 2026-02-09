@@ -126,7 +126,7 @@ func (s *Shard) handleRegister(client *Client) {
 
 	// Регистрируем нового клиента
 	s.clients.Store(client, true)
-	client.lastActivity = time.Now()
+	client.UpdateLastActivity() // FIX: thread-safe обновление времени активности
 
 	// Обновляем метрики
 	s.metrics.mu.Lock()
@@ -498,10 +498,11 @@ func (s *Shard) cleanupInactiveClients(timeout time.Duration) {
 		}
 
 		// Проверяем время последней активности
-		if time.Since(client.lastActivity) > timeout {
+		lastAct := client.GetLastActivity() // FIX: thread-safe чтение
+		if time.Since(lastAct) > timeout {
 			inactiveCount++
 			log.Printf("[Shard %d Cleanup] Найден неактивный клиент %s (ConnID: %s). Последняя активность: %v. Инициируем удаление.",
-				s.id, client.UserID, client.ConnectionID, client.lastActivity)
+				s.id, client.UserID, client.ConnectionID, lastAct)
 
 			// Отправляем клиента в канал unregister для безопасного удаления
 			// Используем неблокирующую отправку, чтобы не зависнуть здесь

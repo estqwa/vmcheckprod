@@ -141,10 +141,9 @@ func (qm *QuizManager) handleQuizStart(quizID uint) {
 		return
 	}
 
-	// Убеждаемся, что у викторины есть вопросы
+	// Проверяем наличие вопросов (adaptive mode работает без них)
 	if len(quiz.Questions) == 0 {
-		log.Printf("[QuizManager] Викторина #%d не имеет вопросов, запуск отменён", quizID)
-		return
+		log.Printf("[QuizManager] Quiz #%d: no preset questions, using adaptive mode", quizID)
 	}
 
 	// Создаем состояние активной викторины
@@ -440,7 +439,7 @@ func (qm *QuizManager) GetCurrentState(userID uint, quizID uint) (*QuizStateResp
 		response.CurrentQuestion = &QuestionState{
 			QuestionID:     question.ID,
 			Number:         questionNumber,
-			TotalQuestions: len(state.Quiz.Questions),
+			TotalQuestions: qm.getTotalQuestions(state.Quiz),
 			Text:           question.Text,
 			Options:        options,
 			TimeLimit:      question.TimeLimitSec,
@@ -448,6 +447,14 @@ func (qm *QuizManager) GetCurrentState(userID uint, quizID uint) (*QuizStateResp
 	}
 
 	return response, nil
+}
+
+// getTotalQuestions возвращает количество вопросов с fallback на дефолт
+func (qm *QuizManager) getTotalQuestions(quiz *entity.Quiz) int {
+	if quiz.QuestionCount > 0 {
+		return quiz.QuestionCount
+	}
+	return quizmanager.DefaultMaxQuizQuestions
 }
 
 // Shutdown корректно завершает работу менеджера викторин

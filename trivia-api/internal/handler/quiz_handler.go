@@ -60,6 +60,12 @@ func (h *QuizHandler) CreateQuiz(c *gin.Context) {
 		return
 	}
 
+	// Auto-планирование викторины
+	if err := h.quizManager.ScheduleQuiz(quiz.ID, req.ScheduledTime); err != nil {
+		log.Printf("[CreateQuiz] Schedule failed for quiz #%d: %v", quiz.ID, err)
+		c.Header("X-Quiz-Schedule-Warning", err.Error())
+	}
+
 	c.JSON(http.StatusCreated, dto.NewQuizResponse(quiz, false))
 }
 

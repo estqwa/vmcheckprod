@@ -228,7 +228,7 @@ function QuizDetailsContent() {
     if (!quiz) return null;
 
     const canAddQuestions = ['scheduled', 'created'].includes(quiz.status);
-    const canSchedule = quiz.status === 'scheduled' && (quiz.questions?.length ?? 0) > 0;
+    const canSchedule = quiz.status === 'scheduled';
     const canCancel = quiz.status === 'scheduled';
     const canDuplicate = (quiz.questions?.length ?? 0) > 0;
     const canViewWinners = quiz.status === 'completed';

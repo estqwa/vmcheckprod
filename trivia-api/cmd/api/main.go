@@ -274,7 +274,7 @@ func main() {
 		AllowOrigins:     cfg.CORS.AllowedOrigins,
 		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
 		AllowHeaders:     []string{"Origin", "Content-Type", "Accept", "Authorization", "X-CSRF-Token"},
-		ExposeHeaders:    []string{"Content-Length"},
+		ExposeHeaders:    []string{"Content-Length", "X-Quiz-Schedule-Warning"},
 		AllowCredentials: true,
 		MaxAge:           12 * time.Hour,
 	}))

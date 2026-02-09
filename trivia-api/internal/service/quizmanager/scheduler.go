@@ -10,6 +10,12 @@ import (
 	"github.com/yourusername/trivia-api/internal/domain/entity"
 )
 
+// scheduledQuiz хранит cancel функцию с уникальным токеном для безопасного cleanup
+type scheduledQuiz struct {
+	cancel context.CancelFunc
+	token  uint64
+}
+
 // Scheduler отвечает за планирование и отмену викторин
 type Scheduler struct {
 	// Настройки
@@ -18,8 +24,10 @@ type Scheduler struct {
 	// Зависимости
 	deps *Dependencies
 
-	// Внутреннее состояние
-	quizCancels sync.Map // map[uint]context.CancelFunc
+	// Внутреннее состояние (защищено mutex)
+	mu           sync.Mutex
+	quizCancels  map[uint]scheduledQuiz
+	tokenCounter uint64
 
 	// Канал для сигнализации о запуске викторины
 	quizStartCh chan uint
@@ -30,7 +38,8 @@ func NewScheduler(config *Config, deps *Dependencies) *Scheduler {
 	return &Scheduler{
 		config:      config,
 		deps:        deps,
-		quizStartCh: make(chan uint, 10), // Буферизованный канал для событий запуска
+		quizCancels: make(map[uint]scheduledQuiz),
+		quizStartCh: make(chan uint, 10),
 	}
 }
 
@@ -52,9 +61,14 @@ func (s *Scheduler) ScheduleQuiz(ctx context.Context, quizID uint, scheduledTime
 		return err
 	}
 
-	// Проверяем, что у викторины есть вопросы
+	// Проверяем, что у викторины есть вопросы или пул не пуст
 	if len(quiz.Questions) == 0 {
-		return fmt.Errorf("quiz has no questions")
+		if ok, err := s.hasPoolQuestions(); err != nil {
+			return fmt.Errorf("pool check failed: %w", err)
+		} else if !ok {
+			return fmt.Errorf("quiz has no questions and pool is empty")
+		}
+		log.Printf("[Scheduler] Quiz #%d: no preset questions, using pool", quizID)
 	}
 
 	// Устанавливаем время запуска
@@ -66,14 +80,28 @@ func (s *Scheduler) ScheduleQuiz(ctx context.Context, quizID uint, scheduledTime
 		return err
 	}
 
+	// Атомарное планирование под mutex
+	s.mu.Lock()
+	// Отменяем старый таймер, если есть
+	if old, exists := s.quizCancels[quizID]; exists {
+		old.cancel()
+		delete(s.quizCancels, quizID)
+		log.Printf("[Scheduler] Quiz #%d: old timer cancelled", quizID)
+	}
+
 	// Создаем новый контекст для этой викторины с возможностью отмены
 	quizCtx, quizCancel := context.WithCancel(ctx)
 
-	// Сохраняем функцию отмены
-	s.quizCancels.Store(quizID, quizCancel)
+	// Генерируем уникальный токен (под mutex, atomic не нужен)
+	s.tokenCounter++
+	newToken := s.tokenCounter
+
+	// Сохраняем scheduledQuiz с токеном
+	s.quizCancels[quizID] = scheduledQuiz{cancel: quizCancel, token: newToken}
+	s.mu.Unlock()
 
 	// Запускаем последовательность событий в фоновом режиме
-	go s.runQuizSequence(quizCtx, quiz)
+	go s.runQuizSequence(quizCtx, quiz, newToken)
 
 	log.Printf("[Scheduler] Викторина #%d запланирована на %v", quizID, scheduledTime)
 	return nil
@@ -92,16 +120,17 @@ func (s *Scheduler) CancelQuiz(quizID uint) error {
 		return fmt.Errorf("quiz is not in scheduled state")
 	}
 
-	// Получаем функцию отмены из map
-	cancel, ok := s.quizCancels.Load(quizID)
-	if !ok {
+	// Отменяем таймер под mutex
+	s.mu.Lock()
+	sq, exists := s.quizCancels[quizID]
+	if !exists {
+		s.mu.Unlock()
 		log.Printf("[Scheduler] Предупреждение: функция отмены для викторины #%d не найдена", quizID)
 		// Продолжаем, чтобы обновить статус в БД
 	} else {
-		// Вызываем функцию отмены
-		cancel.(context.CancelFunc)()
-		// Удаляем из map
-		s.quizCancels.Delete(quizID)
+		sq.cancel()
+		delete(s.quizCancels, quizID)
+		s.mu.Unlock()
 		log.Printf("[Scheduler] Таймеры для викторины #%d отменены", quizID)
 	}
 
@@ -121,11 +150,32 @@ func (s *Scheduler) CancelQuiz(quizID uint) error {
 	return nil
 }
 
+// hasPoolQuestions проверяет, есть ли вопросы в общем пуле
+func (s *Scheduler) hasPoolQuestions() (bool, error) {
+	if s.deps.QuestionRepo == nil {
+		return false, nil
+	}
+	for difficulty := 1; difficulty <= 5; difficulty++ {
+		q, err := s.deps.QuestionRepo.GetPoolQuestionByDifficulty(difficulty, nil)
+		if err != nil {
+			return false, err
+		}
+		if q != nil {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
 // runQuizSequence выполняет последовательность событий викторины
-func (s *Scheduler) runQuizSequence(ctx context.Context, quiz *entity.Quiz) {
+func (s *Scheduler) runQuizSequence(ctx context.Context, quiz *entity.Quiz, myToken uint64) {
 	defer func() {
-		// Удаляем функцию отмены из map при завершении последовательности
-		s.quizCancels.Delete(quiz.ID)
+		// Атомарное удаление: только если это наш токен
+		s.mu.Lock()
+		if sq, exists := s.quizCancels[quiz.ID]; exists && sq.token == myToken {
+			delete(s.quizCancels, quiz.ID)
+		}
+		s.mu.Unlock()
 	}()
 
 	// Таймауты для каждого события

@@ -2,11 +2,13 @@ package quizmanager
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"strconv"
 
 	"github.com/yourusername/trivia-api/internal/domain/entity"
+	apperrors "github.com/yourusername/trivia-api/internal/pkg/errors"
 )
 
 // AdaptiveQuestionSelector динамически выбирает вопросы на основе реального pass rate
@@ -66,7 +68,12 @@ func (s *AdaptiveQuestionSelector) SelectNextQuestion(
 	return question, nil
 }
 
-// getActualPassRate получает реальный pass rate из Redis
+// getActualPassRate получает реальный pass rate из Redis.
+// Возвращает:
+//
+//	-1.0 — если данных нет (никто не отвечал на вопрос)
+//	 0.0..1.0 — реальный процент прошедших
+//	 1.0 — для первого вопроса (нет предыдущего)
 func (s *AdaptiveQuestionSelector) getActualPassRate(quizID uint, questionNumber int) float64 {
 	if questionNumber < 1 {
 		return 1.0 // Для первого вопроса — 100%
@@ -75,20 +82,32 @@ func (s *AdaptiveQuestionSelector) getActualPassRate(quizID uint, questionNumber
 	totalKey := fmt.Sprintf("quiz:%d:q%d:total", quizID, questionNumber)
 	passedKey := fmt.Sprintf("quiz:%d:q%d:passed", quizID, questionNumber)
 
+	// Получаем total — количество людей, которым был задан вопрос
 	totalStr, err1 := s.deps.CacheRepo.Get(totalKey)
-	passedStr, err2 := s.deps.CacheRepo.Get(passedKey)
-
-	if err1 != nil || err2 != nil {
-		// Ключи могут не существовать — это нормально для первого вопроса
-		return 1.0
+	if err1 != nil {
+		if !errors.Is(err1, apperrors.ErrNotFound) {
+			// Реальная ошибка Redis — логируем
+			log.Printf("[AdaptiveSelector] WARNING: Ошибка Redis при чтении total для Q%d: %v", questionNumber, err1)
+		}
+		// Ключ не найден или ошибка Redis → нет данных об этом вопросе
+		return -1.0
 	}
 
 	total, _ := strconv.Atoi(totalStr)
-	passed, _ := strconv.Atoi(passedStr)
-
 	if total == 0 {
-		return 1.0
+		return -1.0 // Нет данных
 	}
+
+	// Получаем passed — количество людей, которые прошли вопрос
+	// Если ключ не найден — значит 0 человек прошли (это нормально!)
+	passedStr, err2 := s.deps.CacheRepo.Get(passedKey)
+	if err2 != nil && !errors.Is(err2, apperrors.ErrNotFound) {
+		// Реальная ошибка Redis — логируем
+		log.Printf("[AdaptiveSelector] WARNING: Ошибка Redis при чтении passed для Q%d: %v", questionNumber, err2)
+		return -1.0
+	}
+
+	passed, _ := strconv.Atoi(passedStr) // "" → 0, что корректно
 
 	return float64(passed) / float64(total)
 }

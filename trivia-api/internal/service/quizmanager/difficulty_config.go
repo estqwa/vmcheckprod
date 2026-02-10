@@ -86,6 +86,12 @@ func (c *DifficultyConfig) CalculateAdjustedDifficulty(questionNumber int, actua
 		return baseDifficulty
 	}
 
+	// Нет данных о предыдущем вопросе (никто не отвечал) →
+	// используем базовую сложность без коррекции
+	if actualPassRate < 0 {
+		return baseDifficulty
+	}
+
 	// Сравниваем с target предыдущего вопроса
 	targetPassRate := c.GetTargetPassRate(questionNumber - 1)
 	deviation := actualPassRate - targetPassRate

@@ -103,7 +103,7 @@ func (s *ResultService) CalculateQuizResult(userID, quizID uint) (*entity.Result
 		ProfilePicture:       user.ProfilePicture,
 		Score:                totalScore,
 		CorrectAnswers:       correctAnswers,
-		TotalQuestions:       len(quiz.Questions),
+		TotalQuestions:       s.getTotalQuestions(quiz),
 		IsEliminated:         isEliminated,
 		EliminatedOnQuestion: eliminatedOnQuestion,
 		EliminationReason:    eliminationReason,
@@ -223,11 +223,35 @@ func (s *ResultService) DetermineWinnersAndAllocatePrizes(ctx context.Context, q
 		return fmt.Errorf("ошибка получения викторины: %w", err)
 	}
 
-	// Используем len(quiz.Questions) — это реальное количество вопросов в БД
+	// Пытаемся получить количество вопросов из ассоциации
 	totalQuestions := len(quiz.Questions)
+
+	// FIX: Для адаптивных викторин вопросы из пула не привязаны к quiz_id,
+	// поэтому quiz.Questions может быть пуст. Считаем уникальные вопросы
+	// из реальных ответов пользователей.
+	if totalQuestions <= 0 {
+		allAnswers, answersErr := s.resultRepo.GetQuizUserAnswers(quizID)
+		if answersErr != nil {
+			log.Printf("[ResultService] Ошибка получения ответов для викторины #%d: %v", quizID, answersErr)
+		} else {
+			questionSet := make(map[uint]bool)
+			for _, a := range allAnswers {
+				questionSet[a.QuestionID] = true
+			}
+			totalQuestions = len(questionSet)
+			log.Printf("[ResultService] Викторина #%d: вопросы определены по user_answers (%d уникальных)", quizID, totalQuestions)
+		}
+	}
+
+	// Финальный fallback — QuestionCount из конфига викторины
+	if totalQuestions <= 0 {
+		totalQuestions = quiz.QuestionCount
+		log.Printf("[ResultService] Викторина #%d: fallback на QuestionCount=%d", quizID, totalQuestions)
+	}
+
 	if totalQuestions <= 0 {
 		log.Printf("[ResultService] Викторина #%d не имеет вопросов, пропуск определения победителей и обновления рангов.", quizID)
-		s.sendResultsAvailableNotification(quizID) // Уведомляем, что результаты (без победителей) готовы
+		s.sendResultsAvailableNotification(quizID)
 		return nil
 	}
 	log.Printf("[ResultService] Викторина #%d: определение победителей на основе %d вопросов", quizID, totalQuestions)
@@ -449,7 +473,22 @@ func (s *ResultService) CalculateQuizStatistics(quizID uint) (*QuizStatistics, e
 	questions, qErr := s.questionRepo.GetByQuizID(quiz.ID)
 	if qErr != nil {
 		log.Printf("[ResultService] WARNING: Не удалось получить вопросы для викторины #%d: %v", quiz.ID, qErr)
-		// Продолжаем с пустым списком для статистики
+	}
+
+	// FIX: Для адаптивных викторин вопросы из пула не привязаны к quiz_id.
+	// Если GetByQuizID вернул пусто, загружаем вопросы по ID из user_answers.
+	if len(questions) == 0 && len(eliminations) > 0 {
+		log.Printf("[ResultService] Викторина #%d: GetByQuizID пуст, загружаем вопросы по ID из user_answers", quiz.ID)
+		for _, e := range eliminations {
+			q, fetchErr := s.questionRepo.GetByID(e.QuestionID)
+			if fetchErr != nil {
+				log.Printf("[ResultService] WARNING: Не удалось загрузить вопрос #%d: %v", e.QuestionID, fetchErr)
+				continue
+			}
+			if q != nil {
+				questions = append(questions, *q)
+			}
+		}
 	}
 	questionOrder := make(map[uint]int)
 	questionDifficulty := make(map[uint]int) // NEW: маппинг difficulty
@@ -541,4 +580,39 @@ func (s *ResultService) CalculateQuizStatistics(quizID uint) (*QuizStatistics, e
 		quizID, stats.TotalParticipants, stats.TotalWinners, stats.TotalEliminated)
 
 	return stats, nil
+}
+
+// getTotalQuestions определяет общее количество вопросов в викторине.
+// Цепочка fallback:
+//  1. quiz.Questions (GORM ассоциация)
+//  2. Уникальные question_id из user_answers
+//  3. quiz.QuestionCount (поле из таблицы quizzes)
+func (s *ResultService) getTotalQuestions(quiz *entity.Quiz) int {
+	if len(quiz.Questions) > 0 {
+		return len(quiz.Questions)
+	}
+
+	// Fallback 1: считаем уникальные вопросы из user_answers
+	allAnswers, err := s.resultRepo.GetQuizUserAnswers(quiz.ID)
+	if err == nil && len(allAnswers) > 0 {
+		questionSet := make(map[uint]bool)
+		for _, a := range allAnswers {
+			questionSet[a.QuestionID] = true
+		}
+		count := len(questionSet)
+		log.Printf("[ResultService] getTotalQuestions: викторина #%d — fallback на user_answers (%d уникальных вопросов)",
+			quiz.ID, count)
+		return count
+	}
+
+	// Fallback 2: поле QuestionCount из таблицы quizzes
+	if quiz.QuestionCount > 0 {
+		log.Printf("[ResultService] getTotalQuestions: викторина #%d — fallback на QuestionCount=%d",
+			quiz.ID, quiz.QuestionCount)
+		return quiz.QuestionCount
+	}
+
+	log.Printf("[ResultService] WARNING: Не удалось определить количество вопросов для викторины #%d (Questions=%d, QuestionCount=%d)",
+		quiz.ID, len(quiz.Questions), quiz.QuestionCount)
+	return 0
 }

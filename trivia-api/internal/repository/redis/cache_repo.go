@@ -128,3 +128,32 @@ func (r *CacheRepo) SIsMember(key string, member interface{}) (bool, error) {
 func (r *CacheRepo) Expire(key string, expiration time.Duration) error {
 	return r.client.Expire(r.ctx, key, expiration).Err()
 }
+
+// ExistsBatch проверяет существование нескольких ключей одним Pipeline запросом.
+// Вместо N отдельных Exists() — один roundtrip к Redis.
+func (r *CacheRepo) ExistsBatch(keys []string) (map[string]bool, error) {
+	if len(keys) == 0 {
+		return make(map[string]bool), nil
+	}
+
+	pipe := r.client.Pipeline()
+	cmds := make(map[string]*redis.IntCmd, len(keys))
+	for _, key := range keys {
+		cmds[key] = pipe.Exists(r.ctx, key)
+	}
+	_, err := pipe.Exec(r.ctx)
+	if err != nil && err != redis.Nil {
+		return nil, fmt.Errorf("pipeline exec failed: %w", err)
+	}
+
+	results := make(map[string]bool, len(keys))
+	for key, cmd := range cmds {
+		val, cmdErr := cmd.Result()
+		if cmdErr != nil {
+			results[key] = false
+			continue
+		}
+		results[key] = val > 0
+	}
+	return results, nil
+}

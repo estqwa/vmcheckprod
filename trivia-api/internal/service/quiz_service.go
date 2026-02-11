@@ -122,8 +122,8 @@ func (s *QuizService) AddQuestions(quizID uint, questions []entity.Question) err
 	}
 
 	// Обновляем количество вопросов в викторине
-	quiz.QuestionCount += len(questions)
-	return s.quizRepo.Update(quiz)
+	// FIX BUG-4: Атомарное увеличение question_count (без перетирания других полей)
+	return s.quizRepo.IncrementQuestionCount(quizID, len(questions))
 }
 
 // ScheduleQuiz планирует время проведения викторины
@@ -139,16 +139,13 @@ func (s *QuizService) ScheduleQuiz(quizID uint, scheduledTime time.Time) error {
 		return errors.New("scheduled time must be in the future")
 	}
 
-	// Обновляем время проведения
-	quiz.ScheduledTime = scheduledTime
-
-	// Если викторина завершена, меняем статус на "scheduled"
+	// FIX BUG-5: Запрещаем перепланирование завершённых викторин
 	if quiz.IsCompleted() {
-		fmt.Printf("[QuizService] Изменение статуса викторины ID=%d с 'completed' на 'scheduled'\n", quizID)
-		quiz.Status = entity.QuizStatusScheduled
+		return errors.New("cannot reschedule a completed quiz — create a new quiz instead")
 	}
 
-	return s.quizRepo.Update(quiz)
+	// Точечное обновление scheduled_time и status (без full Save)
+	return s.quizRepo.UpdateScheduleInfo(quizID, scheduledTime, entity.QuizStatusScheduled)
 }
 
 // GetQuizWithQuestions возвращает викторину с вопросами

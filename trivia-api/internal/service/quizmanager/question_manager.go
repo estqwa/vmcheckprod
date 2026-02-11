@@ -50,6 +50,8 @@ func (qm *QuestionManager) QuestionDone() <-chan struct{} {
 // динамически выбирает вопросы из quiz-specific или общего пула
 func (qm *QuestionManager) RunQuizQuestions(ctx context.Context, quizState *ActiveQuizState) error {
 	totalQuestions := qm.config.MaxQuestionsPerQuiz
+	// Примечание: QuestionCount в БД фиксируется в triggerQuizStart (scheduler.go)
+	// до начала цикла вопросов. Здесь используем только конфиг для цикла.
 	log.Printf("[QuestionManager] Начинаю адаптивный процесс отправки вопросов для викторины #%d. Всего вопросов: %d",
 		quizState.Quiz.ID, totalQuestions)
 
@@ -170,6 +172,17 @@ func (qm *QuestionManager) RunQuizQuestions(ctx context.Context, quizState *Acti
 		}
 	}
 
+	// === FIX BUG-2: Фиксируем ФАКТИЧЕСКОЕ количество заданных вопросов ===
+	// Обновляем question_count ДО пометки вопросов. Даже если 0 (early break).
+	actualAsked := len(usedQuestionIDs)
+	if actualAsked != totalQuestions {
+		log.Printf("[QuestionManager] Викторина #%d: фактически задано %d/%d вопросов. Обновляем question_count.",
+			quizState.Quiz.ID, actualAsked, totalQuestions)
+		if err := qm.deps.QuizRepo.UpdateQuestionCount(quizState.Quiz.ID, actualAsked); err != nil {
+			log.Printf("[QuestionManager] WARNING: Не удалось обновить question_count=%d: %v", actualAsked, err)
+		}
+	}
+
 	// === ПОМЕЧАЕМ ВОПРОСЫ КАК ИСПОЛЬЗОВАННЫЕ ===
 	if len(usedQuestionIDs) > 0 {
 		if err := qm.deps.QuestionRepo.MarkAsUsed(usedQuestionIDs); err != nil {
@@ -212,76 +225,111 @@ func (qm *QuestionManager) processNoAnswerEliminations(ctx context.Context, quiz
 	log.Printf("[QuestionManager][DEBUG] Викторина #%d, Вопрос #%d: SMembers вернул %d участников",
 		quizState.Quiz.ID, question.ID, len(participantStrings))
 
+	// === FIX BUG-9: Пакетная проверка ответов и выбываний ===
+	// Собираем все ключи для batch-проверки
+	type participantInfo struct {
+		userID         uint64
+		answerKey      string
+		eliminationKey string
+	}
+	participants := make([]participantInfo, 0, len(participantStrings))
+	answerKeys := make([]string, 0, len(participantStrings))
+	eliminationKeys := make([]string, 0, len(participantStrings))
+
 	for _, userIDStr := range participantStrings {
 		userID, parseErr := strconv.ParseUint(userIDStr, 10, 64)
 		if parseErr != nil {
 			log.Printf("[QuestionManager][WARN] Не удалось распарсить userID '%s': %v", userIDStr, parseErr)
 			continue
 		}
+		p := participantInfo{
+			userID:         userID,
+			answerKey:      fmt.Sprintf("quiz:%d:user:%d:question:%d", quizState.Quiz.ID, userID, question.ID),
+			eliminationKey: fmt.Sprintf("quiz:%d:eliminated:%d", quizState.Quiz.ID, userID),
+		}
+		participants = append(participants, p)
+		answerKeys = append(answerKeys, p.answerKey)
+		eliminationKeys = append(eliminationKeys, p.eliminationKey)
+	}
 
-		answerKey := fmt.Sprintf("quiz:%d:user:%d:question:%d", quizState.Quiz.ID, userID, question.ID)
-		eliminationKey := fmt.Sprintf("quiz:%d:eliminated:%d", quizState.Quiz.ID, userID)
+	// Batch 1: проверяем все ключи ответов одним Pipeline запросом
+	answeredMap, err := qm.deps.CacheRepo.ExistsBatch(answerKeys)
+	if err != nil {
+		log.Printf("[QuestionManager][WARN] ExistsBatch(answers) failed, fallback to individual Exists: %v", err)
+		answeredMap = make(map[string]bool, len(answerKeys))
+		for _, key := range answerKeys {
+			exists, fallbackErr := qm.deps.CacheRepo.Exists(key)
+			if fallbackErr != nil {
+				// Ошибка → презумпция невиновности: считаем что ответил, НЕ выбиваем
+				log.Printf("[QuestionManager][WARN] Exists(%s) fallback error: %v. Skipping user.", key, fallbackErr)
+				answeredMap[key] = true
+				continue
+			}
+			answeredMap[key] = exists
+		}
+	}
 
-		log.Printf("[QuestionManager][DEBUG] Викторина #%d, Вопрос #%d: Проверка ответа для User #%d (Ключ: %s)",
-			quizState.Quiz.ID, question.ID, userID, answerKey)
+	// Batch 2: проверяем все ключи выбываний одним Pipeline запросом
+	eliminatedMap, err := qm.deps.CacheRepo.ExistsBatch(eliminationKeys)
+	if err != nil {
+		log.Printf("[QuestionManager][WARN] ExistsBatch(eliminations) failed, fallback: %v", err)
+		eliminatedMap = make(map[string]bool, len(eliminationKeys))
+		for _, key := range eliminationKeys {
+			exists, fallbackErr := qm.deps.CacheRepo.Exists(key)
+			if fallbackErr != nil {
+				// Ошибка → считаем уже выбывшим, НЕ трогаем
+				log.Printf("[QuestionManager][WARN] Exists(%s) fallback error: %v. Skipping.", key, fallbackErr)
+				eliminatedMap[key] = true
+				continue
+			}
+			eliminatedMap[key] = exists
+		}
+	}
 
-		answered, existsErr := qm.deps.CacheRepo.Exists(answerKey)
-		if existsErr != nil {
-			log.Printf("[QuestionManager][WARN] Ошибка Redis при проверке ключа ответа %s: %v", answerKey, existsErr)
+	// Обрабатываем результаты
+	for _, p := range participants {
+		answered := answeredMap[p.answerKey]
+		if answered {
+			continue
 		}
 
-		if !answered {
-			log.Printf("[QuestionManager][DEBUG] Викторина #%d, Вопрос #%d: User #%d НЕ ответил. Проверка ключа выбывания %s...",
-				quizState.Quiz.ID, question.ID, userID, eliminationKey)
-
-			alreadyEliminated, elimExistsErr := qm.deps.CacheRepo.Exists(eliminationKey)
-			if elimExistsErr != nil {
-				log.Printf("[QuestionManager][WARN] Ошибка Redis при проверке ключа выбывания %s: %v", eliminationKey, elimExistsErr)
-			}
-
-			if !alreadyEliminated {
-				eliminationReason := "no_answer_timeout"
-				log.Printf("[QuestionManager] Пользователь #%d выбывает из викторины #%d. Причина: %s (Вопрос #%d). Установка ключа %s...",
-					userID, quizState.Quiz.ID, eliminationReason, question.ID, eliminationKey)
-
-				// Сохраняем UserAnswer в БД для статистики
-				userAnswer := &entity.UserAnswer{
-					UserID:            uint(userID),
-					QuizID:            quizState.Quiz.ID,
-					QuestionID:        question.ID,
-					SelectedOption:    -1,
-					IsCorrect:         false,
-					ResponseTimeMs:    0,
-					Score:             0,
-					IsEliminated:      true,
-					EliminationReason: eliminationReason,
-				}
-				if err := qm.deps.ResultRepo.SaveUserAnswer(userAnswer); err != nil {
-					log.Printf("[QuestionManager] WARNING: Не удалось сохранить user_answer для таймаута User #%d: %v", userID, err)
-				} else {
-					log.Printf("[QuestionManager][DEBUG] Сохранён user_answer для таймаута User #%d на вопрос #%d", userID, question.ID)
-				}
-
-				// Устанавливаем статус выбывшего в Redis
-				if errSet := qm.deps.CacheRepo.Set(eliminationKey, "1", 24*time.Hour); errSet != nil {
-					log.Printf("[QuestionManager] WARNING: Не удалось установить ключ выбывания %s в Redis: %v", eliminationKey, errSet)
-				} else {
-					log.Printf("[QuestionManager][DEBUG] Успешно установлен ключ выбывания %s для User #%d", eliminationKey, userID)
-				}
-
-				// Отправляем уведомление о выбывании
-				qm.sendEliminationNotification(uint(userID), quizState.Quiz.ID, eliminationReason)
-
-				// === ЗАПИСЫВАЕМ СТАТИСТИКУ ДЛЯ АДАПТАЦИИ ===
-				qm.adaptiveSelector.RecordQuestionResult(quizState.Quiz.ID, questionNumber, false)
-			} else {
-				log.Printf("[QuestionManager][DEBUG] Викторина #%d, Вопрос #%d: User #%d не ответил, но УЖЕ был выбывший (ключ %s существует).",
-					quizState.Quiz.ID, question.ID, userID, eliminationKey)
-			}
-		} else {
-			log.Printf("[QuestionManager][DEBUG] Викторина #%d, Вопрос #%d: User #%d УСПЕЛ ответить (ключ %s существует).",
-				quizState.Quiz.ID, question.ID, userID, answerKey)
+		alreadyEliminated := eliminatedMap[p.eliminationKey]
+		if alreadyEliminated {
+			log.Printf("[QuestionManager][DEBUG] Викторина #%d, Вопрос #%d: User #%d не ответил, но УЖЕ был выбывший.",
+				quizState.Quiz.ID, question.ID, p.userID)
+			continue
 		}
+
+		eliminationReason := "no_answer_timeout"
+		log.Printf("[QuestionManager] Пользователь #%d выбывает из викторины #%d. Причина: %s (Вопрос #%d).",
+			p.userID, quizState.Quiz.ID, eliminationReason, question.ID)
+
+		// Сохраняем UserAnswer в БД для статистики
+		userAnswer := &entity.UserAnswer{
+			UserID:            uint(p.userID),
+			QuizID:            quizState.Quiz.ID,
+			QuestionID:        question.ID,
+			SelectedOption:    -1,
+			IsCorrect:         false,
+			ResponseTimeMs:    0,
+			Score:             0,
+			IsEliminated:      true,
+			EliminationReason: eliminationReason,
+		}
+		if err := qm.deps.ResultRepo.SaveUserAnswer(userAnswer); err != nil {
+			log.Printf("[QuestionManager] WARNING: Не удалось сохранить user_answer для таймаута User #%d: %v", p.userID, err)
+		}
+
+		// Устанавливаем статус выбывшего в Redis
+		if errSet := qm.deps.CacheRepo.Set(p.eliminationKey, "1", 24*time.Hour); errSet != nil {
+			log.Printf("[QuestionManager] WARNING: Не удалось установить ключ выбывания %s в Redis: %v", p.eliminationKey, errSet)
+		}
+
+		// Отправляем уведомление о выбывании
+		qm.sendEliminationNotification(uint(p.userID), quizState.Quiz.ID, eliminationReason)
+
+		// === ЗАПИСЫВАЕМ СТАТИСТИКУ ДЛЯ АДАПТАЦИИ ===
+		qm.adaptiveSelector.RecordQuestionResult(quizState.Quiz.ID, questionNumber, false)
 	}
 }
 

@@ -42,6 +42,26 @@ func (m *MockQuizRepoForScheduler) UpdateStatus(id uint, status string) error {
 	return args.Error(0)
 }
 
+func (m *MockQuizRepoForScheduler) UpdateQuestionCount(quizID uint, questionCount int) error {
+	args := m.Called(quizID, questionCount)
+	return args.Error(0)
+}
+
+func (m *MockQuizRepoForScheduler) IncrementQuestionCount(quizID uint, delta int) error {
+	args := m.Called(quizID, delta)
+	return args.Error(0)
+}
+
+func (m *MockQuizRepoForScheduler) UpdateScheduleInfo(quizID uint, scheduledTime time.Time, status string) error {
+	args := m.Called(quizID, scheduledTime, status)
+	return args.Error(0)
+}
+
+func (m *MockQuizRepoForScheduler) AtomicStartQuiz(quizID uint) error {
+	args := m.Called(quizID)
+	return args.Error(0)
+}
+
 func (m *MockQuizRepoForScheduler) Update(quiz *entity.Quiz) error {
 	args := m.Called(quiz)
 	return args.Error(0)
@@ -177,6 +197,11 @@ func (m *MockQuestionRepoForScheduler) ResetPoolUsed() (int64, error) {
 	return args.Get(0).(int64), args.Error(1)
 }
 
+func (m *MockQuestionRepoForScheduler) CountAvailablePool() (int64, error) {
+	args := m.Called()
+	return args.Get(0).(int64), args.Error(1)
+}
+
 // MockWSManagerForScheduler реализует минимальный интерфейс WebSocket Manager
 type MockWSManagerForScheduler struct {
 	mock.Mock
@@ -209,9 +234,10 @@ func createTestSchedulerDeps(
 func TestScheduler_ScheduleQuiz_Success(t *testing.T) {
 	// Arrange
 	mockQuizRepo := new(MockQuizRepoForScheduler)
+	mockQuestionRepo := new(MockQuestionRepoForScheduler)
 	config := DefaultConfig()
 
-	// Викторина с вопросами
+	// Викторина с вопросами (2 вопроса, нужно ещё 8 из пула)
 	scheduledTime := time.Now().Add(1 * time.Hour)
 	quiz := &entity.Quiz{
 		ID:            1,
@@ -225,11 +251,15 @@ func TestScheduler_ScheduleQuiz_Success(t *testing.T) {
 	}
 
 	mockQuizRepo.On("GetWithQuestions", uint(1)).Return(quiz, nil)
-	mockQuizRepo.On("Update", mock.AnythingOfType("*entity.Quiz")).Return(nil)
+	// Новый метод вместо Update
+	mockQuizRepo.On("UpdateScheduleInfo", uint(1), mock.AnythingOfType("time.Time"), entity.QuizStatusScheduled).Return(nil)
+	// Хватает вопросов в пуле (needed=8, available=15)
+	mockQuestionRepo.On("CountAvailablePool").Return(int64(15), nil)
 
 	// Создаём Scheduler напрямую (без wsManager для этого теста)
 	deps := &Dependencies{
-		QuizRepo: mockQuizRepo,
+		QuizRepo:     mockQuizRepo,
+		QuestionRepo: mockQuestionRepo,
 	}
 	scheduler := NewScheduler(config, deps)
 
@@ -283,10 +313,8 @@ func TestScheduler_ScheduleQuiz_NoQuestions_EmptyPool(t *testing.T) {
 	}
 
 	mockQuizRepo.On("GetWithQuestions", uint(1)).Return(quiz, nil)
-	// Пул пуст — никаких вопросов
-	for d := 1; d <= 5; d++ {
-		mockQuestionRepo.On("GetPoolQuestionByDifficulty", d, mock.Anything).Return(nil, nil)
-	}
+	// Пул пуст — 0 доступных вопросов
+	mockQuestionRepo.On("CountAvailablePool").Return(int64(0), nil)
 
 	deps := &Dependencies{
 		QuizRepo:     mockQuizRepo,
@@ -300,9 +328,8 @@ func TestScheduler_ScheduleQuiz_NoQuestions_EmptyPool(t *testing.T) {
 
 	// Assert
 	assert.Error(t, err, "Должна быть ошибка при отсутствии вопросов и пустом пуле")
-	assert.Contains(t, err.Error(), "pool is empty", "Ошибка должна указывать на пустой пул")
-	// Update не должен быть вызван
-	mockQuizRepo.AssertNotCalled(t, "Update")
+	assert.Contains(t, err.Error(), "недостаточно", "Ошибка должна указывать на нехватку вопросов")
+	mockQuizRepo.AssertNotCalled(t, "UpdateScheduleInfo")
 }
 
 func TestScheduler_ScheduleQuiz_NoQuestions_PoolAvailable(t *testing.T) {
@@ -322,13 +349,10 @@ func TestScheduler_ScheduleQuiz_NoQuestions_PoolAvailable(t *testing.T) {
 	}
 
 	mockQuizRepo.On("GetWithQuestions", uint(1)).Return(quiz, nil)
-	mockQuizRepo.On("Update", mock.AnythingOfType("*entity.Quiz")).Return(nil)
+	mockQuizRepo.On("UpdateScheduleInfo", uint(1), mock.AnythingOfType("time.Time"), entity.QuizStatusScheduled).Return(nil)
 
-	// Пул имеет вопросы на difficulty 3
-	for d := 1; d <= 2; d++ {
-		mockQuestionRepo.On("GetPoolQuestionByDifficulty", d, mock.Anything).Return(nil, nil)
-	}
-	mockQuestionRepo.On("GetPoolQuestionByDifficulty", 3, mock.Anything).Return(&entity.Question{ID: 100, Text: "Pool question"}, nil)
+	// Пул имеет достаточно вопросов для MaxQuestionsPerQuiz
+	mockQuestionRepo.On("CountAvailablePool").Return(int64(15), nil)
 
 	deps := &Dependencies{
 		QuizRepo:     mockQuizRepo,
@@ -342,12 +366,13 @@ func TestScheduler_ScheduleQuiz_NoQuestions_PoolAvailable(t *testing.T) {
 
 	// Assert
 	require.NoError(t, err, "Планирование должно быть успешным при наличии пула")
-	mockQuizRepo.AssertCalled(t, "Update", mock.AnythingOfType("*entity.Quiz"))
+	mockQuizRepo.AssertCalled(t, "UpdateScheduleInfo", uint(1), mock.AnythingOfType("time.Time"), entity.QuizStatusScheduled)
 }
 
 func TestScheduler_Reschedule_NoDuplicateStart(t *testing.T) {
 	// Arrange
 	mockQuizRepo := new(MockQuizRepoForScheduler)
+	mockQuestionRepo := new(MockQuestionRepoForScheduler)
 	config := DefaultConfig()
 
 	// Время в будущем (не ждём реального старта)
@@ -363,10 +388,13 @@ func TestScheduler_Reschedule_NoDuplicateStart(t *testing.T) {
 	}
 
 	mockQuizRepo.On("GetWithQuestions", uint(1)).Return(quiz, nil)
-	mockQuizRepo.On("Update", mock.AnythingOfType("*entity.Quiz")).Return(nil)
+	mockQuizRepo.On("UpdateScheduleInfo", uint(1), mock.AnythingOfType("time.Time"), entity.QuizStatusScheduled).Return(nil)
+	// Хватает вопросов в пуле
+	mockQuestionRepo.On("CountAvailablePool").Return(int64(15), nil)
 
 	deps := &Dependencies{
-		QuizRepo: mockQuizRepo,
+		QuizRepo:     mockQuizRepo,
+		QuestionRepo: mockQuestionRepo,
 	}
 	scheduler := NewScheduler(config, deps)
 	ctx := context.Background()

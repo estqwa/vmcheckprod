@@ -223,31 +223,8 @@ func (s *ResultService) DetermineWinnersAndAllocatePrizes(ctx context.Context, q
 		return fmt.Errorf("ошибка получения викторины: %w", err)
 	}
 
-	// Пытаемся получить количество вопросов из ассоциации
-	totalQuestions := len(quiz.Questions)
-
-	// FIX: Для адаптивных викторин вопросы из пула не привязаны к quiz_id,
-	// поэтому quiz.Questions может быть пуст. Считаем уникальные вопросы
-	// из реальных ответов пользователей.
-	if totalQuestions <= 0 {
-		allAnswers, answersErr := s.resultRepo.GetQuizUserAnswers(quizID)
-		if answersErr != nil {
-			log.Printf("[ResultService] Ошибка получения ответов для викторины #%d: %v", quizID, answersErr)
-		} else {
-			questionSet := make(map[uint]bool)
-			for _, a := range allAnswers {
-				questionSet[a.QuestionID] = true
-			}
-			totalQuestions = len(questionSet)
-			log.Printf("[ResultService] Викторина #%d: вопросы определены по user_answers (%d уникальных)", quizID, totalQuestions)
-		}
-	}
-
-	// Финальный fallback — QuestionCount из конфига викторины
-	if totalQuestions <= 0 {
-		totalQuestions = quiz.QuestionCount
-		log.Printf("[ResultService] Викторина #%d: fallback на QuestionCount=%d", quizID, totalQuestions)
-	}
+	// Единый источник истины для totalQuestions
+	totalQuestions := s.getTotalQuestions(quiz)
 
 	if totalQuestions <= 0 {
 		log.Printf("[ResultService] Викторина #%d не имеет вопросов, пропуск определения победителей и обновления рангов.", quizID)
@@ -583,33 +560,33 @@ func (s *ResultService) CalculateQuizStatistics(quizID uint) (*QuizStatistics, e
 }
 
 // getTotalQuestions определяет общее количество вопросов в викторине.
-// Цепочка fallback:
-//  1. quiz.Questions (GORM ассоциация)
-//  2. Уникальные question_id из user_answers
-//  3. quiz.QuestionCount (поле из таблицы quizzes)
+// Единый источник истины. Приоритет:
+//  1. quiz.QuestionCount (фиксируется при старте в triggerQuizStart)
+//  2. len(quiz.Questions) (legacy fallback для старых викторин)
+//  3. config.MaxQuestionsPerQuiz (финальный fallback)
 func (s *ResultService) getTotalQuestions(quiz *entity.Quiz) int {
+	// Приоритет: QuestionCount — авторитетный источник
+	if quiz.QuestionCount > 0 {
+		return quiz.QuestionCount
+	}
+
+	// Legacy fallback: GORM ассоциация (для старых викторин без QuestionCount)
 	if len(quiz.Questions) > 0 {
 		return len(quiz.Questions)
 	}
 
-	// Fallback 1: считаем уникальные вопросы из user_answers
-	allAnswers, err := s.resultRepo.GetQuizUserAnswers(quiz.ID)
-	if err == nil && len(allAnswers) > 0 {
-		questionSet := make(map[uint]bool)
-		for _, a := range allAnswers {
-			questionSet[a.QuestionID] = true
-		}
-		count := len(questionSet)
-		log.Printf("[ResultService] getTotalQuestions: викторина #%d — fallback на user_answers (%d уникальных вопросов)",
-			quiz.ID, count)
-		return count
+	// Для завершённой викторины не подставляем "плановое" значение из конфига:
+	// если вопросов фактически не было, корректнее вернуть 0 и пропустить winners flow.
+	if quiz.Status == entity.QuizStatusCompleted {
+		log.Printf("[ResultService] getTotalQuestions: викторина #%d завершена без вопросов (QuestionCount=0, Questions=0)", quiz.ID)
+		return 0
 	}
 
-	// Fallback 2: поле QuestionCount из таблицы quizzes
-	if quiz.QuestionCount > 0 {
-		log.Printf("[ResultService] getTotalQuestions: викторина #%d — fallback на QuestionCount=%d",
-			quiz.ID, quiz.QuestionCount)
-		return quiz.QuestionCount
+	// Финальный fallback — конфиг
+	if s.config != nil && s.config.MaxQuestionsPerQuiz > 0 {
+		log.Printf("[ResultService] getTotalQuestions: викторина #%d — fallback на MaxQuestionsPerQuiz=%d",
+			quiz.ID, s.config.MaxQuestionsPerQuiz)
+		return s.config.MaxQuestionsPerQuiz
 	}
 
 	log.Printf("[ResultService] WARNING: Не удалось определить количество вопросов для викторины #%d (Questions=%d, QuestionCount=%d)",

@@ -45,6 +45,26 @@ func (m *MockQuizRepository) UpdateStatus(id uint, status string) error {
 	return args.Error(0)
 }
 
+func (m *MockQuizRepository) UpdateQuestionCount(quizID uint, questionCount int) error {
+	args := m.Called(quizID, questionCount)
+	return args.Error(0)
+}
+
+func (m *MockQuizRepository) IncrementQuestionCount(quizID uint, delta int) error {
+	args := m.Called(quizID, delta)
+	return args.Error(0)
+}
+
+func (m *MockQuizRepository) UpdateScheduleInfo(quizID uint, scheduledTime time.Time, status string) error {
+	args := m.Called(quizID, scheduledTime, status)
+	return args.Error(0)
+}
+
+func (m *MockQuizRepository) AtomicStartQuiz(quizID uint) error {
+	args := m.Called(quizID)
+	return args.Error(0)
+}
+
 func (m *MockQuizRepository) Update(quiz *entity.Quiz) error {
 	args := m.Called(quiz)
 	return args.Error(0)
@@ -122,6 +142,41 @@ func (m *MockCacheRepository) Exists(key string) (bool, error) {
 // Добавляем недостающий метод ExpireAt
 func (m *MockCacheRepository) ExpireAt(key string, expireTime time.Time) error {
 	args := m.Called(key, expireTime)
+	return args.Error(0)
+}
+
+func (m *MockCacheRepository) ExistsBatch(keys []string) (map[string]bool, error) {
+	args := m.Called(keys)
+	return args.Get(0).(map[string]bool), args.Error(1)
+}
+
+func (m *MockCacheRepository) SetNX(key string, value interface{}, expiration time.Duration) (bool, error) {
+	args := m.Called(key, value, expiration)
+	return args.Bool(0), args.Error(1)
+}
+
+func (m *MockCacheRepository) SAdd(key string, members ...interface{}) error {
+	args := m.Called(key, members)
+	return args.Error(0)
+}
+
+func (m *MockCacheRepository) SMembers(key string) ([]string, error) {
+	args := m.Called(key)
+	return args.Get(0).([]string), args.Error(1)
+}
+
+func (m *MockCacheRepository) SRem(key string, members ...interface{}) error {
+	args := m.Called(key, members)
+	return args.Error(0)
+}
+
+func (m *MockCacheRepository) SIsMember(key string, member interface{}) (bool, error) {
+	args := m.Called(key, member)
+	return args.Bool(0), args.Error(1)
+}
+
+func (m *MockCacheRepository) Expire(key string, expiration time.Duration) error {
+	args := m.Called(key, expiration)
 	return args.Error(0)
 }
 

@@ -2,12 +2,14 @@ package quizmanager
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"sync"
 	"time"
 
 	"github.com/yourusername/trivia-api/internal/domain/entity"
+	"github.com/yourusername/trivia-api/internal/domain/repository"
 )
 
 // scheduledQuiz хранит cancel функцию с уникальным токеном для безопасного cleanup
@@ -61,24 +63,28 @@ func (s *Scheduler) ScheduleQuiz(ctx context.Context, quizID uint, scheduledTime
 		return err
 	}
 
-	// Проверяем, что у викторины есть вопросы или пул не пуст
-	if len(quiz.Questions) == 0 {
-		if ok, err := s.hasPoolQuestions(); err != nil {
-			return fmt.Errorf("pool check failed: %w", err)
-		} else if !ok {
-			return fmt.Errorf("quiz has no questions and pool is empty")
+	// Strict mode: проверяем что суммарно вопросов хватит на MaxQuestionsPerQuiz
+	quizQCount := len(quiz.Questions)
+	if quizQCount < s.config.MaxQuestionsPerQuiz {
+		ok, err := s.hasEnoughQuestions(quizQCount)
+		if err != nil {
+			return fmt.Errorf("question availability check failed: %w", err)
 		}
-		log.Printf("[Scheduler] Quiz #%d: no preset questions, using pool", quizID)
+		if !ok {
+			return fmt.Errorf("недостаточно вопросов: в викторине %d, в пуле не хватает до %d",
+				quizQCount, s.config.MaxQuestionsPerQuiz)
+		}
+		if quizQCount == 0 {
+			log.Printf("[Scheduler] Quiz #%d: no preset questions, using pool", quizID)
+		}
 	}
 
-	// Устанавливаем время запуска
-	quiz.ScheduledTime = scheduledTime
-	quiz.Status = entity.QuizStatusScheduled
-
-	// Сохраняем изменения
-	if err := s.deps.QuizRepo.Update(quiz); err != nil {
+	// Точечное обновление scheduled_time и status (не перетираем другие поля)
+	if err := s.deps.QuizRepo.UpdateScheduleInfo(quizID, scheduledTime, entity.QuizStatusScheduled); err != nil {
 		return err
 	}
+	quiz.ScheduledTime = scheduledTime
+	quiz.Status = entity.QuizStatusScheduled
 
 	// Атомарное планирование под mutex
 	s.mu.Lock()
@@ -98,6 +104,12 @@ func (s *Scheduler) ScheduleQuiz(ctx context.Context, quizID uint, scheduledTime
 
 	// Сохраняем scheduledQuiz с токеном
 	s.quizCancels[quizID] = scheduledQuiz{cancel: quizCancel, token: newToken}
+
+	// Warning при >4 одновременно запланированных
+	activeCount := len(s.quizCancels)
+	if activeCount > 4 {
+		log.Printf("[Scheduler] WARNING: Запланировано %d викторин одновременно (рекомендуемый лимит: 4)", activeCount)
+	}
 	s.mu.Unlock()
 
 	// Запускаем последовательность событий в фоновом режиме
@@ -150,21 +162,44 @@ func (s *Scheduler) CancelQuiz(quizID uint) error {
 	return nil
 }
 
-// hasPoolQuestions проверяет, есть ли вопросы в общем пуле
-func (s *Scheduler) hasPoolQuestions() (bool, error) {
+// hasEnoughQuestions проверяет, хватит ли вопросов (quiz-specific + пул) на MaxQuestionsPerQuiz
+func (s *Scheduler) hasEnoughQuestions(quizQuestionCount int) (bool, error) {
 	if s.deps.QuestionRepo == nil {
 		return false, nil
 	}
-	for difficulty := 1; difficulty <= 5; difficulty++ {
-		q, err := s.deps.QuestionRepo.GetPoolQuestionByDifficulty(difficulty, nil)
-		if err != nil {
-			return false, err
-		}
-		if q != nil {
-			return true, nil
+	needed := s.config.MaxQuestionsPerQuiz - quizQuestionCount
+	if needed <= 0 {
+		return true, nil // Quiz-specific вопросов достаточно
+	}
+	poolAvailable, err := s.deps.QuestionRepo.CountAvailablePool()
+	if err != nil {
+		return false, fmt.Errorf("pool count failed: %w", err)
+	}
+	log.Printf("[Scheduler] Pool check: needed=%d, available=%d", needed, poolAvailable)
+
+	// Soft warning: учитываем потенциальный спрос от уже запланированных квизов
+	s.mu.Lock()
+	scheduledCount := len(s.quizCancels)
+	s.mu.Unlock()
+	if scheduledCount > 0 {
+		potentialDemand := scheduledCount * s.config.MaxQuestionsPerQuiz
+		if int(poolAvailable) < potentialDemand+needed {
+			log.Printf("[Scheduler] WARNING: Пул (%d) может быть недостаточен для %d запланированных + %d новых вопросов",
+				poolAvailable, potentialDemand, needed)
 		}
 	}
-	return false, nil
+
+	return int(poolAvailable) >= needed, nil
+}
+
+// refreshQuiz загружает актуальные данные викторины из БД (без вопросов)
+func (s *Scheduler) refreshQuiz(quiz *entity.Quiz) *entity.Quiz {
+	fresh, err := s.deps.QuizRepo.GetByID(quiz.ID)
+	if err != nil {
+		log.Printf("[Scheduler] WARNING: Не удалось обновить данные викторины #%d: %v. Используем кешированные.", quiz.ID, err)
+		return quiz
+	}
+	return fresh
 }
 
 // runQuizSequence выполняет последовательность событий викторины
@@ -250,6 +285,7 @@ func (s *Scheduler) runQuizSequence(ctx context.Context, quiz *entity.Quiz, myTo
 
 // triggerAnnouncement отправляет анонс о предстоящей викторине
 func (s *Scheduler) triggerAnnouncement(ctx context.Context, quiz *entity.Quiz) {
+	quiz = s.refreshQuiz(quiz)
 	log.Printf("[Scheduler] Отправка анонса для викторины #%d", quiz.ID)
 
 	// Рассчитываем оставшееся время до старта викторины
@@ -274,6 +310,7 @@ func (s *Scheduler) triggerAnnouncement(ctx context.Context, quiz *entity.Quiz) 
 
 // triggerWaitingRoom открывает зал ожидания для викторины
 func (s *Scheduler) triggerWaitingRoom(ctx context.Context, quiz *entity.Quiz) {
+	quiz = s.refreshQuiz(quiz)
 	log.Printf("[Scheduler] Открытие зала ожидания для викторины #%d", quiz.ID)
 
 	// Рассчитываем оставшееся время до старта викторины
@@ -335,15 +372,50 @@ func (s *Scheduler) triggerCountdown(ctx context.Context, quiz *entity.Quiz) {
 
 // triggerQuizStart запускает викторину
 func (s *Scheduler) triggerQuizStart(ctx context.Context, quiz *entity.Quiz) {
+	// Перечитываем актуальные данные (title, description, prize могли измениться)
+	quiz = s.refreshQuiz(quiz)
 	log.Printf("[Scheduler] Запуск викторины #%d", quiz.ID)
 
-	// Обновляем статус викторины в БД
-	if err := s.deps.QuizRepo.UpdateStatus(quiz.ID, entity.QuizStatusInProgress); err != nil {
-		log.Printf("[Scheduler] Ошибка при обновлении статуса викторины #%d на in_progress: %v", quiz.ID, err)
-		// Продолжаем, т.к. отмена уже невозможна
+	// Атомарный старт: scheduled → in_progress.
+	// Partial unique index гарантирует max 1 in_progress одновременно.
+	if err := s.deps.QuizRepo.AtomicStartQuiz(quiz.ID); err != nil {
+		switch {
+		case errors.Is(err, repository.ErrAnotherQuizInProgress):
+			log.Printf("[Scheduler] WARNING: Викторина #%d отменена: уже есть другая активная викторина (%v)", quiz.ID, err)
+
+			// Конфликт активных стартов: переводим этот запуск в cancelled и уведомляем клиентов лобби.
+			if cancelErr := s.deps.QuizRepo.UpdateStatus(quiz.ID, entity.QuizStatusCancelled); cancelErr != nil {
+				log.Printf("[Scheduler] WARNING: Не удалось обновить статус викторины #%d в cancelled: %v", quiz.ID, cancelErr)
+			}
+			if s.deps.WSManager != nil {
+				cancelEvent := map[string]interface{}{
+					"type": "quiz:cancelled",
+					"data": map[string]interface{}{
+						"quiz_id": quiz.ID,
+						"reason":  "another_quiz_active",
+						"details": err.Error(),
+					},
+				}
+				s.deps.WSManager.BroadcastEventToQuiz(quiz.ID, cancelEvent)
+			}
+		case errors.Is(err, repository.ErrQuizNotScheduled):
+			// Идемпотентный/повторный старт: ничего не отменяем.
+			log.Printf("[Scheduler] INFO: Пропуск старта викторины #%d: не в статусе scheduled (%v)", quiz.ID, err)
+		default:
+			// Системная ошибка БД/соединения: не меняем статус, чтобы можно было восстановить запуск.
+			log.Printf("[Scheduler] ERROR: Не удалось стартовать викторину #%d из-за системной ошибки: %v", quiz.ID, err)
+		}
+		return
 	}
 
-	// Отправляем событие запуска
+	// 2. Фиксируем QuestionCount (точечно, без перезаписи остальных полей)
+	quiz.QuestionCount = s.config.MaxQuestionsPerQuiz
+	if err := s.deps.QuizRepo.UpdateQuestionCount(quiz.ID, quiz.QuestionCount); err != nil {
+		log.Printf("[Scheduler] WARNING: Не удалось записать QuestionCount=%d для викторины #%d: %v",
+			quiz.QuestionCount, quiz.ID, err)
+	} else {
+		log.Printf("[Scheduler] Викторина #%d: QuestionCount=%d зафиксирован", quiz.ID, quiz.QuestionCount)
+	} // Отправляем событие запуска (теперь question_count корректен)
 	startEvent := map[string]interface{}{
 		"quiz_id":        quiz.ID,
 		"title":          quiz.Title,

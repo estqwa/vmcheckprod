@@ -27,4 +27,7 @@ type CacheRepository interface {
 	SIsMember(key string, member interface{}) (bool, error)
 	// Expire sets a TTL on a key (duration-based, unlike ExpireAt which is time-based).
 	Expire(key string, expiration time.Duration) error
+	// ExistsBatch проверяет существование нескольких ключей пакетно через Pipeline.
+	// Возвращает map[key]bool. Один roundtrip вместо N отдельных Exists.
+	ExistsBatch(keys []string) (map[string]bool, error)
 }

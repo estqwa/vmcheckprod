@@ -2,10 +2,13 @@ package postgres
 
 import (
 	"errors"
+	"fmt"
 	"time"
 
 	"gorm.io/gorm"
 
+	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/lib/pq"
 	"github.com/yourusername/trivia-api/internal/domain/entity"
 	"github.com/yourusername/trivia-api/internal/domain/repository"
 	apperrors "github.com/yourusername/trivia-api/internal/pkg/errors"
@@ -83,6 +86,72 @@ func (r *QuizRepo) UpdateStatus(quizID uint, status string) error {
 		Where("id = ?", quizID).
 		Update("status", status).
 		Error
+}
+
+// UpdateQuestionCount точечно обновляет количество вопросов викторины
+func (r *QuizRepo) UpdateQuestionCount(quizID uint, questionCount int) error {
+	return r.db.Model(&entity.Quiz{}).
+		Where("id = ?", quizID).
+		Update("question_count", questionCount).
+		Error
+}
+
+// IncrementQuestionCount атомарно увеличивает question_count на delta через gorm.Expr
+func (r *QuizRepo) IncrementQuestionCount(quizID uint, delta int) error {
+	return r.db.Model(&entity.Quiz{}).
+		Where("id = ?", quizID).
+		Update("question_count", gorm.Expr("question_count + ?", delta)).
+		Error
+}
+
+// UpdateScheduleInfo точечно обновляет scheduled_time и status без полного Save
+func (r *QuizRepo) UpdateScheduleInfo(quizID uint, scheduledTime time.Time, status string) error {
+	return r.db.Model(&entity.Quiz{}).
+		Where("id = ?", quizID).
+		Updates(map[string]interface{}{
+			"scheduled_time": scheduledTime,
+			"status":         status,
+		}).Error
+}
+
+// AtomicStartQuiz атомарно переводит scheduled → in_progress.
+// Partial unique index idx_quiz_single_in_progress гарантирует max 1 in_progress.
+// - 23505 (unique violation) → "другая викторина уже in_progress"
+// - RowsAffected == 0 → "викторина не scheduled"
+// - Другая DB ошибка → возвращается как есть
+func (r *QuizRepo) AtomicStartQuiz(quizID uint) error {
+	result := r.db.Model(&entity.Quiz{}).
+		Where("id = ? AND status = ?", quizID, entity.QuizStatusScheduled).
+		Update("status", entity.QuizStatusInProgress)
+
+	if result.Error != nil {
+		// Проверяем unique violation (23505) от обоих драйверов
+		if isUniqueViolation(result.Error) {
+			return fmt.Errorf("%w: quiz #%d", repository.ErrAnotherQuizInProgress, quizID)
+		}
+		return fmt.Errorf("start quiz #%d failed: %w", quizID, result.Error)
+	}
+
+	if result.RowsAffected == 0 {
+		return fmt.Errorf("%w: quiz #%d", repository.ErrQuizNotScheduled, quizID)
+	}
+
+	return nil
+}
+
+// isUniqueViolation проверяет Postgres unique violation (23505) для pgconn и lib/pq драйверов
+func isUniqueViolation(err error) bool {
+	// pgx/v5 driver (pgconn.PgError)
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+		return true
+	}
+	// lib/pq driver
+	var pqErr *pq.Error
+	if errors.As(err, &pqErr) && pqErr.Code == "23505" {
+		return true
+	}
+	return false
 }
 
 // Update обновляет информацию о викторине

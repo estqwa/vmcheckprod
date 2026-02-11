@@ -180,32 +180,47 @@ func (r *QuestionRepo) GetPoolQuestionByDifficulty(difficulty int, excludeIDs []
 	return &question, nil
 }
 
-// GetPoolStats возвращает статистику общего пула вопросов
+// GetPoolStats возвращает статистику общего пула вопросов (1 SQL с GROUP BY)
 func (r *QuestionRepo) GetPoolStats() (total int64, available int64, byDifficulty map[int]int64, err error) {
 	byDifficulty = make(map[int]int64)
 
-	// Всего вопросов в пуле
-	if err = r.db.Model(&entity.Question{}).Where("quiz_id IS NULL").Count(&total).Error; err != nil {
-		return 0, 0, nil, err
-	}
-
-	// Доступных (не использованных)
-	if err = r.db.Model(&entity.Question{}).Where("quiz_id IS NULL AND is_used = ?", false).Count(&available).Error; err != nil {
-		return 0, 0, nil, err
-	}
-
-	// По сложности (только доступные)
+	// Инициализируем все уровни сложности 1-5 нулями
 	for d := 1; d <= 5; d++ {
-		var count int64
-		if err = r.db.Model(&entity.Question{}).
-			Where("quiz_id IS NULL AND is_used = ? AND difficulty = ?", false, d).
-			Count(&count).Error; err != nil {
-			return 0, 0, nil, err
-		}
-		byDifficulty[d] = count
+		byDifficulty[d] = 0
 	}
 
+	type stat struct {
+		Difficulty int
+		IsUsed     bool
+		Count      int64
+	}
+	var stats []stat
+	err = r.db.Model(&entity.Question{}).
+		Select("difficulty, is_used, COUNT(*) as count").
+		Where("quiz_id IS NULL").
+		Group("difficulty, is_used").
+		Scan(&stats).Error
+	if err != nil {
+		return 0, 0, nil, err
+	}
+
+	for _, s := range stats {
+		total += s.Count
+		if !s.IsUsed {
+			available += s.Count
+			byDifficulty[s.Difficulty] = s.Count
+		}
+	}
 	return total, available, byDifficulty, nil
+}
+
+// CountAvailablePool возвращает количество доступных (неиспользованных) вопросов в общем пуле
+func (r *QuestionRepo) CountAvailablePool() (int64, error) {
+	var count int64
+	err := r.db.Model(&entity.Question{}).
+		Where("quiz_id IS NULL AND is_used = ?", false).
+		Count(&count).Error
+	return count, err
 }
 
 // ResetPoolUsed сбрасывает is_used = false для всех вопросов пула

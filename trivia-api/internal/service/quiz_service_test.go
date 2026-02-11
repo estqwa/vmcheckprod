@@ -114,6 +114,11 @@ func (m *MockQuestionRepoForQuizService) ResetPoolUsed() (int64, error) {
 	return args.Get(0).(int64), args.Error(1)
 }
 
+func (m *MockQuestionRepoForQuizService) CountAvailablePool() (int64, error) {
+	args := m.Called()
+	return args.Get(0).(int64), args.Error(1)
+}
+
 // ============================================================================
 // createTestQuizService создаёт QuizService для тестирования
 // ============================================================================
@@ -201,7 +206,8 @@ func TestQuizService_AddQuestions_Success(t *testing.T) {
 	mockQuizRepo.On("GetByID", uint(1)).Return(existingQuiz, nil)
 	mockQuestionRepo.On("GetByQuizID", uint(1)).Return([]entity.Question{}, nil)
 	mockQuestionRepo.On("CreateBatch", mock.AnythingOfType("[]entity.Question")).Return(nil)
-	mockQuizRepo.On("Update", mock.AnythingOfType("*entity.Quiz")).Return(nil)
+	// FIX: теперь вместо Update используется IncrementQuestionCount
+	mockQuizRepo.On("IncrementQuestionCount", uint(1), 2).Return(nil)
 
 	quizService := createTestQuizServiceWithMocks(mockQuizRepo, mockQuestionRepo, getDefaultTestConfigForQuiz())
 
@@ -271,7 +277,8 @@ func TestQuizService_ScheduleQuiz_Success(t *testing.T) {
 	}
 
 	mockQuizRepo.On("GetByID", uint(1)).Return(existingQuiz, nil)
-	mockQuizRepo.On("Update", mock.AnythingOfType("*entity.Quiz")).Return(nil)
+	// FIX: теперь вместо Update используется UpdateScheduleInfo
+	mockQuizRepo.On("UpdateScheduleInfo", uint(1), mock.AnythingOfType("time.Time"), entity.QuizStatusScheduled).Return(nil)
 
 	quizService := createTestQuizServiceWithMocks(mockQuizRepo, nil, getDefaultTestConfigForQuiz())
 

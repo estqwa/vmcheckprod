@@ -95,6 +95,11 @@ func (m *MockCacheRepoForAnswerProcessor) Expire(key string, expiration time.Dur
 	return args.Error(0)
 }
 
+func (m *MockCacheRepoForAnswerProcessor) ExistsBatch(keys []string) (map[string]bool, error) {
+	args := m.Called(keys)
+	return args.Get(0).(map[string]bool), args.Error(1)
+}
+
 // MockResultRepoForAnswerProcessor реализует repository.ResultRepository (минимально)
 type MockResultRepoForAnswerProcessor struct {
 	mock.Mock

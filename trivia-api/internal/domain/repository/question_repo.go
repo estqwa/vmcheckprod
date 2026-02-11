@@ -26,4 +26,6 @@ type QuestionRepository interface {
 	// Статистика и управление пулом
 	GetPoolStats() (total int64, available int64, byDifficulty map[int]int64, err error)
 	ResetPoolUsed() (int64, error)
+	// CountAvailablePool возвращает количество доступных (неиспользованных) вопросов в общем пуле
+	CountAvailablePool() (int64, error)
 }

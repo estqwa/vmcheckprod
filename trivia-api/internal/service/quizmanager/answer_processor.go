@@ -66,6 +66,19 @@ func (ap *AnswerProcessor) ProcessAnswer(
 		return fmt.Errorf("user is eliminated from this quiz")
 	}
 
+	// === 1.1 ПРОВЕРКА УЧАСТНИКА ===
+	// В викторине могут отвечать только зарегистрированные участники (user:ready).
+	participantsKey := fmt.Sprintf("quiz:%d:participants", quizID)
+	isParticipant, err := ap.deps.CacheRepo.SIsMember(participantsKey, userID)
+	if err != nil {
+		log.Printf("[AnswerProcessor] CRITICAL: Ошибка Redis при проверке участника %d в %s: %v", userID, participantsKey, err)
+		return fmt.Errorf("redis error checking participant status: %w", err)
+	}
+	if !isParticipant {
+		log.Printf("[AnswerProcessor] Ответ от не-участника: user #%d не зарегистрирован в participants викторины #%d", userID, quizID)
+		return fmt.Errorf("user is not a participant of this quiz")
+	}
+
 	// === 2. ПРОВЕРКА ВРЕМЕНИ И КОРРЕКТНОСТИ ===
 
 	// Получаем время начала вопроса
@@ -107,8 +120,11 @@ func (ap *AnswerProcessor) ProcessAnswer(
 		isTimeLimitExceeded = true // Гарантируем статус просроченного
 	}
 
-	// Проверяем правильность ответа
-	isCorrect := question.IsCorrect(selectedOption)
+	// Проверяем правильность ответа.
+	// isCorrectOption: вариант сам по себе правильный (без учета времени).
+	// isCorrect: правильный и принят системой (т.е. в пределах времени).
+	isCorrectOption := question.IsCorrect(selectedOption)
+	isCorrect := isCorrectOption && !isTimeLimitExceeded
 	correctOption := question.CorrectOption
 	score := question.CalculatePoints(isCorrect, responseTimeMs)
 
@@ -116,10 +132,10 @@ func (ap *AnswerProcessor) ProcessAnswer(
 	userShouldBeEliminated := !isCorrect || isTimeLimitExceeded
 	eliminationReason := ""
 	if userShouldBeEliminated {
-		if !isCorrect {
-			eliminationReason = "incorrect_answer"
-		} else {
+		if isTimeLimitExceeded {
 			eliminationReason = "time_exceeded"
+		} else {
+			eliminationReason = "incorrect_answer"
 		}
 		log.Printf("[AnswerProcessor] Пользователь #%d должен выбыть из викторины #%d. Причина: %s", userID, quizID, eliminationReason)
 	}
@@ -209,6 +225,29 @@ func (ap *AnswerProcessor) ProcessAnswer(
 func (ap *AnswerProcessor) HandleReadyEvent(ctx context.Context, userID uint, quizID uint) error {
 	log.Printf("[AnswerProcessor] Пользователь #%d отметился как готовый к викторине #%d", userID, quizID)
 
+	participantsKey := fmt.Sprintf("quiz:%d:participants", quizID)
+
+	// Новых участников регистрируем только до старта.
+	// Уже зарегистрированным участникам разрешаем повторный ready (например, после реконнекта).
+	alreadyParticipant, err := ap.deps.CacheRepo.SIsMember(participantsKey, userID)
+	if err != nil {
+		return fmt.Errorf("failed to check participant set: %w", err)
+	}
+	if !alreadyParticipant {
+		quiz, err := ap.deps.QuizRepo.GetByID(quizID)
+		if err != nil {
+			return fmt.Errorf("failed to load quiz for ready check: %w", err)
+		}
+		if quiz == nil {
+			return fmt.Errorf("quiz #%d not found", quizID)
+		}
+		if !quiz.IsScheduled() {
+			log.Printf("[AnswerProcessor] READY отклонен: user #%d пытается войти в викторину #%d со статусом %s",
+				userID, quizID, quiz.Status)
+			return fmt.Errorf("quiz registration is closed")
+		}
+	}
+
 	// Создаем ключ для Redis и сохраняем информацию о готовности
 	readyKey := fmt.Sprintf("quiz:%d:ready_users", quizID)
 	userReadyKey := fmt.Sprintf("%s:%d", readyKey, userID)
@@ -224,7 +263,6 @@ func (ap *AnswerProcessor) HandleReadyEvent(ctx context.Context, userID uint, qu
 	// Этот Set используется для проверки выбывания ВМЕСТО WebSocket sync.Map,
 	// чтобы участники не "убегали" от выбывания при потере соединения.
 	// ============================================================================
-	participantsKey := fmt.Sprintf("quiz:%d:participants", quizID)
 	if err := ap.deps.CacheRepo.SAdd(participantsKey, userID); err != nil {
 		log.Printf("[AnswerProcessor] WARNING: Не удалось добавить пользователя #%d в participants Set для викторины #%d: %v",
 			userID, quizID, err)

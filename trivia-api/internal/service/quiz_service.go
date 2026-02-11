@@ -309,7 +309,7 @@ func (s *QuizService) BulkUploadQuestionPool(questions []entity.Question) error 
 }
 
 // GetPoolStats возвращает статистику пула вопросов
-func (s *QuizService) GetPoolStats() (totalCount int64, usedCount int64, byDifficulty map[int]int64, err error) {
+func (s *QuizService) GetPoolStats() (totalCount int64, availableCount int64, byDifficulty map[int]int64, err error) {
 	return s.questionRepo.GetPoolStats()
 }
 

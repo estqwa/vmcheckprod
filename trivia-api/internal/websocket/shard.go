@@ -343,6 +343,11 @@ func (s *Shard) SubscribeToQuiz(client *Client, quizID uint) {
 	} else {
 		log.Printf("[Shard %d][Sub] Client %s FAILED VERIFICATION in map for Quiz %d immediately after Store!", s.id, client.UserID, quizID) // НОВЫЙ ЛОГ - Верификация FAILED
 	}
+
+	// Отправляем обновление player_count сразу после подписки.
+	if hub, ok := s.parent.(*ShardedHub); ok {
+		go hub.BroadcastPlayerCountUpdate(quizID)
+	}
 }
 
 // UnsubscribeFromQuiz отписывает клиента от текущей викторины

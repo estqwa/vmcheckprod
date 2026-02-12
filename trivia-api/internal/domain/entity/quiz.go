@@ -21,6 +21,7 @@ type Quiz struct {
 	Status        string     `gorm:"size:20;not null;default:'scheduled';index" json:"status"`
 	QuestionCount int        `gorm:"not null;default:0" json:"question_count"`
 	PrizeFund     int        `gorm:"not null;default:1000000" json:"prize_fund"`
+	FinishOnZeroPlayers bool `gorm:"not null;default:false" json:"finish_on_zero_players"`
 	Questions     []Question `gorm:"foreignKey:QuizID" json:"questions,omitempty"`
 	CreatedAt     time.Time  `json:"created_at"`
 	UpdatedAt     time.Time  `json:"updated_at"`

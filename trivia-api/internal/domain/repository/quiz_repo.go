@@ -29,8 +29,8 @@ type QuizRepository interface {
 	// Гарантируется partial unique index: только 1 in_progress одновременно.
 	// Возвращает ошибку если викторина не scheduled или уже есть другая in_progress.
 	AtomicStartQuiz(quizID uint) error
-	// UpdateScheduleInfo точечно обновляет scheduled_time и status без full Save
-	UpdateScheduleInfo(quizID uint, scheduledTime time.Time, status string) error
+	// UpdateScheduleInfo точечно обновляет scheduled_time, status и (опционально) finish_on_zero_players без full Save
+	UpdateScheduleInfo(quizID uint, scheduledTime time.Time, status string, finishOnZeroPlayers *bool) error
 	Update(quiz *entity.Quiz) error
 	List(limit, offset int) ([]entity.Quiz, error)
 	ListWithFilters(filters QuizFilters, limit, offset int) ([]entity.Quiz, int64, error) // Возвращает также total count

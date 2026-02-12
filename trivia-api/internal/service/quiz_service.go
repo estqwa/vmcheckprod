@@ -41,7 +41,7 @@ func NewQuizService(
 }
 
 // CreateQuiz создает новую викторину
-func (s *QuizService) CreateQuiz(title, description string, scheduledTime time.Time, prizeFund int) (*entity.Quiz, error) {
+func (s *QuizService) CreateQuiz(title, description string, scheduledTime time.Time, prizeFund int, finishOnZeroPlayers bool) (*entity.Quiz, error) {
 	// Проверяем, что время проведения в будущем
 	if scheduledTime.Before(time.Now()) {
 		return nil, errors.New("scheduled time must be in the future")
@@ -54,12 +54,13 @@ func (s *QuizService) CreateQuiz(title, description string, scheduledTime time.T
 
 	// Создаем новую викторину
 	quiz := &entity.Quiz{
-		Title:         title,
-		Description:   description,
-		ScheduledTime: scheduledTime,
-		Status:        entity.QuizStatusScheduled,
-		QuestionCount: 0,
-		PrizeFund:     prizeFund,
+		Title:               title,
+		Description:         description,
+		ScheduledTime:       scheduledTime,
+		Status:              entity.QuizStatusScheduled,
+		QuestionCount:       0,
+		PrizeFund:           prizeFund,
+		FinishOnZeroPlayers: finishOnZeroPlayers,
 	}
 
 	// Сохраняем викторину в БД
@@ -127,7 +128,7 @@ func (s *QuizService) AddQuestions(quizID uint, questions []entity.Question) err
 }
 
 // ScheduleQuiz планирует время проведения викторины
-func (s *QuizService) ScheduleQuiz(quizID uint, scheduledTime time.Time) error {
+func (s *QuizService) ScheduleQuiz(quizID uint, scheduledTime time.Time, finishOnZeroPlayers *bool) error {
 	// Получаем викторину
 	quiz, err := s.quizRepo.GetByID(quizID)
 	if err != nil {
@@ -145,7 +146,7 @@ func (s *QuizService) ScheduleQuiz(quizID uint, scheduledTime time.Time) error {
 	}
 
 	// Точечное обновление scheduled_time и status (без full Save)
-	return s.quizRepo.UpdateScheduleInfo(quizID, scheduledTime, entity.QuizStatusScheduled)
+	return s.quizRepo.UpdateScheduleInfo(quizID, scheduledTime, entity.QuizStatusScheduled, finishOnZeroPlayers)
 }
 
 // GetQuizWithQuestions возвращает викторину с вопросами
@@ -219,12 +220,13 @@ func (s *QuizService) DuplicateQuiz(originalQuizID uint, newScheduledTime time.T
 	newTitle := truncateDuplicateTitle(originalQuiz.Title, 100)
 
 	newQuiz := &entity.Quiz{
-		Title:         newTitle,
-		Description:   originalQuiz.Description,
-		ScheduledTime: newScheduledTime,
-		Status:        entity.QuizStatusScheduled,
-		QuestionCount: len(originalQuiz.Questions),
-		PrizeFund:     originalQuiz.PrizeFund, // Копируем призовой фонд из оригинала
+		Title:               newTitle,
+		Description:         originalQuiz.Description,
+		ScheduledTime:       newScheduledTime,
+		Status:              entity.QuizStatusScheduled,
+		QuestionCount:       len(originalQuiz.Questions),
+		PrizeFund:           originalQuiz.PrizeFund, // Копируем призовой фонд из оригинала
+		FinishOnZeroPlayers: originalQuiz.FinishOnZeroPlayers,
 	}
 
 	// 5. Начать Транзакцию для атомарного создания викторины и вопросов

@@ -28,4 +28,8 @@ type QuestionRepository interface {
 	ResetPoolUsed() (int64, error)
 	// CountAvailablePool возвращает количество доступных (неиспользованных) вопросов в общем пуле
 	CountAvailablePool() (int64, error)
+
+	// История проведения викторины (факт заданных вопросов)
+	LogQuizQuestion(quizID uint, questionID uint, questionOrder int) error
+	GetQuizQuestionHistory(quizID uint) ([]entity.QuizQuestionHistory, error)
 }

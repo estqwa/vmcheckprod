@@ -119,6 +119,19 @@ func (m *MockQuestionRepoForQuizService) CountAvailablePool() (int64, error) {
 	return args.Get(0).(int64), args.Error(1)
 }
 
+func (m *MockQuestionRepoForQuizService) LogQuizQuestion(quizID uint, questionID uint, questionOrder int) error {
+	args := m.Called(quizID, questionID, questionOrder)
+	return args.Error(0)
+}
+
+func (m *MockQuestionRepoForQuizService) GetQuizQuestionHistory(quizID uint) ([]entity.QuizQuestionHistory, error) {
+	args := m.Called(quizID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]entity.QuizQuestionHistory), args.Error(1)
+}
+
 // ============================================================================
 // createTestQuizService создаёт QuizService для тестирования
 // ============================================================================
@@ -157,7 +170,7 @@ func TestQuizService_CreateQuiz_Success(t *testing.T) {
 	quizService := createTestQuizServiceWithMocks(mockQuizRepo, nil, getDefaultTestConfigForQuiz())
 
 	// Act
-	quiz, err := quizService.CreateQuiz("Тестовая викторина", "Описание", scheduledTime, 500000)
+	quiz, err := quizService.CreateQuiz("Тестовая викторина", "Описание", scheduledTime, 500000, false)
 
 	// Assert
 	require.NoError(t, err, "Создание викторины должно быть успешным")
@@ -176,7 +189,7 @@ func TestQuizService_CreateQuiz_PastScheduledTime(t *testing.T) {
 	quizService := createTestQuizServiceWithMocks(mockQuizRepo, nil, getDefaultTestConfigForQuiz())
 
 	// Act
-	quiz, err := quizService.CreateQuiz("Викторина", "Описание", scheduledTime, 0)
+	quiz, err := quizService.CreateQuiz("Викторина", "Описание", scheduledTime, 0, false)
 
 	// Assert
 	assert.Error(t, err, "Должна быть ошибка при времени в прошлом")
@@ -278,12 +291,12 @@ func TestQuizService_ScheduleQuiz_Success(t *testing.T) {
 
 	mockQuizRepo.On("GetByID", uint(1)).Return(existingQuiz, nil)
 	// FIX: теперь вместо Update используется UpdateScheduleInfo
-	mockQuizRepo.On("UpdateScheduleInfo", uint(1), mock.AnythingOfType("time.Time"), entity.QuizStatusScheduled).Return(nil)
+	mockQuizRepo.On("UpdateScheduleInfo", uint(1), mock.AnythingOfType("time.Time"), entity.QuizStatusScheduled, (*bool)(nil)).Return(nil)
 
 	quizService := createTestQuizServiceWithMocks(mockQuizRepo, nil, getDefaultTestConfigForQuiz())
 
 	// Act
-	err := quizService.ScheduleQuiz(1, scheduledTime)
+	err := quizService.ScheduleQuiz(1, scheduledTime, nil)
 
 	// Assert
 	require.NoError(t, err, "Перепланирование должно быть успешным")
@@ -306,7 +319,7 @@ func TestQuizService_ScheduleQuiz_PastTime(t *testing.T) {
 	quizService := createTestQuizServiceWithMocks(mockQuizRepo, nil, getDefaultTestConfigForQuiz())
 
 	// Act
-	err := quizService.ScheduleQuiz(1, scheduledTime)
+	err := quizService.ScheduleQuiz(1, scheduledTime, nil)
 
 	// Assert
 	assert.Error(t, err, "Должна быть ошибка при времени в прошлом")

@@ -4,6 +4,7 @@ import (
 	"errors"
 
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 
 	"github.com/yourusername/trivia-api/internal/domain/entity"
 	apperrors "github.com/yourusername/trivia-api/internal/pkg/errors"
@@ -230,4 +231,38 @@ func (r *QuestionRepo) ResetPoolUsed() (int64, error) {
 		Where("quiz_id IS NULL AND is_used = ?", true).
 		Update("is_used", false)
 	return result.RowsAffected, result.Error
+}
+
+// LogQuizQuestion сохраняет факт заданного вопроса в викторине.
+// Использует upsert по (quiz_id, question_order), чтобы быть идемпотентным.
+func (r *QuestionRepo) LogQuizQuestion(quizID uint, questionID uint, questionOrder int) error {
+	entry := entity.QuizQuestionHistory{
+		QuizID:        quizID,
+		QuestionID:    questionID,
+		QuestionOrder: questionOrder,
+	}
+
+	return r.db.Clauses(clause.OnConflict{
+		Columns: []clause.Column{
+			{Name: "quiz_id"},
+			{Name: "question_order"},
+		},
+		DoUpdates: clause.Assignments(map[string]interface{}{
+			"question_id": questionID,
+			"asked_at":    gorm.Expr("NOW()"),
+		}),
+	}).Create(&entry).Error
+}
+
+// GetQuizQuestionHistory возвращает историю заданных вопросов в порядке показа.
+func (r *QuestionRepo) GetQuizQuestionHistory(quizID uint) ([]entity.QuizQuestionHistory, error) {
+	var history []entity.QuizQuestionHistory
+	err := r.db.
+		Where("quiz_id = ?", quizID).
+		Order("question_order ASC").
+		Find(&history).Error
+	if err != nil {
+		return nil, err
+	}
+	return history, nil
 }

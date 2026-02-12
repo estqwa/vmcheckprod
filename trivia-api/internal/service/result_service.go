@@ -446,87 +446,160 @@ func (s *ResultService) CalculateQuizStatistics(quizID uint) (*QuizStatistics, e
 		Order("question_id").
 		Scan(&eliminations)
 
-	// Получаем вопросы для маппинга номеров и difficulty
-	questions, qErr := s.questionRepo.GetByQuizID(quiz.ID)
-	if qErr != nil {
-		log.Printf("[ResultService] WARNING: Не удалось получить вопросы для викторины #%d: %v", quiz.ID, qErr)
-	}
-
-	// FIX: Для адаптивных викторин вопросы из пула не привязаны к quiz_id.
-	// Если GetByQuizID вернул пусто, загружаем вопросы по ID из user_answers.
-	if len(questions) == 0 && len(eliminations) > 0 {
-		log.Printf("[ResultService] Викторина #%d: GetByQuizID пуст, загружаем вопросы по ID из user_answers", quiz.ID)
-		for _, e := range eliminations {
-			q, fetchErr := s.questionRepo.GetByID(e.QuestionID)
-			if fetchErr != nil {
-				log.Printf("[ResultService] WARNING: Не удалось загрузить вопрос #%d: %v", e.QuestionID, fetchErr)
-				continue
-			}
-			if q != nil {
-				questions = append(questions, *q)
-			}
-		}
-	}
-	questionOrder := make(map[uint]int)
-	questionDifficulty := make(map[uint]int) // NEW: маппинг difficulty
-	for i, q := range questions {
-		questionOrder[q.ID] = i + 1
-		questionDifficulty[q.ID] = q.Difficulty
-	}
-
-	// NEW: Подсчитать распределение сложности и pool questions
-	var diffDist DifficultyDistribution
-	var poolUsed int
-	for _, q := range questions {
-		switch q.Difficulty {
-		case 1:
-			diffDist.Difficulty1++
-		case 2:
-			diffDist.Difficulty2++
-		case 3:
-			diffDist.Difficulty3++
-		case 4:
-			diffDist.Difficulty4++
-		case 5:
-			diffDist.Difficulty5++
-		}
-		if q.IsUsed {
-			poolUsed++
-		}
-	}
-	stats.DifficultyDistribution = diffDist
-	stats.PoolQuestionsUsed = poolUsed
-
-	stats.EliminationsByQ = make([]QuestionElimination, 0, len(eliminations))
-	var totalPassRate float64
+	// Карта агрегатов по вопросу (по ответам пользователей)
+	aggregatesByQuestion := make(map[uint]elimByQ, len(eliminations))
 	for _, e := range eliminations {
-		qNum := questionOrder[e.QuestionID]
-		if qNum == 0 {
-			qNum = int(e.QuestionID) // fallback
-		}
-		// NEW: вычисляем pass rate
-		var passRate float64
-		if e.TotalAnswers > 0 {
-			passRate = float64(e.PassedCount) / float64(e.TotalAnswers)
-		}
-		totalPassRate += passRate
-
-		stats.EliminationsByQ = append(stats.EliminationsByQ, QuestionElimination{
-			QuestionNumber:  qNum,
-			QuestionID:      e.QuestionID,
-			EliminatedCount: e.EliminatedCount,
-			ByTimeout:       e.ByTimeout,
-			ByWrongAnswer:   e.ByWrongAnswer,
-			AvgResponseMs:   e.AvgRespMs,
-			Difficulty:      questionDifficulty[e.QuestionID], // NEW
-			PassRate:        passRate,                         // NEW
-			TotalAnswers:    e.TotalAnswers,                   // NEW
-		})
+		aggregatesByQuestion[e.QuestionID] = e
 	}
 
-	// NEW: средний pass rate
-	if len(eliminations) > 0 {
-		stats.AvgPassRate = totalPassRate / float64(len(eliminations))
+	// Production-путь: строим порядок и покрытие вопросов из истории показа.
+	// Это корректно даже когда все выбыли рано и на части вопросов нет ответов.
+	history, historyErr := s.questionRepo.GetQuizQuestionHistory(quiz.ID)
+	if historyErr != nil {
+		log.Printf("[ResultService] WARNING: Не удалось загрузить историю вопросов викторины #%d: %v", quiz.ID, historyErr)
+	}
+
+	if len(history) > 0 {
+		var diffDist DifficultyDistribution
+		var poolUsed int
+		var totalPassRate float64
+		stats.EliminationsByQ = make([]QuestionElimination, 0, len(history))
+
+		questionCache := make(map[uint]*entity.Question)
+		for _, h := range history {
+			q := questionCache[h.QuestionID]
+			if q == nil {
+				loadedQ, fetchErr := s.questionRepo.GetByID(h.QuestionID)
+				if fetchErr != nil {
+					log.Printf("[ResultService] WARNING: Не удалось загрузить вопрос #%d из истории: %v", h.QuestionID, fetchErr)
+				} else if loadedQ != nil {
+					questionCache[h.QuestionID] = loadedQ
+					q = loadedQ
+				}
+			}
+
+			difficulty := 0
+			if q != nil {
+				difficulty = q.Difficulty
+				switch q.Difficulty {
+				case 1:
+					diffDist.Difficulty1++
+				case 2:
+					diffDist.Difficulty2++
+				case 3:
+					diffDist.Difficulty3++
+				case 4:
+					diffDist.Difficulty4++
+				case 5:
+					diffDist.Difficulty5++
+				}
+				// Признак "из пула": вопрос не привязан к конкретной викторине.
+				if q.QuizID == nil {
+					poolUsed++
+				}
+			}
+
+			agg := aggregatesByQuestion[h.QuestionID]
+			passRate := 0.0
+			if agg.TotalAnswers > 0 {
+				passRate = float64(agg.PassedCount) / float64(agg.TotalAnswers)
+			}
+			totalPassRate += passRate
+
+			stats.EliminationsByQ = append(stats.EliminationsByQ, QuestionElimination{
+				QuestionNumber:  h.QuestionOrder,
+				QuestionID:      h.QuestionID,
+				EliminatedCount: agg.EliminatedCount,
+				ByTimeout:       agg.ByTimeout,
+				ByWrongAnswer:   agg.ByWrongAnswer,
+				AvgResponseMs:   agg.AvgRespMs,
+				Difficulty:      difficulty,
+				PassRate:        passRate,
+				TotalAnswers:    agg.TotalAnswers,
+			})
+		}
+
+		stats.DifficultyDistribution = diffDist
+		stats.PoolQuestionsUsed = poolUsed
+		if len(stats.EliminationsByQ) > 0 {
+			stats.AvgPassRate = totalPassRate / float64(len(stats.EliminationsByQ))
+		}
+	} else {
+		// Legacy fallback для старых викторин без истории: строим статистику из существующих данных.
+		questions, qErr := s.questionRepo.GetByQuizID(quiz.ID)
+		if qErr != nil {
+			log.Printf("[ResultService] WARNING: Не удалось получить вопросы для викторины #%d: %v", quiz.ID, qErr)
+		}
+		if len(questions) == 0 && len(eliminations) > 0 {
+			for _, e := range eliminations {
+				q, fetchErr := s.questionRepo.GetByID(e.QuestionID)
+				if fetchErr != nil {
+					log.Printf("[ResultService] WARNING: Не удалось загрузить вопрос #%d: %v", e.QuestionID, fetchErr)
+					continue
+				}
+				if q != nil {
+					questions = append(questions, *q)
+				}
+			}
+		}
+
+		questionOrder := make(map[uint]int)
+		questionDifficulty := make(map[uint]int)
+		for i, q := range questions {
+			questionOrder[q.ID] = i + 1
+			questionDifficulty[q.ID] = q.Difficulty
+		}
+
+		var diffDist DifficultyDistribution
+		var poolUsed int
+		for _, q := range questions {
+			switch q.Difficulty {
+			case 1:
+				diffDist.Difficulty1++
+			case 2:
+				diffDist.Difficulty2++
+			case 3:
+				diffDist.Difficulty3++
+			case 4:
+				diffDist.Difficulty4++
+			case 5:
+				diffDist.Difficulty5++
+			}
+			if q.QuizID == nil {
+				poolUsed++
+			}
+		}
+		stats.DifficultyDistribution = diffDist
+		stats.PoolQuestionsUsed = poolUsed
+
+		stats.EliminationsByQ = make([]QuestionElimination, 0, len(eliminations))
+		var totalPassRate float64
+		for _, e := range eliminations {
+			qNum := questionOrder[e.QuestionID]
+			if qNum == 0 {
+				qNum = int(e.QuestionID)
+			}
+			passRate := 0.0
+			if e.TotalAnswers > 0 {
+				passRate = float64(e.PassedCount) / float64(e.TotalAnswers)
+			}
+			totalPassRate += passRate
+
+			stats.EliminationsByQ = append(stats.EliminationsByQ, QuestionElimination{
+				QuestionNumber:  qNum,
+				QuestionID:      e.QuestionID,
+				EliminatedCount: e.EliminatedCount,
+				ByTimeout:       e.ByTimeout,
+				ByWrongAnswer:   e.ByWrongAnswer,
+				AvgResponseMs:   e.AvgRespMs,
+				Difficulty:      questionDifficulty[e.QuestionID],
+				PassRate:        passRate,
+				TotalAnswers:    e.TotalAnswers,
+			})
+		}
+		if len(eliminations) > 0 {
+			stats.AvgPassRate = totalPassRate / float64(len(eliminations))
+		}
 	}
 
 	// 4. Общие причины выбытия

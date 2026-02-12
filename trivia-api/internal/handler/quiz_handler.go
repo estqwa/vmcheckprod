@@ -40,10 +40,11 @@ func NewQuizHandler(
 
 // CreateQuizRequest представляет запрос на создание викторины
 type CreateQuizRequest struct {
-	Title         string    `json:"title" binding:"required,min=3,max=100"`
-	Description   string    `json:"description" binding:"omitempty,max=500"`
-	ScheduledTime time.Time `json:"scheduled_time" binding:"required"`
-	PrizeFund     int       `json:"prize_fund"` // Опционально, 0 = дефолт
+	Title               string    `json:"title" binding:"required,min=3,max=100"`
+	Description         string    `json:"description" binding:"omitempty,max=500"`
+	ScheduledTime       time.Time `json:"scheduled_time" binding:"required"`
+	PrizeFund           int       `json:"prize_fund"`             // Опционально, 0 = дефолт
+	FinishOnZeroPlayers bool      `json:"finish_on_zero_players"` // false по умолчанию
 }
 
 // CreateQuiz обрабатывает запрос на создание викторины
@@ -54,7 +55,13 @@ func (h *QuizHandler) CreateQuiz(c *gin.Context) {
 		return
 	}
 
-	quiz, err := h.quizService.CreateQuiz(req.Title, req.Description, req.ScheduledTime, req.PrizeFund)
+	quiz, err := h.quizService.CreateQuiz(
+		req.Title,
+		req.Description,
+		req.ScheduledTime,
+		req.PrizeFund,
+		req.FinishOnZeroPlayers,
+	)
 	if err != nil {
 		h.handleQuizError(c, err)
 		return
@@ -164,7 +171,8 @@ func (h *QuizHandler) AddQuestions(c *gin.Context) {
 
 // ScheduleQuizRequest представляет запрос на планирование викторины
 type ScheduleQuizRequest struct {
-	ScheduledTime time.Time `json:"scheduled_time" binding:"required"`
+	ScheduledTime       time.Time `json:"scheduled_time" binding:"required"`
+	FinishOnZeroPlayers *bool     `json:"finish_on_zero_players,omitempty"`
 }
 
 // ScheduleQuiz обрабатывает запрос на планирование времени викторины
@@ -178,7 +186,7 @@ func (h *QuizHandler) ScheduleQuiz(c *gin.Context) {
 	}
 
 	// Сначала обновляем время в базе данных
-	if err := h.quizService.ScheduleQuiz(quizID, req.ScheduledTime); err != nil {
+	if err := h.quizService.ScheduleQuiz(quizID, req.ScheduledTime, req.FinishOnZeroPlayers); err != nil {
 		h.handleQuizError(c, err)
 		return
 	}

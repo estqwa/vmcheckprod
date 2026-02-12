@@ -104,14 +104,19 @@ func (r *QuizRepo) IncrementQuestionCount(quizID uint, delta int) error {
 		Error
 }
 
-// UpdateScheduleInfo точечно обновляет scheduled_time и status без полного Save
-func (r *QuizRepo) UpdateScheduleInfo(quizID uint, scheduledTime time.Time, status string) error {
+// UpdateScheduleInfo точечно обновляет scheduled_time, status и (опционально) finish_on_zero_players без полного Save
+func (r *QuizRepo) UpdateScheduleInfo(quizID uint, scheduledTime time.Time, status string, finishOnZeroPlayers *bool) error {
+	updates := map[string]interface{}{
+		"scheduled_time": scheduledTime,
+		"status":         status,
+	}
+	if finishOnZeroPlayers != nil {
+		updates["finish_on_zero_players"] = *finishOnZeroPlayers
+	}
+
 	return r.db.Model(&entity.Quiz{}).
 		Where("id = ?", quizID).
-		Updates(map[string]interface{}{
-			"scheduled_time": scheduledTime,
-			"status":         status,
-		}).Error
+		Updates(updates).Error
 }
 
 // AtomicStartQuiz атомарно переводит scheduled → in_progress.

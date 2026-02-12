@@ -80,7 +80,7 @@ func (s *Scheduler) ScheduleQuiz(ctx context.Context, quizID uint, scheduledTime
 	}
 
 	// Точечное обновление scheduled_time и status (не перетираем другие поля)
-	if err := s.deps.QuizRepo.UpdateScheduleInfo(quizID, scheduledTime, entity.QuizStatusScheduled); err != nil {
+	if err := s.deps.QuizRepo.UpdateScheduleInfo(quizID, scheduledTime, entity.QuizStatusScheduled, nil); err != nil {
 		return err
 	}
 	quiz.ScheduledTime = scheduledTime

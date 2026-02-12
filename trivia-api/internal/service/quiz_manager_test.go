@@ -55,8 +55,8 @@ func (m *MockQuizRepository) IncrementQuestionCount(quizID uint, delta int) erro
 	return args.Error(0)
 }
 
-func (m *MockQuizRepository) UpdateScheduleInfo(quizID uint, scheduledTime time.Time, status string) error {
-	args := m.Called(quizID, scheduledTime, status)
+func (m *MockQuizRepository) UpdateScheduleInfo(quizID uint, scheduledTime time.Time, status string, finishOnZeroPlayers *bool) error {
+	args := m.Called(quizID, scheduledTime, status, finishOnZeroPlayers)
 	return args.Error(0)
 }
 

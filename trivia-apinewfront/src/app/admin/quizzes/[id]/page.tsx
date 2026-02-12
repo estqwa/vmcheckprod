@@ -44,6 +44,7 @@ function QuizDetailsContent() {
     const [showScheduleForm, setShowScheduleForm] = useState(false);
     const [showDuplicateForm, setShowDuplicateForm] = useState(false);
     const [scheduleTime, setScheduleTime] = useState('');
+    const [scheduleFinishOnZeroPlayers, setScheduleFinishOnZeroPlayers] = useState(false);
     const [duplicateTime, setDuplicateTime] = useState('');
     const [questions, setQuestions] = useState<QuestionFormData[]>([]);
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -53,6 +54,7 @@ function QuizDetailsContent() {
             try {
                 const data = await getQuizWithQuestions(quizId);
                 setQuiz(data);
+                setScheduleFinishOnZeroPlayers(data.finish_on_zero_players ?? false);
             } catch (error) {
                 console.error('Failed to fetch quiz:', error);
                 toast.error('Викторина не найдена');
@@ -76,11 +78,12 @@ function QuizDetailsContent() {
         }
         setIsSubmitting(true);
         try {
-            await scheduleQuiz(quizId, new Date(scheduleTime).toISOString());
+            await scheduleQuiz(quizId, new Date(scheduleTime).toISOString(), scheduleFinishOnZeroPlayers);
             toast.success('Время изменено');
             setShowScheduleForm(false);
             const data = await getQuizWithQuestions(quizId);
             setQuiz(data);
+            setScheduleFinishOnZeroPlayers(data.finish_on_zero_players ?? false);
         } catch (error: unknown) {
             const err = error as { error?: string };
             toast.error(err.error || 'Ошибка изменения времени');
@@ -275,6 +278,7 @@ function QuizDetailsContent() {
                         {quiz.description && <p>{quiz.description}</p>}
                         <p><strong>Запланировано:</strong> {formatDate(quiz.scheduled_time)}</p>
                         <p><strong>Призовой фонд:</strong> <span className="text-green-600 font-semibold">${quiz.prize_fund?.toLocaleString() || 0}</span></p>
+                        <p><strong>Поведение при 0 активных игроков:</strong> {quiz.finish_on_zero_players ? 'досрочно завершать' : 'идти до конца'}</p>
                         <p><strong>Создано:</strong> {formatDate(quiz.created_at)}</p>
                     </CardContent>
                 </Card>
@@ -359,6 +363,16 @@ function QuizDetailsContent() {
                             <div>
                                 <Label>Новое время</Label>
                                 <Input type="datetime-local" value={scheduleTime} onChange={(e) => setScheduleTime(e.target.value)} className="h-11" />
+                            </div>
+                            <div>
+                                <Label className="flex items-center gap-2">
+                                    <input
+                                        type="checkbox"
+                                        checked={scheduleFinishOnZeroPlayers}
+                                        onChange={(e) => setScheduleFinishOnZeroPlayers(e.target.checked)}
+                                    />
+                                    Завершать викторину, если активных игроков стало 0
+                                </Label>
                             </div>
                             <div className="flex gap-2">
                                 <Button className="btn-coral" onClick={handleSchedule} disabled={isSubmitting}>Сохранить</Button>

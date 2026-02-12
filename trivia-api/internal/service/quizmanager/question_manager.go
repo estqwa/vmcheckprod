@@ -50,8 +50,11 @@ func (qm *QuestionManager) QuestionDone() <-chan struct{} {
 // динамически выбирает вопросы из quiz-specific или общего пула
 func (qm *QuestionManager) RunQuizQuestions(ctx context.Context, quizState *ActiveQuizState) error {
 	totalQuestions := qm.config.MaxQuestionsPerQuiz
-	// Примечание: QuestionCount в БД фиксируется в triggerQuizStart (scheduler.go)
-	// до начала цикла вопросов. Здесь используем только конфиг для цикла.
+	if quizState.Quiz.QuestionCount > 0 {
+		totalQuestions = quizState.Quiz.QuestionCount
+	}
+	// Примечание: QuestionCount фиксируется в triggerQuizStart (scheduler.go),
+	// но при раннем завершении может быть скорректирован в конце этой функции.
 	log.Printf("[QuestionManager] Начинаю адаптивный процесс отправки вопросов для викторины #%d. Всего вопросов: %d",
 		quizState.Quiz.ID, totalQuestions)
 
@@ -69,6 +72,19 @@ func (qm *QuestionManager) RunQuizQuestions(ctx context.Context, quizState *Acti
 	// Здесь мы сразу начинаем отправку вопросов.
 
 	for i := 1; i <= totalQuestions; i++ {
+		// Опциональный режим: досрочно завершаем викторину, если активных участников больше нет.
+		if quizState.Quiz.FinishOnZeroPlayers {
+			activeParticipants, err := qm.countActiveParticipants(quizState.Quiz.ID)
+			if err != nil {
+				log.Printf("[QuestionManager] WARNING: Не удалось посчитать активных участников для викторины #%d: %v",
+					quizState.Quiz.ID, err)
+			} else if activeParticipants == 0 {
+				log.Printf("[QuestionManager] Досрочное завершение викторины #%d: активных участников нет (finish_on_zero_players=true)",
+					quizState.Quiz.ID)
+				break
+			}
+		}
+
 		// === АДАПТИВНЫЙ ВЫБОР ВОПРОСА ===
 		question, err := qm.adaptiveSelector.SelectNextQuestion(quizCtx, quizState.Quiz.ID, i, usedQuestionIDs)
 		if err != nil {
@@ -79,6 +95,14 @@ func (qm *QuestionManager) RunQuizQuestions(ctx context.Context, quizState *Acti
 
 		// Добавляем в список использованных
 		usedQuestionIDs = append(usedQuestionIDs, question.ID)
+
+		// Логируем факт показа вопроса для корректной пост-статистики.
+		if qm.deps.QuestionRepo != nil {
+			if err := qm.deps.QuestionRepo.LogQuizQuestion(quizState.Quiz.ID, question.ID, i); err != nil {
+				log.Printf("[QuestionManager] WARNING: Не удалось записать историю вопроса (quiz=%d, question=%d, order=%d): %v",
+					quizState.Quiz.ID, question.ID, i, err)
+			}
+		}
 
 		// Устанавливаем текущий вопрос в состоянии
 		quizState.SetCurrentQuestion(question, i)
@@ -207,6 +231,57 @@ func (qm *QuestionManager) RunQuizQuestions(ctx context.Context, quizState *Acti
 	}
 
 	return nil
+}
+
+// countActiveParticipants возвращает количество участников, которые еще не выбыли.
+func (qm *QuestionManager) countActiveParticipants(quizID uint) (int, error) {
+	if qm.deps.CacheRepo == nil {
+		return 0, nil
+	}
+
+	participantsKey := fmt.Sprintf("quiz:%d:participants", quizID)
+	participantStrings, err := qm.deps.CacheRepo.SMembers(participantsKey)
+	if err != nil {
+		return 0, err
+	}
+	if len(participantStrings) == 0 {
+		return 0, nil
+	}
+
+	eliminationKeys := make([]string, 0, len(participantStrings))
+	for _, userIDStr := range participantStrings {
+		userID, parseErr := strconv.ParseUint(userIDStr, 10, 64)
+		if parseErr != nil {
+			continue
+		}
+		eliminationKeys = append(eliminationKeys, fmt.Sprintf("quiz:%d:eliminated:%d", quizID, userID))
+	}
+	if len(eliminationKeys) == 0 {
+		return 0, nil
+	}
+
+	eliminatedMap, err := qm.deps.CacheRepo.ExistsBatch(eliminationKeys)
+	if err != nil {
+		// Без batch fallback на индивидуальные проверки.
+		eliminatedMap = make(map[string]bool, len(eliminationKeys))
+		for _, key := range eliminationKeys {
+			exists, existsErr := qm.deps.CacheRepo.Exists(key)
+			if existsErr != nil {
+				// Консервативно считаем участника активным, чтобы не завершить игру ошибочно.
+				eliminatedMap[key] = false
+				continue
+			}
+			eliminatedMap[key] = exists
+		}
+	}
+
+	activeCount := 0
+	for _, key := range eliminationKeys {
+		if !eliminatedMap[key] {
+			activeCount++
+		}
+	}
+	return activeCount, nil
 }
 
 // processNoAnswerEliminations обрабатывает выбывание игроков, не ответивших на вопрос

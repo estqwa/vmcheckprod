@@ -52,8 +52,8 @@ func (m *MockQuizRepoForScheduler) IncrementQuestionCount(quizID uint, delta int
 	return args.Error(0)
 }
 
-func (m *MockQuizRepoForScheduler) UpdateScheduleInfo(quizID uint, scheduledTime time.Time, status string) error {
-	args := m.Called(quizID, scheduledTime, status)
+func (m *MockQuizRepoForScheduler) UpdateScheduleInfo(quizID uint, scheduledTime time.Time, status string, finishOnZeroPlayers *bool) error {
+	args := m.Called(quizID, scheduledTime, status, finishOnZeroPlayers)
 	return args.Error(0)
 }
 
@@ -202,6 +202,19 @@ func (m *MockQuestionRepoForScheduler) CountAvailablePool() (int64, error) {
 	return args.Get(0).(int64), args.Error(1)
 }
 
+func (m *MockQuestionRepoForScheduler) LogQuizQuestion(quizID uint, questionID uint, questionOrder int) error {
+	args := m.Called(quizID, questionID, questionOrder)
+	return args.Error(0)
+}
+
+func (m *MockQuestionRepoForScheduler) GetQuizQuestionHistory(quizID uint) ([]entity.QuizQuestionHistory, error) {
+	args := m.Called(quizID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]entity.QuizQuestionHistory), args.Error(1)
+}
+
 // MockWSManagerForScheduler реализует минимальный интерфейс WebSocket Manager
 type MockWSManagerForScheduler struct {
 	mock.Mock
@@ -253,7 +266,7 @@ func TestScheduler_ScheduleQuiz_Success(t *testing.T) {
 	mockQuizRepo.On("GetWithQuestions", uint(1)).Return(quiz, nil)
 	mockQuizRepo.On("GetByID", uint(1)).Maybe().Return(quiz, nil)
 	// Новый метод вместо Update
-	mockQuizRepo.On("UpdateScheduleInfo", uint(1), mock.AnythingOfType("time.Time"), entity.QuizStatusScheduled).Return(nil)
+	mockQuizRepo.On("UpdateScheduleInfo", uint(1), mock.AnythingOfType("time.Time"), entity.QuizStatusScheduled, (*bool)(nil)).Return(nil)
 	// Хватает вопросов в пуле (needed=8, available=15)
 	mockQuestionRepo.On("CountAvailablePool").Return(int64(15), nil)
 
@@ -352,7 +365,7 @@ func TestScheduler_ScheduleQuiz_NoQuestions_PoolAvailable(t *testing.T) {
 
 	mockQuizRepo.On("GetWithQuestions", uint(1)).Return(quiz, nil)
 	mockQuizRepo.On("GetByID", uint(1)).Maybe().Return(quiz, nil)
-	mockQuizRepo.On("UpdateScheduleInfo", uint(1), mock.AnythingOfType("time.Time"), entity.QuizStatusScheduled).Return(nil)
+	mockQuizRepo.On("UpdateScheduleInfo", uint(1), mock.AnythingOfType("time.Time"), entity.QuizStatusScheduled, (*bool)(nil)).Return(nil)
 
 	// Пул имеет достаточно вопросов для MaxQuestionsPerQuiz
 	mockQuestionRepo.On("CountAvailablePool").Return(int64(15), nil)
@@ -369,7 +382,7 @@ func TestScheduler_ScheduleQuiz_NoQuestions_PoolAvailable(t *testing.T) {
 
 	// Assert
 	require.NoError(t, err, "Планирование должно быть успешным при наличии пула")
-	mockQuizRepo.AssertCalled(t, "UpdateScheduleInfo", uint(1), mock.AnythingOfType("time.Time"), entity.QuizStatusScheduled)
+	mockQuizRepo.AssertCalled(t, "UpdateScheduleInfo", uint(1), mock.AnythingOfType("time.Time"), entity.QuizStatusScheduled, (*bool)(nil))
 }
 
 func TestScheduler_Reschedule_NoDuplicateStart(t *testing.T) {
@@ -392,7 +405,7 @@ func TestScheduler_Reschedule_NoDuplicateStart(t *testing.T) {
 
 	mockQuizRepo.On("GetWithQuestions", uint(1)).Return(quiz, nil)
 	mockQuizRepo.On("GetByID", uint(1)).Maybe().Return(quiz, nil)
-	mockQuizRepo.On("UpdateScheduleInfo", uint(1), mock.AnythingOfType("time.Time"), entity.QuizStatusScheduled).Return(nil)
+	mockQuizRepo.On("UpdateScheduleInfo", uint(1), mock.AnythingOfType("time.Time"), entity.QuizStatusScheduled, (*bool)(nil)).Return(nil)
 	// Хватает вопросов в пуле
 	mockQuestionRepo.On("CountAvailablePool").Return(int64(15), nil)
 

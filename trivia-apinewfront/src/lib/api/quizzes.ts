@@ -91,6 +91,7 @@ interface CreateQuizData {
     description?: string;
     scheduled_time: string;
     prize_fund?: number; // Опционально, 0 = дефолт 1000000
+    finish_on_zero_players?: boolean;
 }
 
 interface QuestionData {
@@ -119,8 +120,15 @@ export async function addQuestions(quizId: number, questions: QuestionData[]): P
 /**
  * Schedule a quiz (admin only)
  */
-export async function scheduleQuiz(quizId: number, scheduledTime: string): Promise<void> {
-    await api.put(`/api/quizzes/${quizId}/schedule`, { scheduled_time: scheduledTime });
+export async function scheduleQuiz(
+    quizId: number,
+    scheduledTime: string,
+    finishOnZeroPlayers?: boolean
+): Promise<void> {
+    await api.put(`/api/quizzes/${quizId}/schedule`, {
+        scheduled_time: scheduledTime,
+        ...(finishOnZeroPlayers !== undefined ? { finish_on_zero_players: finishOnZeroPlayers } : {}),
+    });
 }
 
 /**

@@ -14,6 +14,17 @@ import (
 	"gorm.io/gorm"
 )
 
+func normalizeQuestionSourceMode(mode string) (string, error) {
+	switch strings.TrimSpace(mode) {
+	case "", entity.QuizQuestionSourceHybrid:
+		return entity.QuizQuestionSourceHybrid, nil
+	case entity.QuizQuestionSourceAdminOnly:
+		return entity.QuizQuestionSourceAdminOnly, nil
+	default:
+		return "", fmt.Errorf("invalid question_source_mode: %s", mode)
+	}
+}
+
 // QuizService предоставляет методы для работы с викторинами
 type QuizService struct {
 	quizRepo     repository.QuizRepository
@@ -50,10 +61,15 @@ func NewQuizService(
 }
 
 // CreateQuiz создает новую викторину
-func (s *QuizService) CreateQuiz(title, description string, scheduledTime time.Time, prizeFund int, finishOnZeroPlayers bool) (*entity.Quiz, error) {
+func (s *QuizService) CreateQuiz(title, description string, scheduledTime time.Time, prizeFund int, finishOnZeroPlayers bool, questionSourceMode string) (*entity.Quiz, error) {
 	// Проверяем, что время проведения в будущем
 	if scheduledTime.Before(time.Now()) {
 		return nil, errors.New("scheduled time must be in the future")
+	}
+
+	normalizedMode, err := normalizeQuestionSourceMode(questionSourceMode)
+	if err != nil {
+		return nil, err
 	}
 
 	// Используем дефолт если prizeFund не указан или <= 0
@@ -70,6 +86,7 @@ func (s *QuizService) CreateQuiz(title, description string, scheduledTime time.T
 		QuestionCount:       0,
 		PrizeFund:           prizeFund,
 		FinishOnZeroPlayers: finishOnZeroPlayers,
+		QuestionSourceMode:  normalizedMode,
 	}
 
 	// Сохраняем викторину в БД
@@ -281,6 +298,7 @@ func (s *QuizService) DuplicateQuiz(originalQuizID uint, newScheduledTime time.T
 		QuestionCount:       len(originalQuiz.Questions),
 		PrizeFund:           originalQuiz.PrizeFund, // Копируем призовой фонд из оригинала
 		FinishOnZeroPlayers: originalQuiz.FinishOnZeroPlayers,
+		QuestionSourceMode:  originalQuiz.QuestionSourceMode,
 	}
 
 	// 5. Начать Транзакцию для атомарного создания викторины и вопросов

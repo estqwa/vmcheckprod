@@ -20,6 +20,7 @@ function CreateQuizForm() {
     const [scheduledTime, setScheduledTime] = useState('');
     const [prizeFund, setPrizeFund] = useState(1000000);
     const [finishOnZeroPlayers, setFinishOnZeroPlayers] = useState(false);
+    const [adminOnlyMode, setAdminOnlyMode] = useState(false);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -47,6 +48,7 @@ function CreateQuizForm() {
                 scheduled_time: new Date(scheduledTime).toISOString(),
                 prize_fund: prizeFund > 0 ? prizeFund : undefined,
                 finish_on_zero_players: finishOnZeroPlayers,
+                question_source_mode: adminOnlyMode ? 'admin_only' : 'hybrid',
             });
 
             toast.success('Викторина создана!');
@@ -152,6 +154,20 @@ function CreateQuizForm() {
                                 />
                                 <p className="text-xs text-muted-foreground">
                                     Сумма делится поровну между всеми победителями
+                                </p>
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label className="flex items-center gap-2">
+                                    <input
+                                        type="checkbox"
+                                        checked={adminOnlyMode}
+                                        onChange={(e) => setAdminOnlyMode(e.target.checked)}
+                                    />
+                                    Строгий режим: только вопросы админа (без пула)
+                                </Label>
+                                <p className="text-xs text-muted-foreground">
+                                    Если включено, викторина будет идти ровно по вопросам, добавленным в эту викторину.
                                 </p>
                             </div>
 

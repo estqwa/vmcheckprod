@@ -17,6 +17,7 @@ export interface User {
 
 // Quiz statuses
 export type QuizStatus = 'scheduled' | 'in_progress' | 'completed' | 'cancelled';
+export type QuizQuestionSourceMode = 'hybrid' | 'admin_only';
 
 // Quiz from backend API
 export interface Quiz {
@@ -27,6 +28,7 @@ export interface Quiz {
     status: QuizStatus;
     question_count: number;
     finish_on_zero_players: boolean;
+    question_source_mode: QuizQuestionSourceMode;
     prize_fund: number;
     created_at: string;
     updated_at: string;

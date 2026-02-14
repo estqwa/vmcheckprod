@@ -63,19 +63,26 @@ func (s *Scheduler) ScheduleQuiz(ctx context.Context, quizID uint, scheduledTime
 		return err
 	}
 
-	// Strict mode: проверяем что суммарно вопросов хватит на MaxQuestionsPerQuiz
 	quizQCount := len(quiz.Questions)
-	if quizQCount < s.config.MaxQuestionsPerQuiz {
-		ok, err := s.hasEnoughQuestions(quizQCount)
-		if err != nil {
-			return fmt.Errorf("question availability check failed: %w", err)
-		}
-		if !ok {
-			return fmt.Errorf("недостаточно вопросов: в викторине %d, в пуле не хватает до %d",
-				quizQCount, s.config.MaxQuestionsPerQuiz)
-		}
+	if quiz.IsAdminOnlyMode() {
 		if quizQCount == 0 {
-			log.Printf("[Scheduler] Quiz #%d: no preset questions, using pool", quizID)
+			return fmt.Errorf("quiz in admin_only mode must contain at least 1 question")
+		}
+		log.Printf("[Scheduler] Quiz #%d scheduled in admin_only mode with %d quiz-specific questions", quizID, quizQCount)
+	} else {
+		// Hybrid mode: проверяем что суммарно вопросов хватит на MaxQuestionsPerQuiz.
+		if quizQCount < s.config.MaxQuestionsPerQuiz {
+			ok, err := s.hasEnoughQuestions(quizQCount)
+			if err != nil {
+				return fmt.Errorf("question availability check failed: %w", err)
+			}
+			if !ok {
+				return fmt.Errorf("недостаточно вопросов: в викторине %d, в пуле не хватает до %d",
+					quizQCount, s.config.MaxQuestionsPerQuiz)
+			}
+			if quizQCount == 0 {
+				log.Printf("[Scheduler] Quiz #%d: no preset questions, using pool", quizID)
+			}
 		}
 	}
 
@@ -423,8 +430,21 @@ func (s *Scheduler) triggerQuizStart(ctx context.Context, quiz *entity.Quiz) {
 		return
 	}
 
-	// 2. Фиксируем QuestionCount (точечно, без перезаписи остальных полей)
-	quiz.QuestionCount = s.config.MaxQuestionsPerQuiz
+	// 2. Фиксируем QuestionCount (точечно, без перезаписи остальных полей).
+	// admin_only: играем ровно N вопросов админа; hybrid: как и раньше, плановое значение из конфига.
+	if quiz.IsAdminOnlyMode() {
+		if quiz.QuestionCount <= 0 {
+			quizWithQuestions, qErr := s.deps.QuizRepo.GetWithQuestions(quiz.ID)
+			if qErr == nil && len(quizWithQuestions.Questions) > 0 {
+				quiz.QuestionCount = len(quizWithQuestions.Questions)
+			}
+		}
+		if quiz.QuestionCount <= 0 {
+			log.Printf("[Scheduler] WARNING: Quiz #%d is admin_only but QuestionCount=%d", quiz.ID, quiz.QuestionCount)
+		}
+	} else {
+		quiz.QuestionCount = s.config.MaxQuestionsPerQuiz
+	}
 	if err := s.deps.QuizRepo.UpdateQuestionCount(quiz.ID, quiz.QuestionCount); err != nil {
 		log.Printf("[Scheduler] WARNING: Не удалось записать QuestionCount=%d для викторины #%d: %v",
 			quiz.QuestionCount, quiz.ID, err)

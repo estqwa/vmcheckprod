@@ -170,7 +170,7 @@ func TestQuizService_CreateQuiz_Success(t *testing.T) {
 	quizService := createTestQuizServiceWithMocks(mockQuizRepo, nil, getDefaultTestConfigForQuiz())
 
 	// Act
-	quiz, err := quizService.CreateQuiz("Тестовая викторина", "Описание", scheduledTime, 500000, false)
+	quiz, err := quizService.CreateQuiz("Тестовая викторина", "Описание", scheduledTime, 500000, false, entity.QuizQuestionSourceHybrid)
 
 	// Assert
 	require.NoError(t, err, "Создание викторины должно быть успешным")
@@ -189,13 +189,26 @@ func TestQuizService_CreateQuiz_PastScheduledTime(t *testing.T) {
 	quizService := createTestQuizServiceWithMocks(mockQuizRepo, nil, getDefaultTestConfigForQuiz())
 
 	// Act
-	quiz, err := quizService.CreateQuiz("Викторина", "Описание", scheduledTime, 0, false)
+	quiz, err := quizService.CreateQuiz("Викторина", "Описание", scheduledTime, 0, false, entity.QuizQuestionSourceHybrid)
 
 	// Assert
 	assert.Error(t, err, "Должна быть ошибка при времени в прошлом")
 	assert.Nil(t, quiz)
 	assert.Contains(t, err.Error(), "future", "Ошибка должна указывать на время в будущем")
 	// Create не должен быть вызван
+	mockQuizRepo.AssertNotCalled(t, "Create")
+}
+
+func TestQuizService_CreateQuiz_InvalidQuestionSourceMode(t *testing.T) {
+	mockQuizRepo := new(MockQuizRepository)
+	scheduledTime := time.Now().Add(1 * time.Hour)
+
+	quizService := createTestQuizServiceWithMocks(mockQuizRepo, nil, getDefaultTestConfigForQuiz())
+
+	quiz, err := quizService.CreateQuiz("Викторина", "Описание", scheduledTime, 0, false, "unknown_mode")
+
+	assert.Error(t, err)
+	assert.Nil(t, quiz)
 	mockQuizRepo.AssertNotCalled(t, "Create")
 }
 

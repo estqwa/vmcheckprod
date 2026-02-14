@@ -50,7 +50,16 @@ func (qm *QuestionManager) QuestionDone() <-chan struct{} {
 // динамически выбирает вопросы из quiz-specific или общего пула
 func (qm *QuestionManager) RunQuizQuestions(ctx context.Context, quizState *ActiveQuizState) error {
 	totalQuestions := qm.config.MaxQuestionsPerQuiz
-	if quizState.Quiz.QuestionCount > 0 {
+	if quizState.Quiz.IsAdminOnlyMode() {
+		// В strict-режиме играем ровно по вопросам, добавленным админом.
+		if len(quizState.Quiz.Questions) > 0 {
+			totalQuestions = len(quizState.Quiz.Questions)
+		} else if quizState.Quiz.QuestionCount > 0 {
+			totalQuestions = quizState.Quiz.QuestionCount
+		} else {
+			return fmt.Errorf("quiz #%d in admin_only mode has no questions", quizState.Quiz.ID)
+		}
+	} else if quizState.Quiz.QuestionCount > 0 {
 		totalQuestions = quizState.Quiz.QuestionCount
 	}
 	// Примечание: QuestionCount фиксируется в triggerQuizStart (scheduler.go),
@@ -86,7 +95,8 @@ func (qm *QuestionManager) RunQuizQuestions(ctx context.Context, quizState *Acti
 		}
 
 		// === АДАПТИВНЫЙ ВЫБОР ВОПРОСА ===
-		question, err := qm.adaptiveSelector.SelectNextQuestion(quizCtx, quizState.Quiz.ID, i, usedQuestionIDs)
+		allowPool := !quizState.Quiz.IsAdminOnlyMode()
+		question, err := qm.adaptiveSelector.SelectNextQuestion(quizCtx, quizState.Quiz.ID, i, usedQuestionIDs, allowPool)
 		if err != nil {
 			log.Printf("[QuestionManager] КРИТИЧЕСКАЯ ОШИБКА: Не удалось выбрать вопрос #%d для викторины #%d: %v. Завершаем викторину.",
 				i, quizState.Quiz.ID, err)

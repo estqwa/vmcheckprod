@@ -29,6 +29,7 @@ type QuizResponse struct {
 	QuestionCount       int                `json:"question_count"`
 	PrizeFund           int                `json:"prize_fund"`
 	FinishOnZeroPlayers bool               `json:"finish_on_zero_players"`
+	QuestionSourceMode  string             `json:"question_source_mode"`
 	Questions           []QuestionResponse `json:"questions,omitempty"` // Слайс DTO вопросов
 	CreatedAt           time.Time          `json:"created_at"`
 	UpdatedAt           time.Time          `json:"updated_at"`
@@ -138,6 +139,11 @@ func NewQuizResponse(quiz *entity.Quiz, includeQuestions bool) *QuizResponse {
 		return nil
 	}
 
+	questionSourceMode := quiz.QuestionSourceMode
+	if questionSourceMode == "" {
+		questionSourceMode = entity.QuizQuestionSourceHybrid
+	}
+
 	var questionsDTO []QuestionResponse
 	if includeQuestions {
 		questionsDTO = make([]QuestionResponse, len(quiz.Questions))
@@ -161,6 +167,7 @@ func NewQuizResponse(quiz *entity.Quiz, includeQuestions bool) *QuizResponse {
 		QuestionCount:       quiz.QuestionCount,  // Добавляем поле
 		PrizeFund:           quiz.PrizeFund,
 		FinishOnZeroPlayers: quiz.FinishOnZeroPlayers,
+		QuestionSourceMode:  questionSourceMode,
 		Questions:           questionsDTO,
 		CreatedAt:           quiz.CreatedAt,
 		UpdatedAt:           quiz.UpdatedAt,

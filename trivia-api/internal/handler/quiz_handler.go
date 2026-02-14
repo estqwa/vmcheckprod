@@ -45,6 +45,7 @@ type CreateQuizRequest struct {
 	ScheduledTime       time.Time `json:"scheduled_time" binding:"required"`
 	PrizeFund           int       `json:"prize_fund"`             // Опционально, 0 = дефолт
 	FinishOnZeroPlayers bool      `json:"finish_on_zero_players"` // false по умолчанию
+	QuestionSourceMode  string    `json:"question_source_mode,omitempty"`
 }
 
 // CreateQuiz обрабатывает запрос на создание викторины
@@ -61,6 +62,7 @@ func (h *QuizHandler) CreateQuiz(c *gin.Context) {
 		req.ScheduledTime,
 		req.PrizeFund,
 		req.FinishOnZeroPlayers,
+		req.QuestionSourceMode,
 	)
 	if err != nil {
 		h.handleQuizError(c, err)

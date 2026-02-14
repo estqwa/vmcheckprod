@@ -99,6 +99,7 @@ interface CreateQuizData {
     scheduled_time: string;
     prize_fund?: number; // Опционально, 0 = дефолт 1000000
     finish_on_zero_players?: boolean;
+    question_source_mode?: 'hybrid' | 'admin_only';
 }
 
 interface QuestionData {

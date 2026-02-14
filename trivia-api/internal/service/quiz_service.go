@@ -23,6 +23,15 @@ type QuizService struct {
 	db           *gorm.DB
 }
 
+// AskedQuizQuestion представляет фактически заданный вопрос в викторине
+// (из журнала проведения quiz_question_history).
+type AskedQuizQuestion struct {
+	QuestionOrder int
+	AskedAt       time.Time
+	Source        string
+	Question      *entity.Question
+}
+
 // NewQuizService создает новый сервис викторин
 func NewQuizService(
 	quizRepo repository.QuizRepository,
@@ -152,6 +161,51 @@ func (s *QuizService) ScheduleQuiz(quizID uint, scheduledTime time.Time, finishO
 // GetQuizWithQuestions возвращает викторину с вопросами
 func (s *QuizService) GetQuizWithQuestions(quizID uint) (*entity.Quiz, error) {
 	return s.quizRepo.GetWithQuestions(quizID)
+}
+
+// GetQuizAskedQuestions возвращает фактически заданные вопросы по истории проведения.
+// Источник:
+// - "quiz" — вопрос был привязан к этой викторине заранее
+// - "pool" — вопрос был взят из общего пула
+// - "other_quiz" — вопрос привязан к другой викторине (нештатный случай)
+func (s *QuizService) GetQuizAskedQuestions(quizID uint) ([]AskedQuizQuestion, error) {
+	// Проверяем, что викторина существует.
+	if _, err := s.quizRepo.GetByID(quizID); err != nil {
+		return nil, err
+	}
+
+	history, err := s.questionRepo.GetQuizQuestionHistory(quizID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get quiz question history: %w", err)
+	}
+
+	result := make([]AskedQuizQuestion, 0, len(history))
+	for _, item := range history {
+		question, qErr := s.questionRepo.GetByID(item.QuestionID)
+		if qErr != nil {
+			return nil, fmt.Errorf("failed to load question #%d: %w", item.QuestionID, qErr)
+		}
+		if question == nil {
+			continue
+		}
+
+		source := "pool"
+		if question.QuizID != nil {
+			source = "other_quiz"
+			if *question.QuizID == quizID {
+				source = "quiz"
+			}
+		}
+
+		result = append(result, AskedQuizQuestion{
+			QuestionOrder: item.QuestionOrder,
+			AskedAt:       item.AskedAt,
+			Source:        source,
+			Question:      question,
+		})
+	}
+
+	return result, nil
 }
 
 // ListQuizzes возвращает список викторин с пагинацией

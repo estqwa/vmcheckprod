@@ -227,6 +227,32 @@ func (h *QuizHandler) GetQuizWithQuestions(c *gin.Context) {
 	c.JSON(http.StatusOK, response)
 }
 
+// GetQuizAskedQuestions returns actual asked questions from quiz history.
+func (h *QuizHandler) GetQuizAskedQuestions(c *gin.Context) {
+	quizID := c.MustGet("quizID").(uint)
+
+	askedQuestions, err := h.quizService.GetQuizAskedQuestions(quizID)
+	if err != nil {
+		h.handleQuizError(c, err)
+		return
+	}
+
+	response := make([]dto.AskedQuizQuestionResponse, 0, len(askedQuestions))
+	for _, item := range askedQuestions {
+		if item.Question == nil {
+			continue
+		}
+		response = append(response, dto.NewAskedQuizQuestionResponse(
+			item.QuestionOrder,
+			item.AskedAt,
+			item.Source,
+			item.Question,
+		))
+	}
+
+	c.JSON(http.StatusOK, response)
+}
+
 // GetQuizResults возвращает пагинированные результаты викторины
 func (h *QuizHandler) GetQuizResults(c *gin.Context) {
 	quizID := c.MustGet("quizID").(uint) // Получаем из контекста

@@ -55,6 +55,27 @@ export interface QuizWithQuestions extends Quiz {
     questions: Question[];
 }
 
+// Asked question details for admin quiz page
+export interface AskedQuestionDetails {
+    id: number;
+    quiz_id?: number;
+    text: string;
+    text_kk?: string;
+    options: QuestionOption[];
+    options_kk?: QuestionOption[];
+    correct_option: number;
+    time_limit_sec: number;
+    point_value: number;
+    difficulty: number;
+}
+
+export interface AskedQuizQuestion {
+    question_order: number;
+    asked_at: string;
+    source: 'quiz' | 'pool' | 'other_quiz' | string;
+    question: AskedQuestionDetails;
+}
+
 // Quiz result
 export interface QuizResult {
     id: number;

@@ -375,6 +375,7 @@ func main() {
 					adminQuizzes.GET("/results/export", quizHandler.ExportQuizResults) // CSV/Excel экспорт
 					adminQuizzes.GET("/statistics", quizHandler.GetQuizStatistics)     // Расширенная статистика
 					adminQuizzes.GET("/winners", quizHandler.GetQuizWinners)           // Список победителей
+					adminQuizzes.GET("/asked-questions", quizHandler.GetQuizAskedQuestions)
 
 					// Рекламные слоты викторины
 					adminQuizzes.POST("/ad-slots", adHandler.CreateAdSlot)

@@ -146,7 +146,7 @@ func (qm *QuestionManager) RunQuizQuestions(ctx context.Context, quizState *Acti
 		timeLimit := time.Duration(question.TimeLimitSec) * time.Second
 		endTime := time.Now().Add(timeLimit)
 		timerWg.Add(1)
-		go qm.runQuestionTimer(quizCtx, quizState.Quiz, question, i, endTime, &timerWg)
+		go qm.runQuestionTimer(quizCtx, quizState.Quiz, question, i, totalQuestions, endTime, &timerWg)
 
 		// Ждем завершения времени на вопрос
 		log.Printf("[QuestionManager][DEBUG] Викторина #%d, Вопрос #%d: Ожидание завершения таймера (%v)...", quizState.Quiz.ID, question.ID, timeLimit)
@@ -479,6 +479,7 @@ func (qm *QuestionManager) runQuestionTimer(
 	quiz *entity.Quiz,
 	question *entity.Question,
 	questionNumber int,
+	totalQuestions int,
 	endTime time.Time,
 	wg *sync.WaitGroup,
 ) {
@@ -499,7 +500,7 @@ func (qm *QuestionManager) runQuestionTimer(
 			if remaining <= 0 {
 				// Время вышло
 				log.Printf("[QuestionManager] Время на вопрос #%d (%d из %d) викторины #%d истекло",
-					question.ID, questionNumber, len(quiz.Questions), quiz.ID)
+					question.ID, questionNumber, totalQuestions, quiz.ID)
 				return
 			}
 
@@ -519,7 +520,7 @@ func (qm *QuestionManager) runQuestionTimer(
 				log.Printf("[QuestionManager] ОШИБКА при отправке таймера для вопроса #%d: %v", question.ID, err)
 			} else {
 				log.Printf("[QuestionManager] Таймер вопроса #%d (%d из %d): осталось %d секунд",
-					question.ID, questionNumber, len(quiz.Questions), remaining)
+					question.ID, questionNumber, totalQuestions, remaining)
 			}
 
 		case <-timerCtx.Done():

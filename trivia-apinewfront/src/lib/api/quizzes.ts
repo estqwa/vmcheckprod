@@ -1,5 +1,5 @@
 import { api } from './client';
-import { Quiz, QuizWithQuestions, QuizResult, PaginatedResults, LeaderboardResponse } from './types';
+import { Quiz, QuizWithQuestions, QuizResult, PaginatedResults, LeaderboardResponse, AskedQuizQuestion } from './types';
 
 interface PaginationParams {
     page?: number;
@@ -49,6 +49,13 @@ export async function getQuiz(id: number): Promise<Quiz> {
  */
 export async function getQuizWithQuestions(id: number): Promise<QuizWithQuestions> {
     return api.get<QuizWithQuestions>(`/api/quizzes/${id}/with-questions`);
+}
+
+/**
+ * Get asked questions history for quiz details (admin only)
+ */
+export async function getQuizAskedQuestions(id: number): Promise<AskedQuizQuestion[]> {
+    return api.get<AskedQuizQuestion[]>(`/api/quizzes/${id}/asked-questions`);
 }
 
 /**

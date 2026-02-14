@@ -21,17 +21,40 @@ type QuestionResponse struct {
 
 // QuizResponse представляет викторину в формате для ответа клиенту
 type QuizResponse struct {
-	ID            uint               `json:"id"`
-	Title         string             `json:"title"`
-	Description   string             `json:"description,omitempty"`
-	ScheduledTime time.Time          `json:"scheduled_time"`
-	Status        string             `json:"status"`
-	QuestionCount int                `json:"question_count"`
-	PrizeFund     int                `json:"prize_fund"`
-	FinishOnZeroPlayers bool         `json:"finish_on_zero_players"`
-	Questions     []QuestionResponse `json:"questions,omitempty"` // Слайс DTO вопросов
-	CreatedAt     time.Time          `json:"created_at"`
-	UpdatedAt     time.Time          `json:"updated_at"`
+	ID                  uint               `json:"id"`
+	Title               string             `json:"title"`
+	Description         string             `json:"description,omitempty"`
+	ScheduledTime       time.Time          `json:"scheduled_time"`
+	Status              string             `json:"status"`
+	QuestionCount       int                `json:"question_count"`
+	PrizeFund           int                `json:"prize_fund"`
+	FinishOnZeroPlayers bool               `json:"finish_on_zero_players"`
+	Questions           []QuestionResponse `json:"questions,omitempty"` // Слайс DTO вопросов
+	CreatedAt           time.Time          `json:"created_at"`
+	UpdatedAt           time.Time          `json:"updated_at"`
+}
+
+// AskedQuestionDetailsResponse содержит детали фактически заданного вопроса.
+// Используется в admin-деталях викторины.
+type AskedQuestionDetailsResponse struct {
+	ID            uint                    `json:"id"`
+	QuizID        *uint                   `json:"quiz_id,omitempty"`
+	Text          string                  `json:"text"`
+	TextKK        string                  `json:"text_kk,omitempty"`
+	Options       []helper.QuestionOption `json:"options"`
+	OptionsKK     []helper.QuestionOption `json:"options_kk,omitempty"`
+	CorrectOption int                     `json:"correct_option"`
+	TimeLimitSec  int                     `json:"time_limit_sec"`
+	PointValue    int                     `json:"point_value"`
+	Difficulty    int                     `json:"difficulty"`
+}
+
+// AskedQuizQuestionResponse содержит запись истории заданного вопроса.
+type AskedQuizQuestionResponse struct {
+	QuestionOrder int                          `json:"question_order"`
+	AskedAt       time.Time                    `json:"asked_at"`
+	Source        string                       `json:"source"`
+	Question      AskedQuestionDetailsResponse `json:"question"`
 }
 
 // ResultResponse представляет результат викторины в формате для ответа клиенту
@@ -84,6 +107,31 @@ func NewQuestionResponse(q *entity.Question) QuestionResponse {
 	return resp
 }
 
+// NewAskedQuizQuestionResponse создает DTO для фактически заданного вопроса.
+func NewAskedQuizQuestionResponse(order int, askedAt time.Time, source string, q *entity.Question) AskedQuizQuestionResponse {
+	details := AskedQuestionDetailsResponse{
+		ID:            q.ID,
+		Text:          q.Text,
+		TextKK:        q.TextKK,
+		Options:       helper.ConvertOptionsToObjects(q.Options),
+		OptionsKK:     helper.ConvertOptionsToObjects(q.OptionsKK),
+		CorrectOption: q.CorrectOption,
+		TimeLimitSec:  q.TimeLimitSec,
+		PointValue:    q.PointValue,
+		Difficulty:    q.Difficulty,
+	}
+	if q.QuizID != nil {
+		details.QuizID = q.QuizID
+	}
+
+	return AskedQuizQuestionResponse{
+		QuestionOrder: order,
+		AskedAt:       askedAt,
+		Source:        source,
+		Question:      details,
+	}
+}
+
 // NewQuizResponse создает DTO для викторины
 func NewQuizResponse(quiz *entity.Quiz, includeQuestions bool) *QuizResponse {
 	if quiz == nil {
@@ -105,17 +153,17 @@ func NewQuizResponse(quiz *entity.Quiz, includeQuestions bool) *QuizResponse {
 	}
 
 	return &QuizResponse{
-		ID:            quiz.ID,
-		Title:         quiz.Title,
-		Description:   quiz.Description,
-		ScheduledTime: quiz.ScheduledTime,
-		Status:        string(quiz.Status), // Преобразуем статус в строку
-		QuestionCount: quiz.QuestionCount,  // Добавляем поле
-		PrizeFund:     quiz.PrizeFund,
+		ID:                  quiz.ID,
+		Title:               quiz.Title,
+		Description:         quiz.Description,
+		ScheduledTime:       quiz.ScheduledTime,
+		Status:              string(quiz.Status), // Преобразуем статус в строку
+		QuestionCount:       quiz.QuestionCount,  // Добавляем поле
+		PrizeFund:           quiz.PrizeFund,
 		FinishOnZeroPlayers: quiz.FinishOnZeroPlayers,
-		Questions:     questionsDTO,
-		CreatedAt:     quiz.CreatedAt,
-		UpdatedAt:     quiz.UpdatedAt,
+		Questions:           questionsDTO,
+		CreatedAt:           quiz.CreatedAt,
+		UpdatedAt:           quiz.UpdatedAt,
 	}
 }
 

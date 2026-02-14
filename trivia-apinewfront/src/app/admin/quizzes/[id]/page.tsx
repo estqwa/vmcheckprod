@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { getQuizWithQuestions, scheduleQuiz, cancelQuiz, duplicateQuiz, addQuestions, QuizWithQuestions } from '@/lib/api';
+import { getQuizWithQuestions, getQuizAskedQuestions, scheduleQuiz, cancelQuiz, duplicateQuiz, addQuestions, QuizWithQuestions, AskedQuizQuestion } from '@/lib/api';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -39,6 +39,7 @@ function QuizDetailsContent() {
     const quizId = Number(params.id);
 
     const [quiz, setQuiz] = useState<QuizWithQuestions | null>(null);
+    const [askedQuestions, setAskedQuestions] = useState<AskedQuizQuestion[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [showAddQuestions, setShowAddQuestions] = useState(false);
     const [showScheduleForm, setShowScheduleForm] = useState(false);
@@ -49,23 +50,34 @@ function QuizDetailsContent() {
     const [questions, setQuestions] = useState<QuestionFormData[]>([]);
     const [isSubmitting, setIsSubmitting] = useState(false);
 
-    useEffect(() => {
-        const fetchQuiz = async () => {
-            try {
-                const data = await getQuizWithQuestions(quizId);
-                setQuiz(data);
-                setScheduleFinishOnZeroPlayers(data.finish_on_zero_players ?? false);
-            } catch (error) {
-                console.error('Failed to fetch quiz:', error);
-                toast.error('Викторина не найдена');
-                router.push('/admin');
-            } finally {
-                setIsLoading(false);
-            }
-        };
+    const loadQuiz = async (showErrorToast = true) => {
+        try {
+            const [data, asked] = await Promise.all([
+                getQuizWithQuestions(quizId),
+                getQuizAskedQuestions(quizId).catch((err) => {
+                    console.warn('Failed to fetch asked questions:', err);
+                    return [] as AskedQuizQuestion[];
+                }),
+            ]);
 
-        fetchQuiz();
-    }, [quizId, router]);
+            setQuiz(data);
+            setAskedQuestions(asked);
+            setScheduleFinishOnZeroPlayers(data.finish_on_zero_players ?? false);
+        } catch (error) {
+            console.error('Failed to fetch quiz:', error);
+            if (showErrorToast) {
+                toast.error('Викторина не найдена');
+            }
+            router.push('/admin');
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        loadQuiz();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [quizId]);
 
     const formatDate = (dateStr: string) => {
         return new Date(dateStr).toLocaleString('ru-RU');
@@ -81,9 +93,7 @@ function QuizDetailsContent() {
             await scheduleQuiz(quizId, new Date(scheduleTime).toISOString(), scheduleFinishOnZeroPlayers);
             toast.success('Время изменено');
             setShowScheduleForm(false);
-            const data = await getQuizWithQuestions(quizId);
-            setQuiz(data);
-            setScheduleFinishOnZeroPlayers(data.finish_on_zero_players ?? false);
+            await loadQuiz(false);
         } catch (error: unknown) {
             const err = error as { error?: string };
             toast.error(err.error || 'Ошибка изменения времени');
@@ -97,8 +107,7 @@ function QuizDetailsContent() {
         try {
             await cancelQuiz(quizId);
             toast.success('Викторина отменена');
-            const data = await getQuizWithQuestions(quizId);
-            setQuiz(data);
+            await loadQuiz(false);
         } catch (error: unknown) {
             const err = error as { error?: string };
             toast.error(err.error || 'Ошибка отмены');
@@ -202,8 +211,7 @@ function QuizDetailsContent() {
             toast.success('Вопросы добавлены');
             setShowAddQuestions(false);
             setQuestions([]);
-            const data = await getQuizWithQuestions(quizId);
-            setQuiz(data);
+            await loadQuiz(false);
         } catch (error: unknown) {
             const err = error as { error?: string };
             toast.error(err.error || 'Ошибка добавления вопросов');
@@ -495,12 +503,61 @@ function QuizDetailsContent() {
                     </div>
                 )}
 
+                {/* Asked Questions History */}
+                <Card className="mb-6 card-elevated border-0 rounded-2xl">
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                            <span className="text-xl">📚</span>
+                            Фактически заданные вопросы ({askedQuestions.length})
+                        </CardTitle>
+                        <CardDescription>
+                            История проведения викторины: порядок, ID, сложность и правильные ответы.
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        {askedQuestions.length === 0 ? (
+                            <div className="text-center py-8 text-muted-foreground">
+                                История пока пуста. Она появится после начала викторины.
+                            </div>
+                        ) : (
+                            <div className="space-y-4">
+                                {askedQuestions.map((item) => (
+                                    <div key={`${item.question_order}-${item.question.id}`} className="p-4 border rounded-xl bg-secondary/30">
+                                        <div className="flex flex-wrap items-center gap-2 mb-2">
+                                            <Badge variant="outline">#{item.question_order}</Badge>
+                                            <Badge variant="outline">ID: {item.question.id}</Badge>
+                                            <Badge variant={item.source === 'pool' ? 'secondary' : 'default'}>
+                                                {item.source === 'pool' ? 'Из пула' : 'Из викторины'}
+                                            </Badge>
+                                        </div>
+                                        <p className="font-medium mb-2">{item.question.text}</p>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
+                                            {item.question.options.map((opt) => (
+                                                <div
+                                                    key={opt.id}
+                                                    className={`p-2 rounded-lg ${opt.id === item.question.correct_option ? 'bg-green-100 border border-green-300' : 'bg-muted'}`}
+                                                >
+                                                    {String.fromCharCode(65 + opt.id)}. {opt.text}
+                                                    {opt.id === item.question.correct_option && <span className="ml-2 text-green-700 font-semibold">✓</span>}
+                                                </div>
+                                            ))}
+                                        </div>
+                                        <p className="text-xs text-muted-foreground mt-2">
+                                            Сложность: {item.question.difficulty} • Время: {item.question.time_limit_sec} сек • Очки: {item.question.point_value}
+                                        </p>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </CardContent>
+                </Card>
+
                 {/* Existing Questions */}
                 <Card className="card-elevated border-0 rounded-2xl">
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2">
                             <span className="text-xl">📝</span>
-                            Вопросы ({quiz.questions?.length ?? 0})
+                            Вопросы, добавленные в викторину ({quiz.questions?.length ?? 0})
                         </CardTitle>
                     </CardHeader>
                     <CardContent>

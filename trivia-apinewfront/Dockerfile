@@ -14,8 +14,8 @@ COPY shared/package.json ./shared/package.json
 COPY trivia-apinewfront/package.json ./trivia-apinewfront/package.json
 COPY trivia-mobile/package.json ./trivia-mobile/package.json
 
-# Install only web app + workspace deps (shared).
-RUN pnpm install --frozen-lockfile --filter trivia-apinewfront...
+# Install workspace dependencies required for web build (+ shared build tooling).
+RUN pnpm install --frozen-lockfile
 
 FROM base AS builder
 WORKDIR /repo

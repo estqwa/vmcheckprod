@@ -1,0 +1,4 @@
+packages:
+  - 'trivia-apinewfront'
+  - 'shared'
+  - 'trivia-mobile'

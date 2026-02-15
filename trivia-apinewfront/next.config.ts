@@ -1,16 +1,18 @@
 import type { NextConfig } from "next";
 import createNextIntlPlugin from 'next-intl/plugin';
 
-// On Windows, the default ".next" directory in this workspace can be locked by ACL/owner mismatch.
-// Use a separate dist dir to avoid EPERM unlink issues during local builds.
-const windowsDistDir = '.next-win';
-const distDir = process.platform === 'win32' ? windowsDistDir : '.next';
+// Раздельные dist-папки для dev и build, чтобы избежать EPERM lock-конфликтов на Windows:
+// - `next dev`   (NODE_ENV=development) → .next (стандартный)
+// - `next build` (NODE_ENV=production)  → .next-build
+// Можно переопределить через env: NEXT_DIST_DIR=custom-dir
+const isProduction = process.env.NODE_ENV === 'production';
+const distDir = process.env.NEXT_DIST_DIR || (isProduction ? '.next-build' : undefined);
 
 const nextConfig: NextConfig = {
   /* config options here */
   output: "standalone",
   reactCompiler: true,
-  distDir,
+  ...(distDir ? { distDir } : {}),
 };
 
 // Интеграция next-intl для мультиязычной поддержки

@@ -15,6 +15,9 @@
 
 # next.js
 /.next/
+/.next-build/
+/.next-build*/
+/.next-build-test-*/
 /.next-win/
 /out/
 

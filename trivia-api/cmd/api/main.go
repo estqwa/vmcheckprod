@@ -237,6 +237,7 @@ func main() {
 
 	// Инициализируем обработчики
 	authHandler := handler.NewAuthHandler(authService, tokenManager, wsHub)
+	mobileAuthHandler := handler.NewMobileAuthHandler(authService, tokenManager)
 	quizHandler := handler.NewQuizHandler(quizService, resultService, quizManagerService)
 	wsHandler := handler.NewWSHandler(wsHub, wsManager, quizManagerService, jwtService, cfg.WebSocket, cfg.CORS.AllowedOrigins)
 	userHandler := handler.NewUserHandler(userService, resultService)
@@ -415,8 +416,40 @@ func main() {
 		}
 	}
 
+	// ============================================================================
+	// Mobile Auth Endpoints (Bearer + JSON, без cookies/CSRF)
+	// ============================================================================
+	mobileAuth := api.Group("/mobile/auth")
+	{
+		// Публичные эндпоинты (не требуют аутентификации)
+		mobileAuth.POST("/login", mobileAuthHandler.MobileLogin)
+		mobileAuth.POST("/register", mobileAuthHandler.MobileRegister)
+		mobileAuth.POST("/refresh", mobileAuthHandler.MobileRefresh)
+
+		// Logout не требует RequireAuth — работает по refresh_token из body.
+		// Это позволяет выйти даже с протухшим access token.
+		mobileAuth.POST("/logout", mobileAuthHandler.MobileLogout)
+
+		// Требуют Bearer auth, но НЕ CSRF
+		mobileAuthed := mobileAuth.Group("/")
+		mobileAuthed.Use(authMiddleware.RequireAuth())
+		{
+			mobileAuthed.POST("/ws-ticket", mobileAuthHandler.MobileWsTicket)
+		}
+	}
+
 	// WebSocket маршрут
-	router.GET("/ws", wsHandler.HandleConnection)
+	// Редакция ticket из access-логов Gin: ticket — секретные данные.
+	// ВАЖНО: редакция ПОСЛЕ обработки, чтобы HandleConnection прочитал реальный ticket.
+	// Gin Logger использует defer, который выполнится после нашего return — увидит [REDACTED].
+	router.GET("/ws", func(c *gin.Context) {
+		// Сначала обрабатываем — HandleConnection читает c.Query("ticket")
+		wsHandler.HandleConnection(c)
+		// После обработки перезаписываем URL, чтобы ticket не попал в access-логи
+		if c.Request.URL.RawQuery != "" {
+			c.Request.URL.RawQuery = "ticket=[REDACTED]"
+		}
+	})
 
 	// WebSocket мониторинг (Admin only)
 	// Эндпоинты для мониторинга состояния WebSocket сервера

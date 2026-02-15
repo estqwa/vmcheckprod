@@ -1,0 +1,29 @@
+node_modules
+
+# Next.js generated dirs (dev + build)
+.next
+.next-build
+.next-win
+trivia-apinewfront/.next-build*/
+trivia-apinewfront/.next-build-test-*/
+
+# Shared package build output
+shared/dist
+
+# Environment files
+.env
+.env.local
+.env.production.local
+.env.development.local
+
+# OS files
+Thumbs.db
+.DS_Store
+
+# IDE
+.idea
+.vscode
+*.swp
+
+# Temporary files from local tools/sessions
+_tmp_*

@@ -1,0 +1,462 @@
+# План внедрения мобильного приложения Trivia
+
+## Цель
+
+Добавить полноценное кроссплатформенное мобильное приложение (iOS/Android) на Expo React Native с собственным auth-контуром, не ломая текущий web-клиент.
+
+---
+
+## Принятые решения
+
+| Решение | Обоснование |
+|---------|-------------|
+| **Expo React Native** | Оптимален для real-time викторины. WebSocket, Secure Storage, push — из коробки. Discord, Shopify, Coinbase используют Expo |
+| **Явные mobile endpoints** `/api/mobile/auth/*` | Не «магическое» поведение одних endpoints по заголовкам. Явно, просто отлаживать. Service-логика общая |
+| **Не ослаблять CSRF глобально** | Отдельный ws-ticket endpoint для mobile, RequireCSRF не трогаем |
+| **Shared-контракт в workspace** | Локальный пакет в монорепе (не npm publish). Единый источник типов DTO/WS для web и mobile |
+| **Admin = web-only** | Мобильная админка не нужна на данном этапе |
+| **Сроки: 3–5 недель** | Реалистичная оценка с учётом QA, edge-cases, web-регрессии |
+
+---
+
+## Фаза 1: Backend — Mobile Auth Flow (3–5 дней)
+
+### Что делаем
+
+Добавляем отдельную группу маршрутов `/api/mobile/auth/*` с Bearer + Refresh-в-JSON, без cookies и CSRF. Вся бизнес-логика переиспользуется из существующих сервисов ([AuthService](file:///c:/project/vmdeploy/trivia-api/internal/service/auth_service.go#18-25), [TokenManager](file:///c:/project/vmdeploy/trivia-api/pkg/auth/manager/token_manager.go#119-135)).
+
+### Файлы
+
+---
+
+#### [NEW] `internal/handler/mobile_auth_handler.go`
+
+Новый handler для mobile-клиентов. Содержит:
+
+| Метод | Путь | Что делает |
+|-------|------|-----------|
+| `MobileLogin` | `POST /api/mobile/auth/login` | Вызывает `authService.LoginUser()`, но вместо cookies возвращает `accessToken` + [refreshToken](file:///c:/project/vmdeploy/trivia-apinewfront/src/lib/api/auth.ts#53-76) в JSON |
+| `MobileRegister` | `POST /api/mobile/auth/register` | Вызывает `authService.RegisterUser()` + `tokenManager.GenerateTokenPair()`, возвращает токены в JSON |
+| `MobileRefresh` | `POST /api/mobile/auth/refresh` | Принимает `refresh_token` из JSON body (не из cookie), без CSRF-проверки |
+| `MobilLogout` | `POST /api/mobile/auth/logout` | Принимает `refresh_token` из JSON body, вызывает `authService.LogoutUser()` |
+| `MobileWsTicket` | `POST /api/mobile/auth/ws-ticket` | Только [RequireAuth()](file:///c:/project/vmdeploy/trivia-api/internal/middleware/auth_middleware.go#28-96) (без [RequireCSRF()](file:///c:/project/vmdeploy/trivia-api/internal/middleware/auth_middleware.go#121-237)), вызывает тот же `authService.GenerateWsTicket()` |
+
+**Ключевое отличие от web handlers:**
+- НЕ вызывает `SetRefreshTokenCookie`, `SetAccessTokenCookie`, `SetCSRFSecretCookie`
+- Возвращает [refreshToken](file:///c:/project/vmdeploy/trivia-apinewfront/src/lib/api/auth.ts#53-76) в JSON (в web-версии он `json:"-"`)
+- НЕ требует CSRF validation
+
+**Переиспользуемая логика:**
+- `authService.LoginUser()` — та же функция, что и в web
+- `authService.RegisterUser()` — та же
+- `tokenManager.GenerateTokenPair()` — та же
+- `authService.RefreshTokens()` — нужна новая версия без CSRF (см. ниже)
+- `authService.GenerateWsTicket()` — та же
+
+---
+
+#### [MODIFY] [internal/service/auth_service.go](file:///c:/project/vmdeploy/trivia-api/internal/service/auth_service.go)
+
+Добавить метод `RefreshTokensMobile(refreshToken, deviceID, ipAddress, userAgent string)` — аналог [RefreshTokens](file:///c:/project/vmdeploy/trivia-api/internal/service/auth_service.go#136-156), но без параметра `csrfToken`. Внутри вызывает `tokenManager.RefreshTokenPair()` с теми же параметрами, просто без CSRF-валидации.
+
+Альтернативно: сделать CSRF-параметр опциональным (пустая строка = пропустить CSRF check). Решение — на ревью.
+
+---
+
+#### [MODIFY] [cmd/api/main.go](file:///c:/project/vmdeploy/trivia-api/cmd/api/main.go)
+
+Добавить новую группу маршрутов:
+
+```go
+// Mobile auth endpoints (Bearer + JSON, no cookies/CSRF)
+mobileAuth := api.Group("/mobile/auth")
+{
+    mobileAuth.POST("/login", mobileAuthHandler.MobileLogin)
+    mobileAuth.POST("/register", mobileAuthHandler.MobileRegister)
+    mobileAuth.POST("/refresh", mobileAuthHandler.MobileRefresh)
+    
+    // Требуют Bearer auth, но НЕ CSRF
+    mobileAuthed := mobileAuth.Group("/")
+    mobileAuthed.Use(authMiddleware.RequireAuth())
+    {
+        mobileAuthed.POST("/logout", mobileAuthHandler.MobileLogout)
+        mobileAuthed.POST("/ws-ticket", mobileAuthHandler.MobileWsTicket)
+    }
+}
+```
+
+---
+
+#### НЕ трогаем:
+- [auth_middleware.go](file:///c:/project/vmdeploy/trivia-api/internal/middleware/auth_middleware.go) — [RequireCSRF()](file:///c:/project/vmdeploy/trivia-api/internal/middleware/auth_middleware.go#121-237) остаётся без изменений
+- Все существующие web-маршруты — без изменений
+- [QuizWebSocketProvider.tsx](file:///c:/project/vmdeploy/trivia-apinewfront/src/providers/QuizWebSocketProvider.tsx) — без изменений
+- [client.ts](file:///c:/project/vmdeploy/trivia-apinewfront/src/lib/api/client.ts) — без изменений
+
+### Definition of Done — Фаза 1
+
+- [ ] `go build ./cmd/api` компилируется без ошибок
+- [ ] `go test ./...` — все существующие тесты проходят (9 test-файлов)
+- [ ] Новые unit-тесты для `MobileLogin`, `MobileRefresh`, `MobileWsTicket`
+- [ ] Ручной тест через curl/Postman:
+  - `POST /api/mobile/auth/register` → получить `accessToken` + [refreshToken](file:///c:/project/vmdeploy/trivia-apinewfront/src/lib/api/auth.ts#53-76) в JSON
+  - `POST /api/mobile/auth/login` → получить `accessToken` + [refreshToken](file:///c:/project/vmdeploy/trivia-apinewfront/src/lib/api/auth.ts#53-76) в JSON
+  - `POST /api/mobile/auth/refresh` с `refresh_token` в body → новая пара токенов
+  - `POST /api/mobile/auth/ws-ticket` с `Authorization: Bearer <token>` → получить ticket
+  - Подключение к `/ws?ticket=<ticket>` → WebSocket открывается
+- [ ] Web-клиент работает как раньше (регрессия)
+
+---
+
+## Фаза 2: Shared-контракт в монорепе (1–2 дня)
+
+### Что делаем
+
+Выделяем общие типы в локальный workspace-пакет. Не npm publish — всё в одном repo.
+
+### Структура
+
+```
+project/
+├── trivia-api/        # Backend (Go) — не трогаем
+├── trivia-apinewfront/ # Web frontend (Next.js)
+│   ├── package.json   # workspace: ["../shared"]
+│   └── ...
+├── trivia-mobile/     # Mobile app (Expo) — создаётся в Фазе 3
+│   ├── package.json   # workspace: ["../shared"]
+│   └── ...
+└── shared/            # Общие типы
+    ├── package.json   # name: "@trivia/shared"
+    ├── tsconfig.json
+    └── src/
+        ├── types/
+        │   ├── api.ts          # User, Quiz, QuizResult, AuthResponse...
+        │   ├── websocket.ts    # WSMessage, QuizQuestionEvent, AnswerResult...
+        │   └── index.ts
+        ├── constants/
+        │   └── ws-events.ts    # WS event names как enum/const
+        └── index.ts
+```
+
+### Файлы
+
+---
+
+#### [NEW] `shared/` — новый пакет
+
+Выделить из [types.ts](file:///c:/project/vmdeploy/trivia-apinewfront/src/lib/api/types.ts):
+- Все 25 интерфейсов (User, Quiz, QuizResult, AuthResponse, WS events и т.д.)
+- Все type aliases (QuizStatus, EliminationReason и т.д.)
+
+Добавить:
+- WS event names из [QuizWebSocketProvider.tsx](file:///c:/project/vmdeploy/trivia-apinewfront/src/providers/QuizWebSocketProvider.tsx) как константы
+- Минимальная runtime-валидация критичных WS-событий (`quiz:question`, `quiz:answer_result`, `quiz:state`, `quiz:finish`) — type guard функции
+
+---
+
+#### [MODIFY] [trivia-apinewfront/src/lib/api/types.ts](file:///c:/project/vmdeploy/trivia-apinewfront/src/lib/api/types.ts)
+
+Заменить на реэкспорт из shared:
+```typescript
+export * from '@trivia/shared';
+```
+
+---
+
+#### [MODIFY] [trivia-apinewfront/package.json](file:///c:/project/trivia-apinewfront/package.json)
+
+Добавить workspace dependency:
+```json
+"dependencies": {
+  "@trivia/shared": "workspace:*"
+}
+```
+
+### Definition of Done — Фаза 2
+
+- [ ] `pnpm install` в web-проекте работает
+- [ ] `pnpm build` в web-проекте — сборка без ошибок
+- [ ] Web-клиент работает как раньше (типы не поломались)
+- [ ] `shared` пакет экспортирует все 25 интерфейсов
+- [ ] Type guard функции для 5 критичных WS-событий
+
+---
+
+## Фаза 3: Инициализация Mobile App (3–4 дня)
+
+### Что делаем
+
+Создаём Expo React Native проект с полной инфраструктурой: навигация, auth, API client, WS.
+
+### Структура
+
+```
+trivia-mobile/
+├── app/                        # Expo Router
+│   ├── (auth)/
+│   │   ├── login.tsx
+│   │   └── register.tsx
+│   ├── (tabs)/
+│   │   ├── _layout.tsx         # Tab navigator
+│   │   ├── index.tsx           # Home
+│   │   ├── leaderboard.tsx
+│   │   └── profile.tsx
+│   ├── quiz/
+│   │   └── [id]/
+│   │       ├── lobby.tsx
+│   │       ├── play.tsx
+│   │       └── results.tsx
+│   ├── profile/
+│   │   └── history.tsx
+│   └── _layout.tsx             # Root layout + providers
+├── src/
+│   ├── api/
+│   │   ├── client.ts           # API client с Bearer auth (не cookies!)
+│   │   ├── auth.ts             # Login/register/refresh/logout через /api/mobile/auth/*
+│   │   ├── quizzes.ts          # Запросы к /api/quizzes/*
+│   │   └── user.ts             # /api/users/me, /api/leaderboard
+│   ├── hooks/
+│   │   ├── useAuth.ts
+│   │   ├── useQuizWS.ts        # WebSocket с reconnect/heartbeat
+│   │   └── useUserQuery.ts
+│   ├── providers/
+│   │   ├── AuthProvider.tsx     # Secure Storage для токенов
+│   │   └── QueryProvider.tsx    # TanStack Query
+│   ├── services/
+│   │   └── tokenService.ts     # expo-secure-store + auto-refresh логика
+│   ├── components/             # UI компоненты
+│   ├── constants/
+│   │   └── config.ts           # API_URL, WS_URL по env
+│   └── i18n/                   # RU/KK
+├── app.json
+├── eas.json
+├── package.json                # workspace: ["../shared"]
+└── tsconfig.json
+```
+
+### Ключевые решения по инфраструктуре
+
+**API Client (не как web!):**
+```
+Web:  credentials: 'include' + cookies + CSRF → /api/auth/*
+Mobile: Authorization: Bearer + SecureStore  → /api/mobile/auth/*
+```
+
+**Token Storage:**
+- `expo-secure-store` — Keychain (iOS), Keystore (Android)
+- Access token — in-memory (refresh при app restart)
+- Refresh token — в SecureStore
+
+**Auto-refresh:**
+- Interceptor в API client: если 401 + `token_expired` → refresh → retry
+- Аналог web-логики из [client.ts](file:///c:/project/vmdeploy/trivia-apinewfront/src/lib/api/client.ts) (строки 74-91), но без CSRF
+
+**WebSocket:**
+- Тот же WS-протокол: `ws?ticket=<ticket>`
+- Ticket получаем через `POST /api/mobile/auth/ws-ticket` с Bearer
+- Heartbeat 30с, reconnect с exponential backoff — как web
+- Event names из `@trivia/shared`
+
+### Definition of Done — Фаза 3
+
+- [ ] Expo app запускается на эмуляторе/устройстве
+- [ ] Login/Register через mobile endpoints работает
+- [ ] Токены сохраняются в SecureStore
+- [ ] Auto-refresh при истечении access token
+- [ ] WebSocket подключение через mobile ws-ticket
+- [ ] Навигация между экранами без крашей
+
+---
+
+## Фаза 4: Экраны (5–7 дней)
+
+### Приоритет экранов
+
+| # | Экран | Источник паритета | Критичность |
+|---|-------|-------------------|-------------|
+| 1 | Login / Register | `[locale]/login/page.tsx`, `register/page.tsx` | 🔴 |
+| 2 | Home (ближайшие викторины) | `[locale]/page.tsx` | 🔴 |
+| 3 | Lobby | `quiz/[id]/lobby/page.tsx` | 🔴 |
+| 4 | Play (WS, таймер, ответы) | `quiz/[id]/play/page.tsx` | 🔴 |
+| 5 | Results | `quiz/[id]/results/page.tsx` | 🔴 |
+| 6 | Leaderboard | `[locale]/leaderboard/page.tsx` | 🟡 |
+| 7 | Profile | `[locale]/profile/page.tsx` | 🟡 |
+| 8 | History | `[locale]/profile/history/page.tsx` | 🟡 |
+
+### Локализация
+
+- Переиспользовать ключи из [ru.json](file:///c:/project/vmdeploy/trivia-apinewfront/messages) и `kk.json`
+- `i18next` + `react-i18next` для mobile (Expo не поддерживает `next-intl`)
+- Переключатель языка как в web
+
+### Definition of Done — Фаза 4
+
+- [ ] Все 8 экранов реализованы и навигация работает
+- [ ] Полный quiz-flow: home → lobby → play → results
+- [ ] WS events обрабатываются корректно (вопросы, таймер, ответы, выбывание, финиш)
+- [ ] Локализация RU/KK работает на всех экранах
+- [ ] Ad break overlay (если актуально)
+
+---
+
+## Фаза 5: Надёжность (3–4 дня)
+
+### Mobile-специфичные edge cases
+
+| Сценарий | Решение |
+|----------|---------|
+| Приложение уходит в background | Сохранить state, при возврате — `user:resync` |
+| Смена сети Wi-Fi → LTE | Обнаружить disconnect, reconnect с backoff |
+| Токен истёк во время игры | Auto-refresh перед ws-ticket, retry |
+| Слабая сеть / потери пакетов | Heartbeat + reconnect + UI-индикатор |
+| Crash recovery | При открытии проверить `quiz:state` |
+
+### Runtime-валидация WS
+
+Минимум для критичных событий (из shared):
+- `quiz:question` — проверить наличие `question_id`, [text](file:///c:/project/vmdeploy/trivia-apinewfront/src/providers/AuthProvider.tsx#17-32), `options`, `time_limit`
+- `quiz:answer_result` — проверить `question_id`, `is_correct`, `is_eliminated`
+- `quiz:state` — проверить `status`, `current_question`
+- `quiz:finish` — проверить `quiz_id`, `status`
+- `quiz:timer` — проверить `remaining_seconds`
+
+### Definition of Done — Фаза 5
+
+- [ ] Reconnect при смене сети работает
+- [ ] Background/foreground — состояние восстанавливается
+- [ ] Token refresh во время игры прозрачен для пользователя
+- [ ] Нет крашей при невалидных WS-сообщениях
+
+---
+
+## Фаза 6: QA + Релиз (3–5 дней)
+
+### Чеклисты тестирования
+
+**Auth / Security:**
+- [ ] Login → получить токены → запросы работают
+- [ ] Expired access token → auto-refresh → работает прозрачно
+- [ ] Expired refresh token → redirect на login
+- [ ] Logout → токены очищены из SecureStore
+- [ ] Logout all devices → mobile тоже выкидывает
+
+**Quiz Flow:**
+- [ ] Подключение к lobby → видно участников
+- [ ] Получение вопросов через WS → отображение корректно
+- [ ] Ответ → получение результата → обновление score
+- [ ] Выбывание → UI показывает статус наблюдателя
+- [ ] Завершение → переход на results
+- [ ] Reconnect mid-game → состояние восстановлено
+
+**Web Regression (обязательно!):**
+- [ ] Web login / register работает как раньше
+- [ ] Web quiz flow не сломался
+- [ ] CSRF endpoints работают (web cookies не затронуты)
+- [ ] WebSocket через web ws-ticket работает
+
+**Локализация:**
+- [ ] RU тексты на всех экранах
+- [ ] KK тексты на всех экранах
+- [ ] Переключение языка в реальном времени
+
+### Релизный процесс
+
+```
+1. Backend: деплой на VM (как сейчас)
+2. Web: деплой на VM (как сейчас)
+3. Mobile: EAS Build → TestFlight (iOS) + Google Play Internal (Android)
+```
+
+Mobile НЕ деплоится на VM — это нативное приложение.
+
+### Definition of Done — Фаза 6
+
+- [ ] Все чеклисты пройдены
+- [ ] Web regression — 0 поломок
+- [ ] APK/IPA собирается через EAS
+- [ ] TestFlight / Google Play Internal — приложение устанавливается и работает
+
+---
+
+## Верификация backend-изменений (Фаза 1)
+
+### Автоматические тесты
+
+**Существующие тесты** (9 файлов) — запуск:
+```bash
+cd c:\project\vmdeploy\trivia-api
+go test ./... -v
+```
+
+**Новые тесты для mobile auth (добавить):**
+
+Файл: `internal/handler/mobile_auth_handler_test.go`
+
+Тест-кейсы:
+1. `TestMobileLogin_Success` — login → JSON содержит `accessToken` и [refreshToken](file:///c:/project/vmdeploy/trivia-apinewfront/src/lib/api/auth.ts#53-76)
+2. `TestMobileLogin_InvalidCredentials` — 401
+3. `TestMobileRefresh_Success` — refresh через JSON body → новые токены
+4. `TestMobileRefresh_InvalidToken` — 401
+5. `TestMobileWsTicket_Success` — Bearer auth → получить ticket
+6. `TestMobileWsTicket_NoAuth` — 401 без токена
+7. `TestMobileLogout_Success` — refresh в body → 200
+
+### Ручная верификация (curl/Postman)
+
+```bash
+# 1. Register
+curl -X POST http://localhost:8080/api/mobile/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{"username":"mobiletest","email":"mobile@test.com","password":"pass123456"}'
+# Ожидание: JSON с accessToken, refreshToken, user
+
+# 2. Login
+curl -X POST http://localhost:8080/api/mobile/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"mobile@test.com","password":"pass123456"}'
+# Ожидание: JSON с accessToken, refreshToken
+
+# 3. Refresh (с refresh_token из шага 2)
+curl -X POST http://localhost:8080/api/mobile/auth/refresh \
+  -H "Content-Type: application/json" \
+  -d '{"refresh_token":"<token_from_step_2>"}'
+# Ожидание: новая пара токенов
+
+# 4. WS Ticket (с accessToken из шага 2)
+curl -X POST http://localhost:8080/api/mobile/auth/ws-ticket \
+  -H "Authorization: Bearer <access_token>"
+# Ожидание: {"success":true,"data":{"ticket":"..."}}
+
+# 5. Web regression: обычный login через /api/auth/login
+# Ожидание: работает как раньше, cookies ставятся
+```
+
+### Проверка компиляции
+
+```bash
+go build ./cmd/api
+go vet ./...
+```
+
+---
+
+## Дерево изменений (общий вид)
+
+```
+Фаза 1 — Backend:
+  [NEW]    internal/handler/mobile_auth_handler.go        (~200 строк)
+  [MODIFY] internal/service/auth_service.go               (~20 строк: новый метод RefreshTokensMobile)
+  [MODIFY] cmd/api/main.go                                (~20 строк: новая группа маршрутов)
+  [NEW]    internal/handler/mobile_auth_handler_test.go    (~200 строк)
+
+Фаза 2 — Shared:
+  [NEW]    shared/                                         (целый пакет)
+  [MODIFY] trivia-apinewfront/src/lib/api/types.ts         (реэкспорт)
+  [MODIFY] trivia-apinewfront/package.json                 (workspace dep)
+
+Фаза 3–6 — Mobile:
+  [NEW]    trivia-mobile/                                  (целый проект)
+```
+
+> [!IMPORTANT]
+> Все web-маршруты, CSRF middleware, cookies — **НИЧЕГО не меняется**. Web-клиент продолжит работать идентично.

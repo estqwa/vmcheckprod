@@ -20,12 +20,8 @@ RUN pnpm install --frozen-lockfile
 FROM base AS builder
 WORKDIR /repo
 
-COPY --from=deps /repo/node_modules ./node_modules
-COPY --from=deps /repo/pnpm-workspace.yaml ./pnpm-workspace.yaml
-COPY --from=deps /repo/pnpm-lock.yaml ./pnpm-lock.yaml
-COPY --from=deps /repo/shared/package.json ./shared/package.json
-COPY --from=deps /repo/trivia-apinewfront/package.json ./trivia-apinewfront/package.json
-COPY --from=deps /repo/trivia-mobile/package.json ./trivia-mobile/package.json
+# Bring full workspace install state (including package-level node_modules symlinks).
+COPY --from=deps /repo ./
 COPY . .
 
 ARG NEXT_PUBLIC_API_URL

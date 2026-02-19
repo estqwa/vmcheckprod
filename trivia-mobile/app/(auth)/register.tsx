@@ -12,6 +12,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
+import { Ionicons } from '@expo/vector-icons';
 import { BrandHeader } from '../../src/components/ui/BrandHeader';
 import { LanguageToggle } from '../../src/components/ui/LanguageToggle';
 import { PrimaryButton } from '../../src/components/ui/PrimaryButton';
@@ -27,16 +28,26 @@ export default function RegisterScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [localError, setLocalError] = useState<string | null>(null);
+  const displayedError = localError ?? error;
 
   const handleSubmit = async () => {
     if (!username.trim() || !email.trim() || !password.trim() || !confirmPassword.trim()) {
+      setLocalError(t('auth.fillAllFields'));
+      return;
+    }
+
+    if (password.trim().length < 6) {
+      setLocalError(t('auth.passwordTooShort'));
       return;
     }
 
     if (password !== confirmPassword) {
+      setLocalError(t('auth.passwordMismatch'));
       return;
     }
 
+    setLocalError(null);
     try {
       await register(username.trim(), email.trim(), password);
     } catch {
@@ -55,15 +66,15 @@ export default function RegisterScreen() {
         <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
           <View style={styles.card}>
             <View style={styles.iconCircle}>
-              <Text style={styles.icon}>🎮</Text>
+              <Ionicons name="game-controller" size={30} color={palette.primary} />
             </View>
 
             <Text style={styles.title}>{t('auth.register')}</Text>
             <Text style={styles.subtitle}>{t('auth.registerDescription')}</Text>
 
-            {error ? (
-              <View style={styles.errorBox}>
-                <Text style={styles.errorText}>{error}</Text>
+            {displayedError ? (
+              <View style={styles.errorBox} accessibilityRole="alert" accessibilityLiveRegion="polite">
+                <Text style={styles.errorText}>{displayedError}</Text>
               </View>
             ) : null}
 
@@ -76,10 +87,12 @@ export default function RegisterScreen() {
                 value={username}
                 onChangeText={(value) => {
                   setUsername(value);
+                  setLocalError(null);
                   clearError();
                 }}
                 autoCapitalize="none"
                 autoCorrect={false}
+                accessibilityLabel={t('auth.username')}
               />
             </View>
 
@@ -92,11 +105,13 @@ export default function RegisterScreen() {
                 value={email}
                 onChangeText={(value) => {
                   setEmail(value);
+                  setLocalError(null);
                   clearError();
                 }}
                 keyboardType="email-address"
                 autoCapitalize="none"
                 autoCorrect={false}
+                accessibilityLabel={t('auth.email')}
               />
             </View>
 
@@ -109,9 +124,11 @@ export default function RegisterScreen() {
                 value={password}
                 onChangeText={(value) => {
                   setPassword(value);
+                  setLocalError(null);
                   clearError();
                 }}
                 secureTextEntry
+                accessibilityLabel={t('auth.password')}
               />
             </View>
 
@@ -124,9 +141,11 @@ export default function RegisterScreen() {
                 value={confirmPassword}
                 onChangeText={(value) => {
                   setConfirmPassword(value);
+                  setLocalError(null);
                   clearError();
                 }}
                 secureTextEntry
+                accessibilityLabel={t('auth.confirmPassword')}
               />
             </View>
 
@@ -134,7 +153,7 @@ export default function RegisterScreen() {
 
             <View style={styles.switchRow}>
               <Text style={styles.switchText}>{t('auth.hasAccount')}</Text>
-              <TouchableOpacity onPress={() => router.push('/(auth)/login')}>
+              <TouchableOpacity onPress={() => router.push('/(auth)/login')} accessibilityRole="link">
                 <Text style={styles.switchLink}>{t('auth.loginButton')}</Text>
               </TouchableOpacity>
             </View>
@@ -175,9 +194,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     alignSelf: 'center',
-  },
-  icon: {
-    fontSize: 30,
   },
   title: {
     ...typography.title,

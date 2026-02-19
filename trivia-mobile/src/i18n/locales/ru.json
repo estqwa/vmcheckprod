@@ -8,7 +8,10 @@
     "back": "Назад",
     "next": "Далее",
     "ok": "ОК",
-    "submit": "Отправить"
+    "submit": "Отправить",
+    "offlineTitle": "Нет интернета",
+    "offlineRealtimeHint": "Связь восстановится автоматически",
+    "currency": "тг"
   },
   "nav": {
     "home": "Главная",
@@ -35,7 +38,8 @@
     "loginDescription": "Введите данные для входа",
     "registerDescription": "Создайте новый аккаунт",
     "passwordMismatch": "Пароли не совпадают",
-    "passwordTooShort": "Пароль должен быть не менее 6 символов"
+    "passwordTooShort": "Пароль должен быть не менее 6 символов",
+    "fillAllFields": "Заполните все поля"
   },
   "home": {
     "title": "Викторины",
@@ -63,6 +67,7 @@
     "connecting": "Подключение...",
     "reconnecting": "Переподключение...",
     "disconnected": "Отключён",
+    "offline": "Оффлайн",
     "startsIn": "Старт через",
     "days": "дни",
     "hours": "часы",
@@ -81,16 +86,34 @@
     "eliminated": "Вы выбыли",
     "score": "Баллы: {{score}}",
     "scoreLabel": "Очки",
+    "adBreakLabel": "Реклама",
+    "adBreakCountdown": "{{seconds}} сек",
+    "adUnavailable": "Рекламный материал недоступен",
     "gameOver": "Игра завершена",
     "myResult": "Мой результат",
     "winner": "Победитель",
     "finalStandings": "Итоговая таблица",
     "resultUnavailable": "Результат пока недоступен",
-    "you": "Вы"
+    "you": "Вы",
+    "status_scheduled": "Запланирована",
+    "status_in_progress": "Идёт",
+    "status_completed": "Завершена",
+    "status_cancelled": "Отменена"
   },
   "profile": {
     "title": "Профиль",
     "history": "История игр",
+    "sessions": "Сессии устройств",
+    "activeSessions": "Активные сессии",
+    "noSessions": "Активных сессий не найдено",
+    "thisDevice": "Это устройство",
+    "device": "Устройство",
+    "deviceId": "Device ID",
+    "ipAddress": "IP-адрес",
+    "userAgent": "User-Agent",
+    "expiresAt": "Истекает",
+    "revokeSession": "Завершить сессию",
+    "logoutAllDevices": "Выйти со всех устройств",
     "gamesPlayed": "Сыграно",
     "wins": "Победы",
     "totalScore": "Общий счёт",
@@ -121,5 +144,14 @@
     "language": "Язык",
     "russian": "Русский",
     "kazakh": "Қазақша"
+  },
+  "notFound": {
+    "title": "Ошибка",
+    "message": "Этот экран не существует.",
+    "goHome": "На главную"
+  },
+  "error": {
+    "title": "Что-то пошло не так",
+    "retry": "Попробовать снова"
   }
 }

@@ -1,0 +1,7 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`UI component snapshots matches snapshot for BrandHeader with back button and slot 1`] = `null`;
+
+exports[`UI component snapshots matches snapshot for OfflineBanner when offline 1`] = `null`;
+
+exports[`UI component snapshots matches snapshot for PrimaryButton 1`] = `null`;

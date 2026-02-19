@@ -9,6 +9,7 @@ export function useUserQuery(enabled = true) {
     queryKey: userQueryKey,
     queryFn: getCurrentUser,
     enabled,
+    placeholderData: (prev) => prev,
   });
 }
 

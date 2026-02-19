@@ -12,7 +12,8 @@ import {
     getAccessToken,
     refreshTokens,
 } from '../services/tokenService';
-import type { User, MobileAuthResponse } from '@trivia/shared';
+import type { User, Session, MobileAuthResponse } from '@trivia/shared';
+import { getCurrentUser } from './user';
 
 interface LoginData {
     email: string;
@@ -23,6 +24,11 @@ interface RegisterData {
     username: string;
     email: string;
     password: string;
+}
+
+interface SessionsResponse {
+    sessions: Session[];
+    count: number;
 }
 
 /**
@@ -84,12 +90,8 @@ export async function logout(): Promise<void> {
     }
 }
 
-/**
- * Получить текущего пользователя (общий endpoint).
- */
-export async function getCurrentUser(): Promise<User> {
-    return api.get<User>('/api/users/me');
-}
+// getCurrentUser определён в user.ts — реэкспортируем для обратной совместимости
+export { getCurrentUser } from './user';
 
 /**
  * Получить WebSocket ticket через mobile endpoint.
@@ -107,7 +109,29 @@ export async function getWsTicket(): Promise<string> {
  * Обновить профиль пользователя.
  */
 export async function updateProfile(data: { username?: string; profile_picture?: string }): Promise<void> {
-    await api.put('/api/users/me', data);
+    await api.put('/api/mobile/auth/profile', data);
+}
+
+/**
+ * Получить активные сессии пользователя.
+ */
+export async function getActiveSessions(): Promise<Session[]> {
+    const response = await api.get<SessionsResponse>('/api/mobile/auth/sessions');
+    return response.sessions ?? [];
+}
+
+/**
+ * Отозвать конкретную сессию по ID.
+ */
+export async function revokeSession(sessionId: number): Promise<void> {
+    await api.post('/api/mobile/auth/revoke-session', { session_id: sessionId });
+}
+
+/**
+ * Выйти со всех устройств.
+ */
+export async function logoutAllDevices(): Promise<void> {
+    await api.post('/api/mobile/auth/logout-all', {});
 }
 
 /**
@@ -118,7 +142,7 @@ export async function checkAuth(): Promise<User | null> {
     try {
         const token = await getAccessToken();
         if (!token) {
-            // РџРѕСЃР»Рµ РїРµСЂРµР·Р°РїСѓСЃРєР° app access token РјРѕР¶РµС‚ Р±С‹С‚СЊ РЅРµРґРѕСЃС‚СѓРїРµРЅ, РЅРѕ refresh РµС‰С‘ РІР°Р»РёРґРµРЅ.
+            // После перезапуска app access token может быть недоступен, но refresh ещё валиден.
             const refreshed = await refreshTokens();
             if (!refreshed) return null;
         }

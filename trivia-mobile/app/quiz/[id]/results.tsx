@@ -3,10 +3,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
+import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../../src/hooks/useAuth';
 import { getMyQuizResult, getQuizResults } from '../../../src/api/quizzes';
 import { BrandHeader } from '../../../src/components/ui/BrandHeader';
 import { palette, radii, shadow, spacing, typography } from '../../../src/theme/tokens';
+import { formatCurrency } from '../../../src/utils/format';
 
 export default function ResultsScreen() {
   const { t } = useTranslation();
@@ -58,26 +60,36 @@ export default function ResultsScreen() {
           >
             <View style={styles.myResultHeader}>
               <Text style={styles.myResultTitle}>{t('quiz.myResult')}</Text>
-              {myResult.is_winner ? <Text style={styles.winnerBadge}>🏆 {t('quiz.winner')}</Text> : null}
-              {myResult.is_eliminated ? <Text style={styles.eliminatedBadge}>👀 {t('quiz.eliminated')}</Text> : null}
+              {myResult.is_winner ? (
+                <View style={styles.badgeRow}>
+                  <Ionicons name="trophy" size={12} color="#92400e" />
+                  <Text style={styles.winnerBadge}>{t('quiz.winner')}</Text>
+                </View>
+              ) : null}
+              {myResult.is_eliminated ? (
+                <View style={styles.badgeRow}>
+                  <Ionicons name="eye" size={12} color="#9a3412" />
+                  <Text style={styles.eliminatedBadge}>{t('quiz.eliminated')}</Text>
+                </View>
+              ) : null}
             </View>
 
-            <View style={styles.statsGrid}>
-              <View style={styles.statTile}>
+            <View style={styles.statsGrid} accessibilityRole="summary">
+              <View style={styles.statTile} accessibilityLabel={`${t('leaderboard.rankLabel')}: #${myResult.rank}`}>
                 <Text style={styles.statValue}>#{myResult.rank}</Text>
                 <Text style={styles.statLabel}>{t('leaderboard.rankLabel')}</Text>
               </View>
-              <View style={[styles.statTile, styles.primaryStatTile]}>
+              <View style={[styles.statTile, styles.primaryStatTile]} accessibilityLabel={`${t('quiz.scoreLabel')}: ${myResult.score}`}>
                 <Text style={[styles.statValue, styles.primaryValue]}>{myResult.score}</Text>
                 <Text style={styles.statLabel}>{t('quiz.scoreLabel')}</Text>
               </View>
-              <View style={styles.statTile}>
+              <View style={styles.statTile} accessibilityLabel={`${t('history.correct')}: ${myResult.correct_answers}/${myResult.total_questions}`}>
                 <Text style={styles.statValue}>{myResult.correct_answers}/{myResult.total_questions}</Text>
                 <Text style={styles.statLabel}>{t('history.correct')}</Text>
               </View>
               {myResult.prize_fund > 0 ? (
                 <View style={[styles.statTile, styles.successStatTile]}>
-                  <Text style={[styles.statValue, styles.successValue]}>${myResult.prize_fund}</Text>
+                  <Text style={[styles.statValue, styles.successValue]}>{formatCurrency(myResult.prize_fund)}</Text>
                   <Text style={styles.statLabel}>{t('leaderboard.prize')}</Text>
                 </View>
               ) : null}
@@ -90,7 +102,10 @@ export default function ResultsScreen() {
         )}
 
         <View style={styles.listCard}>
-          <Text style={styles.listTitle}>🏆 {t('quiz.finalStandings')}</Text>
+          <View style={styles.listTitleRow}>
+            <Ionicons name="trophy" size={18} color={palette.text} />
+            <Text style={styles.listTitle}>{t('quiz.finalStandings')}</Text>
+          </View>
 
           {rows.length === 0 ? (
             <Text style={styles.emptyText}>{t('leaderboard.noPlayers')}</Text>
@@ -106,10 +121,16 @@ export default function ResultsScreen() {
                     highlight ? styles.resultRowCurrentUser : null,
                   ]}
                 >
-                  <View style={styles.rankWrap}>
-                    <Text style={styles.rankText}>
-                      {row.rank <= 3 ? ['🥇', '🥈', '🥉'][row.rank - 1] : `#${row.rank}`}
-                    </Text>
+                  <View style={styles.rankWrap} accessibilityElementsHidden>
+                    {row.rank === 1 ? (
+                      <Ionicons name="trophy" size={18} color="#ca8a04" />
+                    ) : row.rank === 2 ? (
+                      <Ionicons name="medal" size={18} color="#64748b" />
+                    ) : row.rank === 3 ? (
+                      <Ionicons name="ribbon" size={18} color="#b45309" />
+                    ) : (
+                      <Text style={styles.rankText}>#{row.rank}</Text>
+                    )}
                   </View>
 
                   <View style={styles.userAvatar}>
@@ -126,7 +147,7 @@ export default function ResultsScreen() {
 
                   <View style={styles.userScores}>
                     <Text style={styles.userScoreBadge}>{row.score}</Text>
-                    {row.prize_fund > 0 ? <Text style={styles.userPrize}>${row.prize_fund}</Text> : null}
+                    {row.prize_fund > 0 ? <Text style={styles.userPrize}>{formatCurrency(row.prize_fund)}</Text> : null}
                   </View>
                 </View>
               );
@@ -134,7 +155,7 @@ export default function ResultsScreen() {
           )}
         </View>
 
-        <TouchableOpacity style={styles.homeButton} onPress={() => router.replace('/(tabs)')}>
+        <TouchableOpacity style={styles.homeButton} onPress={() => router.replace('/(tabs)')} accessibilityRole="button">
           <Text style={styles.homeButtonText}>{t('nav.home')}</Text>
         </TouchableOpacity>
       </ScrollView>
@@ -187,6 +208,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.sm,
     flexWrap: 'wrap',
+  },
+  badgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
   },
   myResultTitle: {
     color: palette.text,
@@ -270,6 +296,11 @@ const styles = StyleSheet.create({
     color: palette.text,
     fontSize: 18,
     fontWeight: '800',
+  },
+  listTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
     marginBottom: 4,
   },
   emptyText: {

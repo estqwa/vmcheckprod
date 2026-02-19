@@ -1,13 +1,15 @@
-﻿import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+﻿import { useCallback, useEffect, useState } from 'react';
+import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
+import { Ionicons } from '@expo/vector-icons';
 import {
   WS_SERVER_EVENTS,
+  isQuizCancelledEvent,
   isQuizFinishEvent,
-  isQuizQuestionEvent,
+  isQuizStateQuestionEvent,
   isQuizStateEvent,
   type QuizStateEvent,
   type WSServerMessage,
@@ -15,28 +17,21 @@ import {
 import { getQuiz } from '../../../src/api/quizzes';
 import { BrandHeader } from '../../../src/components/ui/BrandHeader';
 import { TimerBlock } from '../../../src/components/ui/TimerBlock';
+import { useAuth } from '../../../src/hooks/useAuth';
 import { useQuizWS } from '../../../src/hooks/useQuizWS';
+import { ConnectionStatusPill } from '../../../src/components/ui/ConnectionStatusPill';
+import { leaderboardQueryKey, userQueryKey } from '../../../src/hooks/useUserQuery';
 import { palette, radii, shadow, spacing, typography } from '../../../src/theme/tokens';
+import { getCountdown } from '../../../src/utils/time';
+import { formatCurrency } from '../../../src/utils/format';
 
-function getCountdown(targetDate: string) {
-  const target = new Date(targetDate).getTime();
-  const now = Date.now();
-  const diff = Math.max(0, target - now);
 
-  const hours = Math.floor(diff / (1000 * 60 * 60));
-  const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-  const seconds = Math.floor((diff % (1000 * 60)) / 1000);
-
-  return {
-    hours: String(hours).padStart(2, '0'),
-    minutes: String(minutes).padStart(2, '0'),
-    seconds: String(seconds).padStart(2, '0'),
-  };
-}
 
 export default function LobbyScreen() {
   const { t } = useTranslation();
   const router = useRouter();
+  const queryClient = useQueryClient();
+  const { logout } = useAuth();
   const { id } = useLocalSearchParams<{ id: string }>();
   const quizId = Number(id);
 
@@ -48,6 +43,18 @@ export default function LobbyScreen() {
     queryFn: () => getQuiz(quizId),
     enabled: Number.isFinite(quizId) && quizId > 0,
   });
+
+  const invalidateUserAndLeaderboard = useCallback(() => {
+    void Promise.all([
+      queryClient.invalidateQueries({ queryKey: userQueryKey }),
+      queryClient.invalidateQueries({ queryKey: leaderboardQueryKey }),
+    ]);
+  }, [queryClient]);
+
+  const handleSessionEnded = useCallback(async () => {
+    await logout();
+    router.replace('/(auth)/login');
+  }, [logout, router]);
 
   useEffect(() => {
     if (!quiz?.scheduled_time) {
@@ -77,7 +84,7 @@ export default function LobbyScreen() {
           setPlayerCount(state.player_count);
         }
 
-        if (state.current_question && isQuizQuestionEvent(state.current_question)) {
+        if (state.current_question && isQuizStateQuestionEvent(state.current_question)) {
           router.replace(`/quiz/${quizId}/play`);
           return;
         }
@@ -88,13 +95,28 @@ export default function LobbyScreen() {
         }
 
         if (state.status === 'completed') {
+          invalidateUserAndLeaderboard();
           router.replace(`/quiz/${quizId}/results`);
           return;
         }
       }
 
       if (msg.type === WS_SERVER_EVENTS.FINISH && isQuizFinishEvent(msg.data)) {
+        invalidateUserAndLeaderboard();
         router.replace(`/quiz/${quizId}/results`);
+        return;
+      }
+
+      if (msg.type === WS_SERVER_EVENTS.RESULTS_AVAILABLE) {
+        invalidateUserAndLeaderboard();
+        router.replace(`/quiz/${quizId}/results`);
+        return;
+      }
+
+      if (msg.type === WS_SERVER_EVENTS.CANCELLED && isQuizCancelledEvent(msg.data)) {
+        if (msg.data.quiz_id === quizId) {
+          router.replace('/(tabs)');
+        }
         return;
       }
 
@@ -102,32 +124,22 @@ export default function LobbyScreen() {
         router.replace(`/quiz/${quizId}/play`);
       }
     },
-    [quizId, router]
+    [invalidateUserAndLeaderboard, quizId, router]
   );
 
-  const { connectionState, isConnected } = useQuizWS({
+  const { connectionState, isConnected, isOffline } = useQuizWS({
     quizId,
     enabled: Number.isFinite(quizId) && quizId > 0,
     onMessage: handleMessage,
+    onSessionEnded: handleSessionEnded,
   });
 
-  const statusPill = useMemo(() => {
-    if (connectionState === 'connected') {
-      return { text: `🟢 ${t('quiz.connected')}`, bg: '#dcfce7', color: '#166534' };
-    }
-    if (connectionState === 'reconnecting') {
-      return { text: `🟠 ${t('quiz.reconnecting')}`, bg: '#ffedd5', color: '#9a3412' };
-    }
-    if (connectionState === 'connecting') {
-      return { text: `🟡 ${t('quiz.connecting')}`, bg: '#fef9c3', color: '#854d0e' };
-    }
-    return { text: `🔴 ${t('quiz.disconnected')}`, bg: '#fee2e2', color: '#991b1b' };
-  }, [connectionState, t]);
+
 
   if (isLoading) {
     return (
       <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
-        <BrandHeader subtitle={t('quiz.lobby')} onBackPress={() => router.back()} />
+        <BrandHeader subtitle={t('quiz.lobby')} onBackPress={() => router.replace('/(tabs)')} />
         <View style={styles.centerLoading}>
           <ActivityIndicator size="large" color={palette.primary} />
           <Text style={styles.loadingText}>{t('common.loading')}</Text>
@@ -141,57 +153,59 @@ export default function LobbyScreen() {
       <BrandHeader
         subtitle={quiz?.title ?? t('quiz.lobby')}
         onBackPress={() => router.replace('/(tabs)')}
-        rightSlot={<Text style={[styles.statusPill, { backgroundColor: statusPill.bg, color: statusPill.color }]}>{statusPill.text}</Text>}
+        rightSlot={<ConnectionStatusPill connectionState={connectionState} isOffline={isOffline} />}
       />
 
-      <View style={styles.content}>
-        <View style={styles.mainCard}>
-          <View style={styles.iconWrap}>
-            <Text style={styles.icon}>🎮</Text>
+      <ScrollView contentContainerStyle={styles.scrollContent}>
+        <View style={styles.content}>
+          <View style={styles.mainCard}>
+            <View style={styles.iconWrap} accessibilityElementsHidden>
+              <Ionicons name="flag" size={30} color={palette.primary} />
+            </View>
+
+            <Text style={styles.quizTitle}>{quiz?.title ?? `Quiz #${quizId}`}</Text>
+            {quiz?.description ? <Text style={styles.quizDescription}>{quiz.description}</Text> : null}
+
+            <Text style={styles.startsInLabel}>{t('quiz.startsIn')}</Text>
+            <View style={styles.timerRow}>
+              <TimerBlock value={countdown.hours} label={t('quiz.hours')} />
+              <TimerBlock value={countdown.minutes} label={t('quiz.minutes')} />
+              <TimerBlock value={countdown.seconds} label={t('quiz.seconds')} />
+            </View>
+
+            <View style={styles.statsRow} accessibilityRole="summary">
+              <View style={styles.statBox} accessibilityLabel={`${t('quiz.online')}: ${playerCount}`}>
+                <Text style={styles.statValue}>{playerCount}</Text>
+                <Text style={styles.statLabel}>{t('quiz.online')}</Text>
+              </View>
+              <View style={styles.statBox} accessibilityLabel={`${t('quiz.questions')}: ${quiz?.question_count ?? 0}`}>
+                <Text style={styles.statValue}>{quiz?.question_count ?? 0}</Text>
+                <Text style={styles.statLabel}>{t('quiz.questions')}</Text>
+              </View>
+              <View style={styles.statBox} accessibilityLabel={`${t('quiz.prizeFund')}: ${formatCurrency(quiz?.prize_fund ?? 0)}`}>
+                <Text style={styles.prizeValue}>{formatCurrency(quiz?.prize_fund ?? 0)}</Text>
+                <Text style={styles.statLabel}>{t('quiz.prizeFund')}</Text>
+              </View>
+            </View>
+
+            {isConnected ? (
+              <View style={styles.okStateBox}>
+                <Text style={styles.okStateTitle}>{t('quiz.ready')}</Text>
+                <Text style={styles.okStateDesc}>{t('quiz.waiting')}</Text>
+              </View>
+            ) : (
+              <View style={styles.warnStateBox}>
+                <Text style={styles.warnStateTitle}>{isOffline ? t('quiz.offline') : t('quiz.connecting')}</Text>
+                <Text style={styles.warnStateDesc}>{t('quiz.reconnecting')}</Text>
+              </View>
+            )}
           </View>
 
-          <Text style={styles.quizTitle}>{quiz?.title ?? `Quiz #${quizId}`}</Text>
-          {quiz?.description ? <Text style={styles.quizDescription}>{quiz.description}</Text> : null}
-
-          <Text style={styles.startsInLabel}>{t('quiz.startsIn')}</Text>
-          <View style={styles.timerRow}>
-            <TimerBlock value={countdown.hours} label={t('quiz.hours')} />
-            <TimerBlock value={countdown.minutes} label={t('quiz.minutes')} />
-            <TimerBlock value={countdown.seconds} label={t('quiz.seconds')} />
-          </View>
-
-          <View style={styles.statsRow}>
-            <View style={styles.statBox}>
-              <Text style={styles.statValue}>{playerCount}</Text>
-              <Text style={styles.statLabel}>{t('quiz.online')}</Text>
-            </View>
-            <View style={styles.statBox}>
-              <Text style={styles.statValue}>{quiz?.question_count ?? 0}</Text>
-              <Text style={styles.statLabel}>{t('quiz.questions')}</Text>
-            </View>
-            <View style={styles.statBox}>
-              <Text style={styles.prizeValue}>{quiz?.prize_fund?.toLocaleString() ?? 0} тг</Text>
-              <Text style={styles.statLabel}>{t('quiz.prizeFund')}</Text>
-            </View>
-          </View>
-
-          {isConnected ? (
-            <View style={styles.okStateBox}>
-              <Text style={styles.okStateTitle}>✓ {t('quiz.ready')}</Text>
-              <Text style={styles.okStateDesc}>{t('quiz.waiting')}</Text>
-            </View>
-          ) : (
-            <View style={styles.warnStateBox}>
-              <Text style={styles.warnStateTitle}>{t('quiz.connecting')}</Text>
-              <Text style={styles.warnStateDesc}>{t('quiz.reconnecting')}</Text>
-            </View>
-          )}
+          <TouchableOpacity style={styles.leaveButton} onPress={() => router.replace('/(tabs)')}>
+            <Text style={styles.leaveButtonText}>{t('quiz.leaveLobby')}</Text>
+          </TouchableOpacity>
         </View>
-
-        <TouchableOpacity style={styles.leaveButton} onPress={() => router.replace('/(tabs)')}>
-          <Text style={styles.leaveButtonText}>← {t('quiz.leaveLobby')}</Text>
-        </TouchableOpacity>
-      </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }
@@ -200,6 +214,10 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: palette.background,
+  },
+  scrollContent: {
+    flexGrow: 1,
+    padding: spacing.lg,
   },
   centerLoading: {
     flex: 1,
@@ -210,17 +228,9 @@ const styles = StyleSheet.create({
   loadingText: {
     color: palette.textMuted,
   },
-  statusPill: {
-    fontSize: 11,
-    fontWeight: '700',
-    borderRadius: radii.pill,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 5,
-    overflow: 'hidden',
-  },
+
   content: {
     flex: 1,
-    padding: spacing.lg,
     justifyContent: 'center',
     gap: spacing.lg,
   },
@@ -241,9 +251,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     alignSelf: 'center',
-  },
-  icon: {
-    fontSize: 30,
   },
   quizTitle: {
     ...typography.sectionTitle,
@@ -338,3 +345,5 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
 });
+
+

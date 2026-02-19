@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import Link from 'next/link';
 import { useEffect, useState, useRef } from 'react';
@@ -8,10 +8,13 @@ import { getScheduledQuizzes, Quiz } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { LanguageSwitcher } from '@/components/LanguageSwitcher';
+import { formatCurrency } from '@/lib/formatCurrency';
+import { MobileBottomNav } from '@/components/MobileBottomNav';
+import { PageHeader } from '@/components/PageHeader';
+import { Clock3, Gamepad2, Play, Trophy } from 'lucide-react';
 
 export default function HomePage() {
-    const { isAuthenticated, isLoading: authLoading, user, logout } = useAuth();
+    const { isAuthenticated, isLoading: authLoading } = useAuth();
     const [quizzes, setQuizzes] = useState<Quiz[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [timeRemaining, setTimeRemaining] = useState<{ days: number; hours: number; minutes: number; seconds: number }>({
@@ -80,7 +83,7 @@ export default function HomePage() {
 
     if (authLoading || isLoading) {
         return (
-            <div className="min-h-screen">
+            <div className="min-h-app">
                 {/* Header Skeleton */}
                 <header className="border-b border-border/50 bg-white/80 backdrop-blur-sm sticky top-0 z-50">
                     <div className="container max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
@@ -101,69 +104,11 @@ export default function HomePage() {
     }
 
     return (
-        <div className="min-h-screen">
-            {/* Header */}
-            <header className="border-b border-border/50 bg-white/80 backdrop-blur-sm sticky top-0 z-50">
-                <div className="container max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
-                    {/* Logo */}
-                    <Link href="/" className="flex items-center gap-2">
-                        <div className="w-9 h-9 rounded-lg bg-primary flex items-center justify-center">
-                            <span className="text-white font-bold text-lg">Q</span>
-                        </div>
-                        <span className="font-bold text-xl text-foreground">QazaQuiz</span>
-                    </Link>
-
-                    {/* Navigation */}
-                    <nav className="hidden md:flex items-center gap-1">
-                        <Link href="/">
-                            <Button variant="ghost" size="sm" className="text-primary bg-primary/10">
-                                🏠 {tNav('home')}
-                            </Button>
-                        </Link>
-                        <Link href="/leaderboard">
-                            <Button variant="ghost" size="sm">
-                                🏆 {tNav('leaderboard')}
-                            </Button>
-                        </Link>
-                        {isAuthenticated && (
-                            <Link href="/profile">
-                                <Button variant="ghost" size="sm">
-                                    👤 {tNav('profile')}
-                                </Button>
-                            </Link>
-                        )}
-                    </nav>
-
-                    {/* Auth buttons + Language Switcher */}
-                    <div className="flex items-center gap-2">
-                        <LanguageSwitcher />
-                        {isAuthenticated ? (
-                            <>
-                                <span className="hidden sm:inline text-sm text-muted-foreground">
-                                    {user?.username}
-                                </span>
-                                <Button variant="outline" size="sm" onClick={() => logout()}>
-                                    {tNav('logout')}
-                                </Button>
-                            </>
-                        ) : (
-                            <>
-                                <Link href="/login">
-                                    <Button variant="ghost" size="sm">{tNav('login')}</Button>
-                                </Link>
-                                <Link href="/register">
-                                    <Button size="sm" className="btn-coral">
-                                        {tNav('register')} →
-                                    </Button>
-                                </Link>
-                            </>
-                        )}
-                    </div>
-                </div>
-            </header>
+        <div className="min-h-app">
+            <PageHeader active='home' />
 
             {/* Hero Section */}
-            <main className="container max-w-6xl mx-auto px-4 py-16">
+            <main className="container max-w-6xl mx-auto px-4 py-16 pb-28 md:pb-16">
                 <div className="text-center mb-16">
                     {/* Badge */}
                     <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-primary/10 text-primary text-sm font-medium mb-6">
@@ -188,24 +133,21 @@ export default function HomePage() {
                     <div className="flex flex-wrap justify-center gap-4 mb-8">
                         {isAuthenticated ? (
                             upcomingQuiz && (
-                                <Link href={`/quiz/${upcomingQuiz.id}/lobby`}>
-                                    <Button size="lg" className="btn-coral text-base px-8">
-                                        ▶ {tQuiz('start')}
-                                    </Button>
-                                </Link>
+                                <Button asChild size="lg" className="btn-coral text-base px-8">
+                                    <Link href={`/quiz/${upcomingQuiz.id}/lobby`} className="flex items-center gap-2">
+                                        <Play size={16} />
+                                        {tQuiz('start')}
+                                    </Link>
+                                </Button>
                             )
                         ) : (
                             <>
-                                <Link href="/register">
-                                    <Button size="lg" className="btn-coral text-base px-8">
-                                        {tNav('register')} →
-                                    </Button>
-                                </Link>
-                                <Link href="/login">
-                                    <Button size="lg" variant="outline" className="text-base px-8">
-                                        {tNav('login')}
-                                    </Button>
-                                </Link>
+                                <Button asChild size="lg" className="btn-coral text-base px-8">
+                                    <Link href="/register">{tNav('register')} в†’</Link>
+                                </Button>
+                                <Button asChild size="lg" variant="outline" className="text-base px-8">
+                                    <Link href="/login">{tNav('login')}</Link>
+                                </Button>
                             </>
                         )}
                     </div>
@@ -237,7 +179,7 @@ export default function HomePage() {
                             <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-3">
                                     <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
-                                        <span className="text-primary text-xl">🏆</span>
+                                        <Trophy className="text-primary" size={20} />
                                     </div>
                                     <div>
                                         <CardTitle className="text-lg">{upcomingQuiz.title}</CardTitle>
@@ -246,7 +188,7 @@ export default function HomePage() {
                                 </div>
                                 <div className="text-right">
                                     <p className="text-2xl font-bold text-green-500">
-                                        {upcomingQuiz.prize_fund?.toLocaleString() || '1,000,000'} ₸
+                                        {formatCurrency(upcomingQuiz.prize_fund || 1000000)}
                                     </p>
                                     <p className="text-xs text-muted-foreground">{tQuiz('prizeFund', { amount: '' })}</p>
                                 </div>
@@ -284,7 +226,7 @@ export default function HomePage() {
                             {/* Stats */}
                             <div className="flex justify-center text-sm text-muted-foreground">
                                 <div className="flex items-center gap-1">
-                                    <span>⏱</span>
+                                    <Clock3 className="h-4 w-4" />
                                     <span>{upcomingQuiz.question_count} {tQuiz('question', { current: '', total: '' })}</span>
                                 </div>
                             </div>
@@ -292,24 +234,23 @@ export default function HomePage() {
 
                         <CardFooter className="pt-0">
                             {isAuthenticated ? (
-                                <Link href={`/quiz/${upcomingQuiz.id}/lobby`} className="w-full">
-                                    <Button className="w-full btn-coral h-12 text-base">
-                                        ▶ {tQuiz('start')}
-                                    </Button>
-                                </Link>
+                                <Button asChild className="w-full btn-coral h-12 text-base">
+                                    <Link href={`/quiz/${upcomingQuiz.id}/lobby`} className="flex items-center gap-2">
+                                        <Play size={16} />
+                                        {tQuiz('start')}
+                                    </Link>
+                                </Button>
                             ) : (
-                                <Link href="/login" className="w-full">
-                                    <Button className="w-full btn-coral h-12 text-base">
-                                        {tNav('login')}
-                                    </Button>
-                                </Link>
+                                <Button asChild className="w-full btn-coral h-12 text-base">
+                                    <Link href="/login">{tNav('login')}</Link>
+                                </Button>
                             )}
                         </CardFooter>
                     </Card>
                 ) : (
                     <Card className="max-w-xl mx-auto card-elevated border-0 rounded-2xl text-center py-12">
                         <CardContent>
-                            <div className="text-5xl mb-4">🎮</div>
+                            <Gamepad2 className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
                             <h3 className="text-xl font-semibold mb-2">{tQuiz('noActiveQuiz')}</h3>
                             <p className="text-muted-foreground">
                                 {tQuiz('waiting')}
@@ -318,31 +259,9 @@ export default function HomePage() {
                     </Card>
                 )}
 
-                {/* Mobile Navigation */}
-                <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-border/50 py-2 px-4">
-                    <div className="flex justify-around">
-                        <Link href="/" className="flex flex-col items-center text-primary">
-                            <span className="text-xl">🏠</span>
-                            <span className="text-xs">{tNav('home')}</span>
-                        </Link>
-                        <Link href="/leaderboard" className="flex flex-col items-center text-muted-foreground">
-                            <span className="text-xl">🏆</span>
-                            <span className="text-xs">{tNav('leaderboard')}</span>
-                        </Link>
-                        {isAuthenticated ? (
-                            <Link href="/profile" className="flex flex-col items-center text-muted-foreground">
-                                <span className="text-xl">👤</span>
-                                <span className="text-xs">{tNav('profile')}</span>
-                            </Link>
-                        ) : (
-                            <Link href="/login" className="flex flex-col items-center text-muted-foreground">
-                                <span className="text-xl">🔑</span>
-                                <span className="text-xs">{tNav('login')}</span>
-                            </Link>
-                        )}
-                    </div>
-                </div>
+                <MobileBottomNav active="home" />
             </main>
         </div>
     );
 }
+

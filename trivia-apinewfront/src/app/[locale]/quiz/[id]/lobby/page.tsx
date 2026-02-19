@@ -110,7 +110,7 @@ export default function QuizLobbyPage() {
 
     if (isLoading) {
         return (
-            <div className="min-h-screen">
+            <div className="min-h-app">
                 <header className="border-b border-border/50 bg-white/80 backdrop-blur-sm">
                     <div className="container max-w-6xl mx-auto px-4 h-16 flex items-center">
                         <Skeleton className="h-8 w-32" />
@@ -137,7 +137,7 @@ export default function QuizLobbyPage() {
     const status = getConnectionStatus();
 
     return (
-        <div className="min-h-screen">
+        <div className="min-h-app">
             {/* Header */}
             <header className="border-b border-border/50 bg-white/80 backdrop-blur-sm">
                 <div className="container max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
@@ -228,9 +228,9 @@ export default function QuizLobbyPage() {
                 </Card>
 
                 <div className="text-center mt-8">
-                    <Link href="/">
-                        <Button variant="ghost">← {t('leaveLobby') || 'Покинуть лобби'}</Button>
-                    </Link>
+                    <Button asChild variant="ghost">
+                        <Link href="/">← {t('leaveLobby') || 'Покинуть лобби'}</Link>
+                    </Button>
                 </div>
             </main>
         </div>

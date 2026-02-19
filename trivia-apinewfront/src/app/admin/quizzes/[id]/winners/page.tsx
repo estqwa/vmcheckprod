@@ -6,8 +6,11 @@ import Link from 'next/link';
 import { getQuizResults, getQuiz, getQuizStatistics, getQuizWinners, Quiz, QuizResult, QuizStatistics } from '@/lib/api';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { Button } from '@/components/ui/button';
+import { formatCurrency } from '@/lib/formatCurrency';
+import { formatDate } from '@/lib/formatDate';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { BackButton } from '@/components/BackButton';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { toast } from 'sonner';
@@ -81,16 +84,16 @@ function WinnersPageContent() {
 
     const getRankIcon = (rank: number) => {
         switch (rank) {
-            case 1: return '🥇';
-            case 2: return '🥈';
-            case 3: return '🥉';
+            case 1: return '';
+            case 2: return '';
+            case 3: return '';
             default: return `#${rank}`;
         }
     };
 
     if (isLoading) {
         return (
-            <div className="min-h-screen">
+            <div className="min-h-app">
                 <header className="border-b border-border/50 bg-white/80 backdrop-blur-sm">
                     <div className="container max-w-6xl mx-auto px-4 h-16 flex items-center">
                         <Skeleton className="h-8 w-32" />
@@ -110,7 +113,7 @@ function WinnersPageContent() {
     const eliminatedParticipants = allResults.filter(r => r.is_eliminated);
 
     return (
-        <div className="min-h-screen">
+        <div className="min-h-app">
             {/* Header */}
             <header className="border-b border-border/50 bg-white/80 backdrop-blur-sm sticky top-0 z-50">
                 <div className="container max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
@@ -121,19 +124,17 @@ function WinnersPageContent() {
                         <span className="font-bold text-xl text-foreground">QazaQuiz</span>
                         <Badge className="bg-primary/10 text-primary border-0 ml-2">Админ</Badge>
                     </Link>
-                    <Link href={`/admin/quizzes/${quizId}`}>
-                        <Button variant="ghost">← Назад</Button>
-                    </Link>
+                    <BackButton href={`/admin/quizzes/${quizId}`} label="Назад" />
                 </div>
             </header>
 
             <main className="container max-w-4xl mx-auto px-4 py-8">
                 <div className="mb-8">
                     <h1 className="text-3xl font-bold flex items-center gap-2">
-                        🏆 Результаты: {quiz.title}
+                         Результаты: {quiz.title}
                     </h1>
                     <p className="text-muted-foreground">
-                        Проведена {new Date(quiz.scheduled_time).toLocaleDateString('ru-RU')}
+                        Проведена {formatDate(quiz.scheduled_time, 'ru', { day: 'numeric', month: 'long', year: 'numeric' })}
                     </p>
                 </div>
 
@@ -153,7 +154,7 @@ function WinnersPageContent() {
                     </Card>
                     <Card className="card-elevated border-0 rounded-xl">
                         <CardContent className="pt-6 text-center">
-                            <p className="text-3xl font-bold text-green-600">${totalPrizePool}</p>
+                            <p className="text-3xl font-bold text-green-600">{formatCurrency(totalPrizePool)}</p>
                             <p className="text-muted-foreground text-sm">Призовой фонд</p>
                         </CardContent>
                     </Card>
@@ -169,7 +170,7 @@ function WinnersPageContent() {
                 <Card className="card-elevated border-0 rounded-2xl mb-6">
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2">
-                            <span className="text-xl">🏆</span>
+                            <span className="text-xl"></span>
                             Победители
                         </CardTitle>
                         <CardDescription>
@@ -179,7 +180,7 @@ function WinnersPageContent() {
                     <CardContent>
                         {winners.length === 0 ? (
                             <div className="text-center py-12">
-                                <span className="text-5xl mb-4 block">🏆</span>
+                                <span className="text-5xl mb-4 block"></span>
                                 <p className="text-muted-foreground">
                                     Победителей в этой викторине не найдено.
                                 </p>
@@ -210,7 +211,7 @@ function WinnersPageContent() {
                                         </div>
                                         <div className="text-right">
                                             <div className="text-2xl font-bold text-green-600">
-                                                +${winner.prize_fund}
+                                                +{formatCurrency(winner.prize_fund)}
                                             </div>
                                             <div className="text-xs text-muted-foreground">Приз</div>
                                         </div>
@@ -222,13 +223,13 @@ function WinnersPageContent() {
                 </Card>
 
                 {/* Eliminated Participants */}
-                {eliminatedParticipants.length > 0 && (
+                {(statistics?.total_eliminated ?? eliminatedParticipants.length) > 0 && (
                     <Card className="card-elevated border-0 rounded-2xl">
                         <CardHeader className="cursor-pointer" onClick={() => setShowAllParticipants(!showAllParticipants)}>
                             <CardTitle className="flex items-center justify-between">
                                 <span className="flex items-center gap-2">
-                                    <span className="text-xl">💔</span>
-                                    Выбывшие участники ({eliminatedParticipants.length})
+                                    <span className="text-xl"></span>
+                                    Выбывшие участники ({statistics?.total_eliminated ?? eliminatedParticipants.length})
                                 </span>
                                 <Button variant="ghost" size="sm">
                                     {showAllParticipants ? '▲ Свернуть' : '▼ Развернуть'}

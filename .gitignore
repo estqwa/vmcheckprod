@@ -27,3 +27,9 @@ Thumbs.db
 
 # Temporary files from local tools/sessions
 _tmp_*
+.pnpm-store/
+
+# Local Go caches (created by local tests/builds)
+.gocache/
+.gotelemetry/
+документы/Finalizing Frontend Plan.md

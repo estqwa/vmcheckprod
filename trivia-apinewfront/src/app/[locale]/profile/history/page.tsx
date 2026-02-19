@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
@@ -8,14 +8,18 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { LanguageSwitcher } from '@/components/LanguageSwitcher';
-import { Trophy, XCircle, Clock, ChevronLeft, ChevronRight } from 'lucide-react';
+import { useLocale } from '@/components/LanguageSwitcher';
+import { formatCurrency } from '@/lib/formatCurrency';
+import { Trophy, XCircle, Clock, ChevronLeft, ChevronRight, History as HistoryIcon, Target } from 'lucide-react';
 import { getMyGameHistory } from '@/lib/api/user';
 import { QuizResult } from '@/lib/api/types';
+import { formatDate } from '@/lib/formatDate';
+import { PageHeader } from '@/components/PageHeader';
+import { MobileBottomNav } from '@/components/MobileBottomNav';
 
 export default function GameHistoryPage() {
     const t = useTranslations();
-    const tNav = useTranslations('nav');
+    const locale = useLocale();
     const [results, setResults] = useState<QuizResult[]>([]);
     const [loading, setLoading] = useState(true);
     const [page, setPage] = useState(1);
@@ -64,59 +68,30 @@ export default function GameHistoryPage() {
         );
     };
 
-    const formatDate = (dateString: string) => {
-        const date = new Date(dateString);
-        return date.toLocaleDateString('ru-RU', {
-            day: 'numeric',
-            month: 'long',
-            year: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit',
-        });
-    };
-
     return (
         <ProtectedRoute>
-            <div className="min-h-screen pb-24 md:pb-0">
-                {/* Header - совпадает с profile */}
-                <header className="border-b border-border/50 bg-white/80 backdrop-blur-sm sticky top-0 z-50">
-                    <div className="container max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
-                        <Link href="/" className="flex items-center gap-2">
-                            <div className="w-9 h-9 rounded-lg bg-primary flex items-center justify-center">
-                                <span className="text-white font-bold text-lg">Q</span>
-                            </div>
-                            <span className="font-bold text-xl text-foreground">QazaQuiz</span>
-                        </Link>
-                        <nav className="hidden md:flex items-center gap-1">
-                            <Link href="/">
-                                <Button variant="ghost" size="sm">🏠 {tNav('home')}</Button>
-                            </Link>
-                            <Link href="/leaderboard">
-                                <Button variant="ghost" size="sm">🏆 {tNav('leaderboard')}</Button>
-                            </Link>
-                            <Link href="/profile">
-                                <Button variant="ghost" size="sm" className="text-primary bg-primary/10">👤 {tNav('profile')}</Button>
-                            </Link>
-                        </nav>
-                        <LanguageSwitcher />
-                    </div>
-                </header>
+            <div className="min-h-app pb-24 md:pb-0">
+                <PageHeader active='profile' />
 
                 {/* Content */}
                 <main className="container max-w-4xl mx-auto px-4 py-8">
                     {/* Breadcrumb */}
                     <div className="mb-6">
-                        <Link href="/profile" className="text-muted-foreground hover:text-primary transition-colors">
-                            ← {t('history.backToProfile')}
+                        <Link href="/profile" className="text-muted-foreground hover:text-primary transition-colors inline-flex items-center gap-1">
+                            <ChevronLeft className="w-4 h-4" />
+                            {t('history.backToProfile')}
                         </Link>
                     </div>
 
-                    <h1 className="text-3xl font-bold mb-8">📜 {t('history.title')}</h1>
+                    <h1 className="text-3xl font-bold mb-8 inline-flex items-center gap-2">
+                        <HistoryIcon className="w-7 h-7 text-primary" />
+                        {t('history.title')}
+                    </h1>
 
                     <Card className="card-elevated border-0 rounded-2xl">
                         <CardHeader>
                             <CardTitle className="flex items-center gap-2">
-                                <span className="text-xl">🎮</span>
+                                <HistoryIcon className="w-5 h-5 text-primary" />
                                 {t('history.title')}
                             </CardTitle>
                             <CardDescription>
@@ -132,13 +107,13 @@ export default function GameHistoryPage() {
                                 </div>
                             ) : results.length === 0 ? (
                                 <div className="text-center py-12">
-                                    <div className="text-4xl mb-4">🎯</div>
+                                    <Target className="w-10 h-10 text-muted-foreground mx-auto mb-4" />
                                     <p className="text-muted-foreground mb-4">{t('history.noGames')}</p>
-                                    <Link href="/">
-                                        <Button className="btn-coral">
+                                    <Button asChild className="btn-coral">
+                                        <Link href="/">
                                             {t('history.playNow')}
-                                        </Button>
-                                    </Link>
+                                        </Link>
+                                    </Button>
                                 </div>
                             ) : (
                                 <div className="space-y-3">
@@ -151,7 +126,7 @@ export default function GameHistoryPage() {
                                                 <div className="flex items-center gap-3 mb-2">
                                                     {getStatusBadge(result)}
                                                     <span className="text-muted-foreground text-sm">
-                                                        {formatDate(result.completed_at)}
+                                                        {formatDate(result.completed_at, locale)}
                                                     </span>
                                                 </div>
                                                 <div className="flex items-center gap-4 text-sm text-muted-foreground">
@@ -167,17 +142,18 @@ export default function GameHistoryPage() {
                                                         </span>
                                                     )}
                                                     {result.is_winner && result.prize_fund > 0 && (
-                                                        <span className="text-green-600 font-semibold">
-                                                            🎉 {result.prize_fund.toLocaleString()} ₸
+                                                        <span className="text-green-600 font-semibold inline-flex items-center gap-1">
+                                                            <Trophy className="w-4 h-4" />
+                                                            {formatCurrency(result.prize_fund)}
                                                         </span>
                                                     )}
                                                 </div>
                                             </div>
-                                            <Link href={`/quiz/${result.quiz_id}/results`}>
-                                                <Button variant="outline" size="sm">
+                                            <Button asChild variant="outline" size="sm">
+                                                <Link href={`/quiz/${result.quiz_id}/results`}>
                                                     {t('history.viewResults')}
-                                                </Button>
-                                            </Link>
+                                                </Link>
+                                            </Button>
                                         </div>
                                     ))}
 
@@ -212,7 +188,9 @@ export default function GameHistoryPage() {
                         </CardContent>
                     </Card>
                 </main>
+                <MobileBottomNav active="profile" />
             </div>
         </ProtectedRoute>
     );
 }
+

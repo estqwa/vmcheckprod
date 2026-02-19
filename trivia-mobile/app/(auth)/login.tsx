@@ -25,12 +25,16 @@ export default function LoginScreen() {
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [localError, setLocalError] = useState<string | null>(null);
+  const displayedError = localError ?? error;
 
   const handleSubmit = async () => {
     if (!email.trim() || !password.trim()) {
+      setLocalError(t('auth.fillAllFields'));
       return;
     }
 
+    setLocalError(null);
     try {
       await login(email.trim(), password);
     } catch {
@@ -55,9 +59,9 @@ export default function LoginScreen() {
             <Text style={styles.title}>{t('auth.login')}</Text>
             <Text style={styles.subtitle}>{t('auth.loginDescription')}</Text>
 
-            {error ? (
-              <View style={styles.errorBox}>
-                <Text style={styles.errorText}>{error}</Text>
+            {displayedError ? (
+              <View style={styles.errorBox} accessibilityRole="alert" accessibilityLiveRegion="polite">
+                <Text style={styles.errorText}>{displayedError}</Text>
               </View>
             ) : null}
 
@@ -70,11 +74,13 @@ export default function LoginScreen() {
                 value={email}
                 onChangeText={(value) => {
                   setEmail(value);
+                  setLocalError(null);
                   clearError();
                 }}
                 keyboardType="email-address"
                 autoCapitalize="none"
                 autoCorrect={false}
+                accessibilityLabel={t('auth.email')}
               />
             </View>
 
@@ -87,9 +93,11 @@ export default function LoginScreen() {
                 value={password}
                 onChangeText={(value) => {
                   setPassword(value);
+                  setLocalError(null);
                   clearError();
                 }}
                 secureTextEntry
+                accessibilityLabel={t('auth.password')}
               />
             </View>
 
@@ -97,7 +105,7 @@ export default function LoginScreen() {
 
             <View style={styles.switchRow}>
               <Text style={styles.switchText}>{t('auth.noAccount')}</Text>
-              <TouchableOpacity onPress={() => router.push('/(auth)/register')}>
+              <TouchableOpacity onPress={() => router.push('/(auth)/register')} accessibilityRole="link">
                 <Text style={styles.switchLink}>{t('auth.registerButton')}</Text>
               </TouchableOpacity>
             </View>

@@ -40,12 +40,17 @@ export type {
     WSClientMessage,
     WSServerMessage,
     QuizQuestionEvent,
+    QuizStateQuestionEvent,
     QuizTimerEvent,
     AnswerResultEvent,
+    QuizAnswerRevealEvent,
     EliminationEvent,
     QuizStartEvent,
     QuizFinishEvent,
+    QuizCancelledEvent,
     QuizStateEvent,
+    QuizAdBreakEvent,
+    QuizAdBreakEndEvent,
 } from './ws-events';
 
 // Runtime type guards
@@ -53,10 +58,19 @@ export {
     isQuestionOption,
     isQuestionOptionArray,
     isQuizQuestionEvent,
+    isQuizStateQuestionEvent,
     isAnswerResultEvent,
+    isQuizAnswerRevealEvent,
     isQuizFinishEvent,
+    isQuizCancelledEvent,
     isEliminationEvent,
     isQuizTimerEvent,
+    isQuizAdBreakEvent,
+    isQuizAdBreakEndEvent,
     isQuizStateEvent,
     isWSMessage,
 } from './guards';
+
+// Design tokens
+export { designTokens } from './design-tokens';
+export type { DesignTokens } from './design-tokens';

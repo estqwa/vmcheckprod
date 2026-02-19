@@ -1,23 +1,30 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { useAuth } from '@/providers/AuthProvider';
 import { getSessions, revokeSession, logoutAll, Session } from '@/lib/api';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { Button } from '@/components/ui/button';
+import { useLocale } from '@/components/LanguageSwitcher';
+import { formatCurrency } from '@/lib/formatCurrency';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from 'sonner';
 import { LanguageSwitcher } from '@/components/LanguageSwitcher';
+import { MobileBottomNav } from '@/components/MobileBottomNav';
+import { formatDate } from '@/lib/formatDate';
+import { Languages, LogOut, Settings, Shield, History, Wrench } from 'lucide-react';
+import { PageHeader } from '@/components/PageHeader';
 
 function ProfileContent() {
     const router = useRouter();
     const { user, logout, isAdmin } = useAuth();
+    const locale = useLocale();
     const [sessions, setSessions] = useState<Session[]>([]);
     const [isLoadingSessions, setIsLoadingSessions] = useState(true);
 
@@ -43,7 +50,7 @@ function ProfileContent() {
     const handleLogout = async () => {
         try {
             await logout();
-            toast.success(t('logoutSuccess') || 'Вы вышли из аккаунта');
+            toast.success(t('logoutSuccess') || 'Р’С‹ РІС‹С€Р»Рё РёР· Р°РєРєР°СѓРЅС‚Р°');
             router.push('/');
         } catch {
             toast.error(tCommon('error'));
@@ -53,7 +60,7 @@ function ProfileContent() {
     const handleLogoutAll = async () => {
         try {
             await logoutAll();
-            toast.success(t('logoutAllSuccess') || 'Вы вышли со всех устройств');
+            toast.success(t('logoutAllSuccess') || 'Р’С‹ РІС‹С€Р»Рё СЃРѕ РІСЃРµС… СѓСЃС‚СЂРѕР№СЃС‚РІ');
             router.push('/login');
         } catch {
             toast.error(tCommon('error'));
@@ -64,42 +71,19 @@ function ProfileContent() {
         try {
             await revokeSession(sessionId);
             setSessions(sessions.filter(s => s.id !== sessionId));
-            toast.success(t('sessionRevoked') || 'Сессия завершена');
+            toast.success(t('sessionRevoked') || 'РЎРµСЃСЃРёСЏ Р·Р°РІРµСЂС€РµРЅР°');
         } catch {
             toast.error(tCommon('error'));
         }
     };
 
-    const formatDate = (dateStr: string) => {
-        return new Date(dateStr).toLocaleString();
-    };
+
 
     if (!user) return null;
 
     return (
-        <div className="min-h-screen pb-24 md:pb-0">
-            <header className="border-b border-border/50 bg-white/80 backdrop-blur-sm sticky top-0 z-50">
-                <div className="container max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
-                    <Link href="/" className="flex items-center gap-2">
-                        <div className="w-9 h-9 rounded-lg bg-primary flex items-center justify-center">
-                            <span className="text-white font-bold text-lg">Q</span>
-                        </div>
-                        <span className="font-bold text-xl text-foreground">QazaQuiz</span>
-                    </Link>
-                    <nav className="hidden md:flex items-center gap-1">
-                        <Link href="/">
-                            <Button variant="ghost" size="sm">🏠 {tNav('home')}</Button>
-                        </Link>
-                        <Link href="/leaderboard">
-                            <Button variant="ghost" size="sm">🏆 {tNav('leaderboard')}</Button>
-                        </Link>
-                        <Link href="/profile">
-                            <Button variant="ghost" size="sm" className="text-primary bg-primary/10">👤 {tNav('profile')}</Button>
-                        </Link>
-                    </nav>
-                    <LanguageSwitcher />
-                </div>
-            </header>
+        <div className="min-h-app pb-24 md:pb-0">
+            <PageHeader active='profile' />
 
             <main className="container max-w-4xl mx-auto px-4 py-8">
                 <h1 className="text-3xl font-bold mb-8">{t('title')}</h1>
@@ -138,17 +122,18 @@ function ProfileContent() {
                                 <p className="text-muted-foreground text-sm">{t('totalScore')}</p>
                             </div>
                             <div className="bg-green-500/10 rounded-xl p-4 text-center">
-                                <p className="text-3xl font-bold text-green-600">${user.total_prize_won}</p>
+                                <p className="text-3xl font-bold text-green-600">{formatCurrency(user.total_prize_won, locale)}</p>
                                 <p className="text-muted-foreground text-sm">{t('totalPrize')}</p>
                             </div>
                         </div>
                         {user.games_played > 0 && (
                             <div className="mt-4 pt-4 border-t border-border/50">
-                                <Link href="/profile/history">
-                                    <Button variant="outline" className="w-full">
-                                        📜 {t('gameHistory') || 'История игр'}
-                                    </Button>
-                                </Link>
+                                <Button asChild variant="outline" className="w-full">
+                                    <Link href="/profile/history" className="flex items-center gap-2">
+                                        <History className="w-4 h-4" />
+                                        {t('gameHistory') || 'Game history'}
+                                    </Link>
+                                </Button>
                             </div>
                         )}
                     </CardContent>
@@ -158,12 +143,13 @@ function ProfileContent() {
                 <Card className="mb-6 card-elevated border-0 rounded-2xl">
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2">
-                            <span>🌐</span> {t('language')}
+                            <Languages className="w-5 h-5 text-primary" />
+                            {t('language')}
                         </CardTitle>
                     </CardHeader>
                     <CardContent>
                         <div className="flex items-center justify-between">
-                            <p className="text-muted-foreground">{t('selectLanguage') || 'Выберите язык интерфейса'}</p>
+                            <p className="text-muted-foreground">{t('selectLanguage') || 'Р’С‹Р±РµСЂРёС‚Рµ СЏР·С‹Рє РёРЅС‚РµСЂС„РµР№СЃР°'}</p>
                             <LanguageSwitcher />
                         </div>
                     </CardContent>
@@ -173,9 +159,10 @@ function ProfileContent() {
                 <Card className="mb-6 card-elevated border-0 rounded-2xl">
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2">
-                            <span>🔐</span> {t('sessions') || 'Активные сессии'}
+                            <Shield className="w-5 h-5 text-primary" />
+                            {t('sessions') || 'Active sessions'}
                         </CardTitle>
-                        <CardDescription>{t('sessionsDescription') || 'Управляйте устройствами'}</CardDescription>
+                        <CardDescription>{t('sessionsDescription') || 'РЈРїСЂР°РІР»СЏР№С‚Рµ СѓСЃС‚СЂРѕР№СЃС‚РІР°РјРё'}</CardDescription>
                     </CardHeader>
                     <CardContent>
                         {isLoadingSessions ? (
@@ -184,7 +171,7 @@ function ProfileContent() {
                                 <Skeleton className="h-16 w-full rounded-xl" />
                             </div>
                         ) : sessions.length === 0 ? (
-                            <p className="text-muted-foreground text-center py-4">{t('noSessions') || 'Нет активных сессий'}</p>
+                            <p className="text-muted-foreground text-center py-4">{t('noSessions') || 'РќРµС‚ Р°РєС‚РёРІРЅС‹С… СЃРµСЃСЃРёР№'}</p>
                         ) : (
                             <div className="space-y-3">
                                 {sessions.map((session) => (
@@ -192,7 +179,7 @@ function ProfileContent() {
                                         <div>
                                             <p className="font-medium">{session.device_id || 'Unknown'}</p>
                                             <p className="text-xs text-muted-foreground">
-                                                IP: {session.ip_address} • {formatDate(session.created_at)}
+                                                IP: {session.ip_address} вЂў {formatDate(session.created_at)}
                                             </p>
                                         </div>
                                         <Button
@@ -201,7 +188,7 @@ function ProfileContent() {
                                             onClick={() => handleRevokeSession(session.id)}
                                             className="text-destructive hover:text-destructive"
                                         >
-                                            {t('endSession') || 'Завершить'}
+                                            {t('endSession') || 'Р—Р°РІРµСЂС€РёС‚СЊ'}
                                         </Button>
                                     </div>
                                 ))}
@@ -214,42 +201,29 @@ function ProfileContent() {
                 <Card className="card-elevated border-0 rounded-2xl">
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2">
-                            <span>⚙️</span> {t('actions') || 'Действия'}
+                            <Settings className="w-5 h-5 text-primary" />
+                            {t('actions') || 'Actions'}
                         </CardTitle>
                     </CardHeader>
                     <CardContent className="flex flex-wrap gap-3">
                         {isAdmin && (
-                            <Button variant="outline" onClick={() => router.push('/admin')} className="h-11">
-                                🛠 Admin Panel
+                            <Button variant="outline" onClick={() => router.push('/admin')} className="h-11 flex items-center gap-2">
+                                <Wrench className="w-4 h-4" />
+                                Admin Panel
                             </Button>
                         )}
-                        <Button variant="outline" onClick={handleLogout} className="h-11">
+                        <Button variant="outline" onClick={handleLogout} className="h-11 flex items-center gap-2">
+                            <LogOut className="w-4 h-4" />
                             {tNav('logout')}
                         </Button>
                         <Button variant="destructive" onClick={handleLogoutAll} className="h-11">
-                            {t('logoutAll') || 'Выйти со всех устройств'}
+                            {t('logoutAll') || 'Р’С‹Р№С‚Рё СЃРѕ РІСЃРµС… СѓСЃС‚СЂРѕР№СЃС‚РІ'}
                         </Button>
                     </CardContent>
                 </Card>
             </main>
 
-            {/* Mobile Navigation */}
-            <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-border/50 py-2 px-4">
-                <div className="flex justify-around">
-                    <Link href="/" className="flex flex-col items-center text-muted-foreground">
-                        <span className="text-xl">🏠</span>
-                        <span className="text-xs">{tNav('home')}</span>
-                    </Link>
-                    <Link href="/leaderboard" className="flex flex-col items-center text-muted-foreground">
-                        <span className="text-xl">🏆</span>
-                        <span className="text-xs">{tNav('leaderboard')}</span>
-                    </Link>
-                    <Link href="/profile" className="flex flex-col items-center text-primary">
-                        <span className="text-xl">👤</span>
-                        <span className="text-xs">{tNav('profile')}</span>
-                    </Link>
-                </div>
-            </div>
+            <MobileBottomNav active="profile" />
         </div>
     );
 }
@@ -261,3 +235,4 @@ export default function ProfilePage() {
         </ProtectedRoute>
     );
 }
+

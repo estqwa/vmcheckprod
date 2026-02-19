@@ -26,7 +26,7 @@ export function ProtectedRoute({ children, requireAdmin = false }: ProtectedRout
 
     if (isLoading) {
         return (
-            <div className="flex items-center justify-center min-h-screen">
+            <div className="flex items-center justify-center min-h-app">
                 <div className="space-y-4 w-full max-w-md p-8">
                     <Skeleton className="h-8 w-3/4" />
                     <Skeleton className="h-4 w-full" />

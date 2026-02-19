@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { Button } from '@/components/ui/button';
+import { BackButton } from '@/components/BackButton';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -120,7 +121,7 @@ function MonitoringDashboard() {
     };
 
     return (
-        <div className="min-h-screen">
+        <div className="min-h-app">
             {/* Header */}
             <header className="border-b border-border/50 bg-white/80 backdrop-blur-sm sticky top-0 z-50">
                 <div className="container max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
@@ -138,18 +139,16 @@ function MonitoringDashboard() {
                             </span>
                         )}
                         <Button variant="outline" size="sm" onClick={fetchAll} disabled={isLoading}>
-                            🔄 Обновить
+                             Обновить
                         </Button>
-                        <Link href="/admin">
-                            <Button variant="ghost">← Назад</Button>
-                        </Link>
+                        <BackButton href="/admin" label="Назад" />
                     </div>
                 </div>
             </header>
 
             <main className="container max-w-5xl mx-auto px-4 py-8">
                 <div className="mb-8">
-                    <h1 className="text-3xl font-bold">📊 Мониторинг WebSocket</h1>
+                    <h1 className="text-3xl font-bold"> Мониторинг WebSocket</h1>
                     <p className="text-muted-foreground">Состояние сервера и метрики в реальном времени</p>
                 </div>
 
@@ -169,7 +168,7 @@ function MonitoringDashboard() {
                             <Card className="card-elevated border-0 rounded-xl">
                                 <CardContent className="pt-6 text-center">
                                     <Badge className={`${getStatusColor(health?.status)} border-0 mb-2`}>
-                                        {health?.status === 'healthy' ? '✅ Healthy' : '⚠️ Unavailable'}
+                                        {health?.status === 'healthy' ? ' Healthy' : ' Unavailable'}
                                     </Badge>
                                     <p className="text-sm text-muted-foreground">Статус</p>
                                 </CardContent>
@@ -205,7 +204,7 @@ function MonitoringDashboard() {
                             <Card className="card-elevated border-0 rounded-2xl mb-8 border-l-4 border-l-yellow-500">
                                 <CardHeader>
                                     <CardTitle className="flex items-center gap-2">
-                                        <span className="text-xl">⚠️</span>
+                                        <span className="text-xl"></span>
                                         Алерты ({alerts.alerts_count})
                                     </CardTitle>
                                 </CardHeader>
@@ -225,7 +224,7 @@ function MonitoringDashboard() {
                                     </div>
                                     {alerts.recommendations && alerts.recommendations.length > 0 && (
                                         <div className="mt-4 p-3 rounded-lg bg-blue-50">
-                                            <p className="font-medium text-blue-700 mb-2">💡 Рекомендации:</p>
+                                            <p className="font-medium text-blue-700 mb-2"> Рекомендации:</p>
                                             <ul className="list-disc list-inside text-sm text-blue-600">
                                                 {alerts.recommendations.map((rec, i) => (
                                                     <li key={i}>{rec}</li>
@@ -243,7 +242,7 @@ function MonitoringDashboard() {
                             <Card className="card-elevated border-0 rounded-2xl">
                                 <CardHeader>
                                     <CardTitle className="flex items-center gap-2">
-                                        <span className="text-xl">📨</span>
+                                        <span className="text-xl"></span>
                                         Сообщения
                                     </CardTitle>
                                 </CardHeader>
@@ -271,7 +270,7 @@ function MonitoringDashboard() {
                             <Card className="card-elevated border-0 rounded-2xl">
                                 <CardHeader>
                                     <CardTitle className="flex items-center gap-2">
-                                        <span className="text-xl">🔗</span>
+                                        <span className="text-xl"></span>
                                         Подключения
                                     </CardTitle>
                                 </CardHeader>
@@ -299,7 +298,7 @@ function MonitoringDashboard() {
                             <Card className="card-elevated border-0 rounded-2xl">
                                 <CardHeader>
                                     <CardTitle className="flex items-center gap-2">
-                                        <span className="text-xl">🧩</span>
+                                        <span className="text-xl"></span>
                                         Шарды ({metrics.shard_count})
                                         {metrics.hot_shards && metrics.hot_shards.length > 0 && (
                                             <Badge className="bg-red-100 text-red-700 border-0">
@@ -345,7 +344,7 @@ function MonitoringDashboard() {
                         <Card className="card-elevated border-0 rounded-2xl mt-8">
                             <CardHeader>
                                 <CardTitle className="flex items-center gap-2">
-                                    <span className="text-xl">🔌</span>
+                                    <span className="text-xl"></span>
                                     API Endpoints
                                 </CardTitle>
                             </CardHeader>

@@ -1,12 +1,13 @@
-﻿import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useCallback, useState, type ReactElement, memo } from 'react';
 import {
   ActivityIndicator,
+  FlatList,
   RefreshControl,
-  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
+  type ListRenderItemInfo,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useQuery } from '@tanstack/react-query';
@@ -16,31 +17,72 @@ import type { Quiz } from '@trivia/shared';
 import { getUpcomingQuizzes } from '../../src/api/quizzes';
 import { BrandHeader } from '../../src/components/ui/BrandHeader';
 import { TimerBlock } from '../../src/components/ui/TimerBlock';
-import { getQuizStatusTone, palette, radii, shadow, spacing, typography } from '../../src/theme/tokens';
+import { palette, radii, shadow, spacing, typography } from '../../src/theme/tokens';
+import { getCountdown } from '../../src/utils/time';
+import { formatCurrency } from '../../src/utils/format';
 
-function getCountdown(targetDate: string) {
-  const target = new Date(targetDate).getTime();
-  const now = Date.now();
-  const diff = Math.max(0, target - now);
 
-  const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-  const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-  const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-  const seconds = Math.floor((diff % (1000 * 60)) / 1000);
-
-  return {
-    days: String(days).padStart(2, '0'),
-    hours: String(hours).padStart(2, '0'),
-    minutes: String(minutes).padStart(2, '0'),
-    seconds: String(seconds).padStart(2, '0'),
-  };
-}
 
 function sortQuizzes(quizzes: Quiz[]): Quiz[] {
   return [...quizzes].sort(
     (a, b) => new Date(a.scheduled_time).getTime() - new Date(b.scheduled_time).getTime()
   );
 }
+
+function getQuizStatusStyles(status: string) {
+  switch (status) {
+    case 'in_progress':
+      return {
+        pill: styles.statusPillInProgress,
+        text: styles.statusPillInProgressText,
+      };
+    case 'scheduled':
+      return {
+        pill: styles.statusPillScheduled,
+        text: styles.statusPillScheduledText,
+      };
+    case 'completed':
+      return {
+        pill: styles.statusPillCompleted,
+        text: styles.statusPillCompletedText,
+      };
+    case 'cancelled':
+      return {
+        pill: styles.statusPillCancelled,
+        text: styles.statusPillCancelledText,
+      };
+    default:
+      return {
+        pill: styles.statusPillDefault,
+        text: styles.statusPillDefaultText,
+      };
+  }
+}
+
+/** Countdown-таймер. Обновляется раз в секунду, не вызывая ререндер родителя. */
+const UpcomingCountdown = memo(function UpcomingCountdown({ scheduledTime }: { scheduledTime: string }) {
+  const { t } = useTranslation();
+  const [cd, setCd] = useState(() => getCountdown(scheduledTime));
+
+  useEffect(() => {
+    const update = () => setCd(getCountdown(scheduledTime));
+    update();
+    const id = setInterval(update, 1000);
+    return () => clearInterval(id);
+  }, [scheduledTime]);
+
+  return (
+    <>
+      <Text style={styles.countdownLabel}>{t('home.startsIn')}</Text>
+      <View style={styles.timerRow}>
+        <TimerBlock value={cd.days} label={t('quiz.days')} />
+        <TimerBlock value={cd.hours} label={t('quiz.hours')} />
+        <TimerBlock value={cd.minutes} label={t('quiz.minutes')} />
+        <TimerBlock value={cd.seconds} label={t('quiz.seconds')} />
+      </View>
+    </>
+  );
+});
 
 export default function HomeScreen() {
   const { t } = useTranslation();
@@ -58,41 +100,41 @@ export default function HomeScreen() {
     [quizzes]
   );
 
-  const [countdown, setCountdown] = useState({ days: '00', hours: '00', minutes: '00', seconds: '00' });
 
-  useEffect(() => {
-    if (!upcomingQuiz) {
-      setCountdown({ days: '00', hours: '00', minutes: '00', seconds: '00' });
-      return;
-    }
+  const renderQuizCard = useCallback(
+    ({ item }: ListRenderItemInfo<Quiz>) => {
+      const statusStyles = getQuizStatusStyles(item.status);
 
-    const update = () => setCountdown(getCountdown(upcomingQuiz.scheduled_time));
-    update();
-    const timer = setInterval(update, 1000);
+      return (
+        <TouchableOpacity style={styles.quizCard} onPress={() => router.push(`/quiz/${item.id}/lobby`)} accessibilityRole="button" accessibilityLabel={item.title}>
+          <View style={styles.quizCardTop}>
+            <Text style={styles.quizCardTitle} numberOfLines={1}>
+              {item.title}
+            </Text>
+            <View style={[styles.statusPill, statusStyles.pill]}>
+              <Text style={[styles.statusPillText, statusStyles.text]}>{t(`quiz.status_${item.status}`, { defaultValue: item.status })}</Text>
+            </View>
+          </View>
 
-    return () => clearInterval(timer);
-  }, [upcomingQuiz]);
+          {item.description ? (
+            <Text style={styles.quizCardDescription} numberOfLines={2}>
+              {item.description}
+            </Text>
+          ) : null}
 
-  if (isLoading) {
-    return (
-      <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
-        <BrandHeader subtitle={t('home.title')} />
-        <View style={styles.centerLoading}>
-          <ActivityIndicator size="large" color={palette.primary} />
-          <Text style={styles.loadingText}>{t('common.loading')}</Text>
-        </View>
-      </SafeAreaView>
-    );
-  }
+          <View style={styles.quizCardBottom}>
+            <Text style={styles.quizCardMeta}>Q {item.question_count} {t('quiz.questions')}</Text>
+            <Text style={styles.quizCardMeta}>{new Date(item.scheduled_time).toLocaleString()}</Text>
+          </View>
+        </TouchableOpacity>
+      );
+    },
+    [router, t]
+  );
 
-  return (
-    <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
-      <BrandHeader subtitle={t('home.title')} />
-
-      <ScrollView
-        contentContainerStyle={styles.content}
-        refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={palette.primary} />}
-      >
+  const headerContent = useMemo(
+    () => (
+      <View style={styles.headerWrap}>
         <View style={styles.heroBlock}>
           <View style={styles.liveBadge}>
             <View style={styles.liveDot} />
@@ -104,11 +146,11 @@ export default function HomeScreen() {
 
           {upcomingQuiz ? (
             <TouchableOpacity style={styles.primaryCta} onPress={() => router.push(`/quiz/${upcomingQuiz.id}/lobby`)}>
-              <Text style={styles.primaryCtaText}>▶ {t('home.joinNow')}</Text>
+              <Text style={styles.primaryCtaText}>{t('home.joinNow')}</Text>
             </TouchableOpacity>
           ) : (
             <View style={styles.noQuizBox}>
-              <Text style={styles.noQuizIcon}>🎮</Text>
+              <Text style={styles.noQuizIcon}>QZ</Text>
               <Text style={styles.noQuizTitle}>{t('home.noQuizzes')}</Text>
               <Text style={styles.noQuizSubtitle}>{t('home.waiting')}</Text>
             </View>
@@ -136,9 +178,9 @@ export default function HomeScreen() {
             <View style={styles.nextQuizHeader}>
               <View style={styles.nextQuizTitleWrap}>
                 <View style={styles.nextQuizIconBox}>
-                  <Text style={styles.nextQuizIcon}>🏆</Text>
+                  <Text style={styles.nextQuizIcon}>Q</Text>
                 </View>
-                <View style={{ flex: 1 }}>
+                <View style={styles.flexOne}>
                   <Text style={styles.nextQuizTitle} numberOfLines={1}>
                     {upcomingQuiz.title}
                   </Text>
@@ -146,7 +188,7 @@ export default function HomeScreen() {
                 </View>
               </View>
               <View>
-                <Text style={styles.prizeValue}>{upcomingQuiz.prize_fund.toLocaleString()} тг</Text>
+                <Text style={styles.prizeValue}>{formatCurrency(upcomingQuiz.prize_fund)}</Text>
                 <Text style={styles.prizeLabel}>{t('home.prizeFund')}</Text>
               </View>
             </View>
@@ -155,13 +197,7 @@ export default function HomeScreen() {
               <Text style={styles.nextQuizDescription}>{upcomingQuiz.description}</Text>
             ) : null}
 
-            <Text style={styles.countdownLabel}>{t('home.startsIn')}</Text>
-            <View style={styles.timerRow}>
-              <TimerBlock value={countdown.days} label={t('quiz.days')} />
-              <TimerBlock value={countdown.hours} label={t('quiz.hours')} />
-              <TimerBlock value={countdown.minutes} label={t('quiz.minutes')} />
-              <TimerBlock value={countdown.seconds} label={t('quiz.seconds')} />
-            </View>
+            <UpcomingCountdown scheduledTime={upcomingQuiz.scheduled_time} />
 
             <TouchableOpacity style={styles.secondaryCta} onPress={() => router.push(`/quiz/${upcomingQuiz.id}/lobby`)}>
               <Text style={styles.secondaryCtaText}>{t('home.openLobby')}</Text>
@@ -171,45 +207,46 @@ export default function HomeScreen() {
 
         <View style={styles.listSection}>
           <Text style={styles.listTitle}>{t('home.upcoming')}</Text>
-
-          {quizzes.length === 0 ? (
-            <View style={styles.emptyCard}>
-              <Text style={styles.emptyText}>{t('home.noQuizzes')}</Text>
-            </View>
-          ) : (
-            quizzes.map((quiz) => {
-              const tone = getQuizStatusTone(quiz.status);
-              return (
-                <TouchableOpacity
-                  key={quiz.id}
-                  style={styles.quizCard}
-                  onPress={() => router.push(`/quiz/${quiz.id}/lobby`)}
-                >
-                  <View style={styles.quizCardTop}>
-                    <Text style={styles.quizCardTitle} numberOfLines={1}>
-                      {quiz.title}
-                    </Text>
-                    <View style={[styles.statusPill, { backgroundColor: tone.backgroundColor }]}>
-                      <Text style={[styles.statusPillText, { color: tone.textColor }]}>{quiz.status}</Text>
-                    </View>
-                  </View>
-
-                  {quiz.description ? (
-                    <Text style={styles.quizCardDescription} numberOfLines={2}>
-                      {quiz.description}
-                    </Text>
-                  ) : null}
-
-                  <View style={styles.quizCardBottom}>
-                    <Text style={styles.quizCardMeta}>⏱ {quiz.question_count} {t('quiz.questions')}</Text>
-                    <Text style={styles.quizCardMeta}>{new Date(quiz.scheduled_time).toLocaleString()}</Text>
-                  </View>
-                </TouchableOpacity>
-              );
-            })
-          )}
         </View>
-      </ScrollView>
+      </View>
+    ),
+    [router, t, upcomingQuiz]
+  );
+
+  const emptyContent = useMemo(
+    () => (
+      <View style={styles.emptyCard}>
+        <Text style={styles.emptyText}>{t('home.noQuizzes')}</Text>
+      </View>
+    ),
+    [t]
+  );
+
+  if (isLoading) {
+    return (
+      <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
+        <BrandHeader subtitle={t('home.title')} />
+        <View style={styles.centerLoading}>
+          <ActivityIndicator size="large" color={palette.primary} />
+          <Text style={styles.loadingText}>{t('common.loading')}</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  return (
+    <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
+      <BrandHeader subtitle={t('home.title')} />
+
+      <FlatList
+        data={quizzes}
+        renderItem={renderQuizCard}
+        keyExtractor={(item) => String(item.id)}
+        ListHeaderComponent={headerContent as ReactElement}
+        ListEmptyComponent={emptyContent as ReactElement}
+        contentContainerStyle={styles.content}
+        refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={palette.primary} />}
+      />
     </SafeAreaView>
   );
 }
@@ -221,8 +258,11 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: spacing.lg,
-    gap: spacing.lg,
+    gap: spacing.sm,
     paddingBottom: spacing.xxl,
+  },
+  headerWrap: {
+    gap: spacing.lg,
   },
   centerLoading: {
     flex: 1,
@@ -362,6 +402,9 @@ const styles = StyleSheet.create({
   nextQuizIcon: {
     fontSize: 20,
   },
+  flexOne: {
+    flex: 1,
+  },
   nextQuizTitle: {
     color: palette.text,
     fontSize: 17,
@@ -423,6 +466,7 @@ const styles = StyleSheet.create({
     borderRadius: radii.lg,
     padding: spacing.lg,
     alignItems: 'center',
+    marginTop: spacing.xs,
   },
   emptyText: {
     color: palette.textMuted,
@@ -457,6 +501,36 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '700',
     textTransform: 'uppercase',
+  },
+  statusPillInProgress: {
+    backgroundColor: '#dcfce7',
+  },
+  statusPillInProgressText: {
+    color: '#166534',
+  },
+  statusPillScheduled: {
+    backgroundColor: '#dbeafe',
+  },
+  statusPillScheduledText: {
+    color: '#1d4ed8',
+  },
+  statusPillCompleted: {
+    backgroundColor: '#f3f4f6',
+  },
+  statusPillCompletedText: {
+    color: '#374151',
+  },
+  statusPillCancelled: {
+    backgroundColor: '#fee2e2',
+  },
+  statusPillCancelledText: {
+    color: '#991b1b',
+  },
+  statusPillDefault: {
+    backgroundColor: '#f3f4f6',
+  },
+  statusPillDefaultText: {
+    color: '#374151',
   },
   quizCardDescription: {
     color: palette.textMuted,

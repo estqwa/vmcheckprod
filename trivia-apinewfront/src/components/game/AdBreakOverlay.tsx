@@ -87,6 +87,7 @@ export function AdBreakOverlay({ adData, isVisible, onAdEnd }: AdBreakOverlayPro
                         }}
                     />
                 ) : (
+                    // eslint-disable-next-line @next/next/no-img-element
                     <img
                         src={mediaUrl}
                         alt="Рекламный блок"

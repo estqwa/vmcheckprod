@@ -40,6 +40,8 @@ export const WS_QUIZ_EVENTS = {
     ELIMINATION: 'quiz:elimination',
     /** Викторина завершена */
     FINISH: 'quiz:finish',
+    /** Викторина отменена */
+    CANCELLED: 'quiz:cancelled',
     /** Результаты доступны */
     RESULTS_AVAILABLE: 'quiz:results_available',
     /** Текущее состояние (resync) */
@@ -120,6 +122,20 @@ export interface QuizQuestionEvent {
     server_timestamp: number;
 }
 
+export interface QuizStateQuestionEvent {
+    question_id: number;
+    number: number;
+    total_questions: number;
+    text: string;
+    text_kk?: string;
+    options: import('./types').QuestionOption[];
+    options_kk?: import('./types').QuestionOption[];
+    time_limit: number;
+    quiz_id?: number;
+    start_time?: number;
+    server_timestamp?: number;
+}
+
 /** Событие таймера */
 export interface QuizTimerEvent {
     question_id: number;
@@ -138,6 +154,11 @@ export interface AnswerResultEvent {
     is_eliminated: boolean;
     elimination_reason: string;
     time_limit_exceeded: boolean;
+}
+
+export interface QuizAnswerRevealEvent {
+    question_id: number;
+    correct_option: number;
 }
 
 /** Событие выбытия */
@@ -164,14 +185,35 @@ export interface QuizFinishEvent {
     ended_at: string;
 }
 
+/** Событие отмены викторины */
+export interface QuizCancelledEvent {
+    quiz_id: number;
+    reason?: string;
+    message?: string;
+    details?: string;
+}
+
 /** Событие текущего состояния (quiz:state, resync) */
 export interface QuizStateEvent {
     status?: string;
-    current_question?: QuizQuestionEvent;
+    current_question?: QuizStateQuestionEvent;
     time_remaining?: number;
     is_eliminated?: boolean;
     elimination_reason?: string;
     score?: number;
     correct_count?: number;
     player_count?: number;
+}
+
+/** Событие начала рекламной паузы */
+export interface QuizAdBreakEvent {
+    quiz_id: number;
+    media_type: 'image' | 'video';
+    media_url: string;
+    duration_sec: number;
+}
+
+/** Событие окончания рекламной паузы */
+export interface QuizAdBreakEndEvent {
+    quiz_id: number;
 }

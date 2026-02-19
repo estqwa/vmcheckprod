@@ -6,18 +6,27 @@ import Link from 'next/link';
 import { createQuiz } from '@/lib/api';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { Button } from '@/components/ui/button';
+import { BackButton } from '@/components/BackButton';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 
+function getDefaultDateTime() {
+    const date = new Date();
+    date.setHours(date.getHours() + 1);
+    // Use local time components — datetime-local expects local time, not UTC
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
 function CreateQuizForm() {
     const router = useRouter();
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [title, setTitle] = useState('');
     const [description, setDescription] = useState('');
-    const [scheduledTime, setScheduledTime] = useState('');
+    const [scheduledTime, setScheduledTime] = useState(getDefaultDateTime);
     const [prizeFund, setPrizeFund] = useState(1000000);
     const [finishOnZeroPlayers, setFinishOnZeroPlayers] = useState(false);
     const [adminOnlyMode, setAdminOnlyMode] = useState(false);
@@ -61,14 +70,10 @@ function CreateQuizForm() {
         }
     };
 
-    const getDefaultDateTime = () => {
-        const date = new Date();
-        date.setHours(date.getHours() + 1);
-        return date.toISOString().slice(0, 16);
-    };
+
 
     return (
-        <div className="min-h-screen">
+        <div className="min-h-app">
             {/* Header */}
             <header className="border-b border-border/50 bg-white/80 backdrop-blur-sm sticky top-0 z-50">
                 <div className="container max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
@@ -79,9 +84,7 @@ function CreateQuizForm() {
                         <span className="font-bold text-xl text-foreground">QazaQuiz</span>
                         <Badge className="bg-primary/10 text-primary border-0 ml-2">Админ</Badge>
                     </Link>
-                    <Link href="/admin">
-                        <Button variant="ghost">← Назад</Button>
-                    </Link>
+                    <BackButton href="/admin" label="Назад" />
                 </div>
             </header>
 
@@ -94,7 +97,7 @@ function CreateQuizForm() {
                 <Card className="card-elevated border-0 rounded-2xl">
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2">
-                            <span className="text-xl">✏️</span>
+                            <span className="text-xl"></span>
                             Детали викторины
                         </CardTitle>
                         <CardDescription>После создания вы сможете добавить вопросы</CardDescription>
@@ -132,7 +135,7 @@ function CreateQuizForm() {
                                 <Input
                                     id="scheduledTime"
                                     type="datetime-local"
-                                    value={scheduledTime || getDefaultDateTime()}
+                                    value={scheduledTime}
                                     onChange={(e) => setScheduledTime(e.target.value)}
                                     required
                                     className="h-12"
@@ -189,11 +192,9 @@ function CreateQuizForm() {
                                 <Button type="submit" disabled={isSubmitting} className="flex-1 btn-coral h-12">
                                     {isSubmitting ? 'Создаём...' : 'Создать викторину'}
                                 </Button>
-                                <Link href="/admin" className="flex-1">
-                                    <Button type="button" variant="outline" className="w-full h-12">
-                                        Отмена
-                                    </Button>
-                                </Link>
+                                <Button asChild variant="outline" className="flex-1 h-12">
+                                    <Link href="/admin">Отмена</Link>
+                                </Button>
                             </div>
                         </form>
                     </CardContent>

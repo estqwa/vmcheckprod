@@ -8,7 +8,10 @@
     "back": "Артқа",
     "next": "Келесі",
     "ok": "ОК",
-    "submit": "Жіберу"
+    "submit": "Жіберу",
+    "offlineTitle": "Интернет жоқ",
+    "offlineRealtimeHint": "Байланыс автоматты түрде қалпына келеді",
+    "currency": "тг"
   },
   "nav": {
     "home": "Басты",
@@ -35,7 +38,8 @@
     "loginDescription": "Кіру деректерін енгізіңіз",
     "registerDescription": "Жаңа аккаунт жасаңыз",
     "passwordMismatch": "Құпия сөздер сәйкес емес",
-    "passwordTooShort": "Құпия сөз кемінде 6 таңбадан тұруы керек"
+    "passwordTooShort": "Құпия сөз кемінде 6 таңбадан тұруы керек",
+    "fillAllFields": "Барлық өрістерді толтырыңыз"
   },
   "home": {
     "title": "Викториналар",
@@ -63,6 +67,7 @@
     "connecting": "Қосылуда...",
     "reconnecting": "Қайта қосылуда...",
     "disconnected": "Ажыратылды",
+    "offline": "Оффлайн",
     "startsIn": "Басталуына",
     "days": "күн",
     "hours": "сағ",
@@ -81,16 +86,34 @@
     "eliminated": "Сіз ойыннан шықтыңыз",
     "score": "Ұпай: {{score}}",
     "scoreLabel": "Ұпай",
+    "adBreakLabel": "Жарнама",
+    "adBreakCountdown": "{{seconds}} сек",
+    "adUnavailable": "Жарнама материалы қолжетімсіз",
     "gameOver": "Ойын аяқталды",
     "myResult": "Менің нәтижем",
     "winner": "Жеңімпаз",
     "finalStandings": "Қорытынды кесте",
     "resultUnavailable": "Нәтиже әзірге қолжетімсіз",
-    "you": "Сіз"
+    "you": "Сіз",
+    "status_scheduled": "Жоспарланған",
+    "status_in_progress": "Жүріп жатыр",
+    "status_completed": "Аяқталды",
+    "status_cancelled": "Бас тартылды"
   },
   "profile": {
     "title": "Профиль",
     "history": "Ойын тарихы",
+    "sessions": "Құрылғы сессиялары",
+    "activeSessions": "Белсенді сессиялар",
+    "noSessions": "Белсенді сессиялар табылмады",
+    "thisDevice": "Осы құрылғы",
+    "device": "Құрылғы",
+    "deviceId": "Device ID",
+    "ipAddress": "IP-мекенжай",
+    "userAgent": "User-Agent",
+    "expiresAt": "Мерзімі",
+    "revokeSession": "Сессияны аяқтау",
+    "logoutAllDevices": "Барлық құрылғылардан шығу",
     "gamesPlayed": "Ойналған",
     "wins": "Жеңістер",
     "totalScore": "Жалпы ұпай",
@@ -121,5 +144,14 @@
     "language": "Тіл",
     "russian": "Орысша",
     "kazakh": "Қазақша"
+  },
+  "notFound": {
+    "title": "Қате",
+    "message": "Бұл экран жоқ.",
+    "goHome": "Басты бетке"
+  },
+  "error": {
+    "title": "Бірдеңе дұрыс болмады",
+    "retry": "Қайталап көру"
   }
 }

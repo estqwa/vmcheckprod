@@ -5,10 +5,12 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	apperrors "github.com/yourusername/trivia-api/internal/pkg/errors"
 	"github.com/yourusername/trivia-api/internal/service"
+	"github.com/yourusername/trivia-api/internal/websocket"
 	"github.com/yourusername/trivia-api/pkg/auth/manager"
 )
 
@@ -20,13 +22,15 @@ import (
 type MobileAuthHandler struct {
 	authService  *service.AuthService
 	tokenManager *manager.TokenManager
+	wsHub        websocket.HubInterface
 }
 
 // NewMobileAuthHandler создает новый обработчик мобильной аутентификации
-func NewMobileAuthHandler(authService *service.AuthService, tokenManager *manager.TokenManager) *MobileAuthHandler {
+func NewMobileAuthHandler(authService *service.AuthService, tokenManager *manager.TokenManager, wsHub websocket.HubInterface) *MobileAuthHandler {
 	return &MobileAuthHandler{
 		authService:  authService,
 		tokenManager: tokenManager,
+		wsHub:        wsHub,
 	}
 }
 
@@ -253,6 +257,148 @@ func (h *MobileAuthHandler) MobileWsTicket(c *gin.Context) {
 			"ticket": ticket,
 		},
 	})
+}
+
+// MobileUpdateProfile обновляет профиль пользователя без CSRF.
+// Endpoint предназначен для mobile-клиента с Bearer auth.
+func (h *MobileAuthHandler) MobileUpdateProfile(c *gin.Context) {
+	userID, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized", "error_type": "token_missing"})
+		return
+	}
+
+	var req UpdateProfileRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	if err := h.authService.UpdateUserProfile(userID.(uint), req.Username, req.ProfilePicture); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Profile updated successfully"})
+}
+
+// MobileGetActiveSessions returns active sessions for the current mobile user.
+func (h *MobileAuthHandler) MobileGetActiveSessions(c *gin.Context) {
+	userID, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized", "error_type": "token_missing"})
+		return
+	}
+
+	sessions, err := h.authService.GetUserActiveSessions(userID.(uint))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get active sessions", "error_type": "internal_error"})
+		return
+	}
+
+	result := make([]SessionInfo, 0, len(sessions))
+	for _, session := range sessions {
+		result = append(result, SessionInfo{
+			ID:        session.ID,
+			DeviceID:  session.DeviceID,
+			IPAddress: session.IPAddress,
+			UserAgent: session.UserAgent,
+			CreatedAt: session.CreatedAt,
+			ExpiresAt: session.ExpiresAt,
+		})
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"sessions": result,
+		"count":    len(result),
+	})
+}
+
+// MobileRevokeSession revokes a specific user session by ID for mobile clients.
+func (h *MobileAuthHandler) MobileRevokeSession(c *gin.Context) {
+	userID, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized", "error_type": "token_missing"})
+		return
+	}
+
+	var req RevokeSessionRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request data", "error_type": "invalid_request"})
+		return
+	}
+
+	token, err := h.authService.GetRefreshTokenByID(req.SessionID)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Session not found", "error_type": "session_not_found"})
+		return
+	}
+
+	if token.UserID != userID.(uint) {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Forbidden", "error_type": "forbidden"})
+		return
+	}
+
+	reason := c.Query("reason")
+	if reason == "" {
+		reason = "user_revoked"
+	}
+
+	if err := h.authService.RevokeSessionByID(req.SessionID, reason); err != nil {
+		log.Printf("[MobileAuth] Failed to revoke session %d: %v", req.SessionID, err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to revoke session", "error_type": "internal_error"})
+		return
+	}
+
+	sessionEvent := map[string]interface{}{
+		"event":      "session_revoked",
+		"session_id": req.SessionID,
+		"timestamp":  time.Now().Format(time.RFC3339),
+		"reason":     reason,
+		"user_id":    token.UserID,
+	}
+	if err := h.sendWebSocketNotification(token.UserID, sessionEvent); err != nil {
+		log.Printf("[MobileAuth] Failed to send WebSocket revoke notification: %v", err)
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message":    "Session revoked successfully",
+		"session_id": req.SessionID,
+	})
+}
+
+// MobileLogoutAllDevices revokes all user sessions for mobile clients.
+func (h *MobileAuthHandler) MobileLogoutAllDevices(c *gin.Context) {
+	userID, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized", "error_type": "token_missing"})
+		return
+	}
+
+	if err := h.authService.RevokeAllUserSessions(userID.(uint), "user_logout_all"); err != nil {
+		log.Printf("[MobileAuth] Failed to logout all devices for user %d: %v", userID.(uint), err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to logout from all devices", "error_type": "internal_error"})
+		return
+	}
+
+	logoutEvent := map[string]interface{}{
+		"event":     "logout_all_devices",
+		"user_id":   userID,
+		"timestamp": time.Now().Format(time.RFC3339),
+		"reason":    "user_logout_all",
+	}
+	if err := h.sendWebSocketNotification(userID.(uint), logoutEvent); err != nil {
+		log.Printf("[MobileAuth] Failed to send WebSocket logout-all notification: %v", err)
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Successfully logged out from all devices"})
+}
+
+func (h *MobileAuthHandler) sendWebSocketNotification(userID uint, event map[string]interface{}) error {
+	if h.wsHub == nil {
+		return nil
+	}
+	return h.wsHub.SendJSONToUser(fmt.Sprintf("%d", userID), event)
 }
 
 // --- Error handling ---

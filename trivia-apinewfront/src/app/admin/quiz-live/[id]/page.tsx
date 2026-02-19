@@ -2,10 +2,10 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams } from 'next/navigation';
-import Link from 'next/link';
 import { getQuiz, Quiz, getWsTicket } from '@/lib/api';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { Button } from '@/components/ui/button';
+import { BackButton } from '@/components/BackButton';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 
@@ -192,7 +192,7 @@ function QuizLivePageContent() {
 
     if (isLoading) {
         return (
-            <div className="min-h-screen">
+            <div className="min-h-app">
                 <header className="border-b border-border/50 bg-white/80 backdrop-blur-sm sticky top-0 z-50">
                     <div className="container max-w-6xl mx-auto px-4 h-16 flex items-center">
                         <Skeleton className="h-6 w-48" />
@@ -211,14 +211,12 @@ function QuizLivePageContent() {
 
     if (error || !quiz) {
         return (
-            <div className="min-h-screen flex items-center justify-center">
+            <div className="min-h-app flex items-center justify-center">
                 <Card className="max-w-md">
                     <CardContent className="pt-6 text-center">
-                        <span className="text-5xl mb-4 block">📡</span>
+                        <span className="text-5xl mb-4 block"></span>
                         <p className="text-muted-foreground mb-4">{error || 'Викторина не найдена'}</p>
-                        <Link href="/admin">
-                            <Button>← Назад</Button>
-                        </Link>
+                        <BackButton href="/admin" label="Назад" />
                     </CardContent>
                 </Card>
             </div>
@@ -228,14 +226,12 @@ function QuizLivePageContent() {
     const lastStats = questionHistory[questionHistory.length - 1];
 
     return (
-        <div className="min-h-screen">
+        <div className="min-h-app">
             {/* Header */}
             <header className="border-b border-border/50 bg-white/80 backdrop-blur-sm sticky top-0 z-50">
                 <div className="container max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
                     <div className="flex items-center gap-4">
-                        <Link href={`/admin/quizzes/${quizId}`}>
-                            <Button variant="ghost" size="sm">← Назад</Button>
-                        </Link>
+                        <BackButton href={`/admin/quizzes/${quizId}`} label="Назад" variant="ghost" size="sm" />
                         <div>
                             <h1 className="font-bold">{quiz.title}</h1>
                             <p className="text-xs text-muted-foreground">Realtime мониторинг</p>
@@ -247,14 +243,14 @@ function QuizLivePageContent() {
                             quizStatus === 'finished' ? 'bg-gray-100 text-gray-700' :
                                 'bg-yellow-100 text-yellow-700'
                             }`}>
-                            {quizStatus === 'active' ? '🟢 Активна' :
-                                quizStatus === 'finished' ? '✅ Завершена' : '⏳ Ожидает'}
+                            {quizStatus === 'active' ? ' Активна' :
+                                quizStatus === 'finished' ? ' Завершена' : ' Ожидает'}
                         </span>
 
                         {/* Connection button */}
                         {wsState === 'connected' ? (
                             <Button variant="outline" size="sm" onClick={disconnectWS}>
-                                🔌 Отключиться
+                                 Отключиться
                             </Button>
                         ) : (
                             <Button
@@ -262,7 +258,7 @@ function QuizLivePageContent() {
                                 onClick={connectWS}
                                 disabled={wsState === 'connecting'}
                             >
-                                {wsState === 'connecting' ? '⏳ Подключение...' : '📡 Подключиться'}
+                                {wsState === 'connecting' ? ' Подключение...' : ' Подключиться'}
                             </Button>
                         )}
                     </div>
@@ -270,7 +266,7 @@ function QuizLivePageContent() {
             </header>
 
             <main className="container max-w-5xl mx-auto px-4 py-8">
-                <h2 className="text-2xl font-bold mb-6">📡 Live мониторинг</h2>
+                <h2 className="text-2xl font-bold mb-6"> Live мониторинг</h2>
 
                 {/* Connection Status */}
                 <Card className={`mb-6 ${wsState === 'connected' ? 'border-green-200 bg-green-50/50' :
@@ -340,7 +336,7 @@ function QuizLivePageContent() {
                 <Card className="card-elevated border-0 rounded-2xl">
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2">
-                            <span className="text-xl">📊</span>
+                            <span className="text-xl"></span>
                             История вопросов
                         </CardTitle>
                         <CardDescription>Статистика по каждому вопросу в реальном времени</CardDescription>

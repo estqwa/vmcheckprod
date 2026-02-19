@@ -1,13 +1,13 @@
 import { Pressable, StyleSheet, Text } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import i18n from '../../i18n';
+import i18n, { changeAndPersistLanguage } from '../../i18n';
 import { palette, radii, spacing } from '../../theme/tokens';
 
 export function LanguageToggle() {
   const { t } = useTranslation();
 
   const toggle = () => {
-    void i18n.changeLanguage(i18n.language === 'ru' ? 'kk' : 'ru');
+    void changeAndPersistLanguage(i18n.language === 'ru' ? 'kk' : 'ru');
   };
 
   return (

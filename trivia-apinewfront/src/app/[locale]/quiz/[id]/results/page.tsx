@@ -1,23 +1,29 @@
-'use client';
+﻿'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import Link from 'next/link';
 import { useTranslations } from 'next-intl';
 import { getQuiz, getQuizResults, getMyResult, Quiz, QuizResult, PaginatedResults } from '@/lib/api';
 import { useAuth } from '@/providers/AuthProvider';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useLocale } from '@/components/LanguageSwitcher';
+import { formatCurrency } from '@/lib/formatCurrency';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { LanguageSwitcher } from '@/components/LanguageSwitcher';
+import { ChevronLeft, ChevronRight, Medal, ShieldAlert, BarChart3, Trophy, Award, Gamepad2, Home } from 'lucide-react';
+import { MobileBottomNav } from '@/components/MobileBottomNav';
+import { PageHeader } from '@/components/PageHeader';
+
+const PAGE_SIZE = 20;
 
 export default function QuizResultsPage() {
     const params = useParams();
     const router = useRouter();
     const quizId = Number(params.id);
     const { user, isAuthenticated } = useAuth();
+    const locale = useLocale();
 
     const t = useTranslations('quiz');
     const tNav = useTranslations('nav');
@@ -27,13 +33,30 @@ export default function QuizResultsPage() {
     const [results, setResults] = useState<PaginatedResults<QuizResult> | null>(null);
     const [myResult, setMyResult] = useState<QuizResult | null>(null);
     const [isLoading, setIsLoading] = useState(true);
+    const [currentPage, setCurrentPage] = useState(1);
+    const [isPageLoading, setIsPageLoading] = useState(false);
+
+    const totalPages = results ? Math.max(1, Math.ceil(results.total / PAGE_SIZE)) : 1;
+
+    const loadResultsPage = useCallback(async (page: number) => {
+        try {
+            setIsPageLoading(true);
+            const resultsData = await getQuizResults(quizId, { page, page_size: PAGE_SIZE });
+            setResults(resultsData);
+            setCurrentPage(page);
+        } catch (error) {
+            console.error('Failed to load results page:', error);
+        } finally {
+            setIsPageLoading(false);
+        }
+    }, [quizId]);
 
     useEffect(() => {
         const fetchData = async () => {
             try {
                 const [quizData, resultsData] = await Promise.all([
                     getQuiz(quizId),
-                    getQuizResults(quizId, { page: 1, page_size: 20 }),
+                    getQuizResults(quizId, { page: 1, page_size: PAGE_SIZE }),
                 ]);
                 setQuiz(quizData);
                 setResults(resultsData);
@@ -54,7 +77,7 @@ export default function QuizResultsPage() {
 
     if (isLoading) {
         return (
-            <div className="min-h-screen">
+            <div className="min-h-app">
                 <header className="border-b border-border/50 bg-white/80 backdrop-blur-sm">
                     <div className="container max-w-6xl mx-auto px-4 h-16 flex items-center">
                         <Skeleton className="h-8 w-32" />
@@ -70,24 +93,15 @@ export default function QuizResultsPage() {
     }
 
     return (
-        <div className="min-h-screen pb-24 md:pb-0">
-            {/* Header */}
-            <header className="border-b border-border/50 bg-white/80 backdrop-blur-sm sticky top-0 z-50">
-                <div className="container max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
-                    <Link href="/" className="flex items-center gap-2">
-                        <div className="w-9 h-9 rounded-lg bg-primary flex items-center justify-center">
-                            <span className="text-white font-bold text-lg">Q</span>
-                        </div>
-                        <span className="font-bold text-xl text-foreground">QazaQuiz</span>
-                    </Link>
-                    <div className="flex items-center gap-2">
-                        <LanguageSwitcher />
-                        <Link href="/">
-                            <Button variant="ghost">← {tNav('home')}</Button>
-                        </Link>
-                    </div>
-                </div>
-            </header>
+        <div className="min-h-app pb-24 md:pb-0">
+            <PageHeader
+                rightSlot={(
+                    <Button variant='ghost' onClick={() => router.push('/')} className='flex items-center gap-2'>
+                        <Home className='w-4 h-4' />
+                        {tNav('home')}
+                    </Button>
+                )}
+            />
 
             <main className="container max-w-3xl mx-auto px-4 py-8">
                 <div className="mb-8">
@@ -106,7 +120,13 @@ export default function QuizResultsPage() {
                                 : 'bg-gradient-to-b from-primary/5 to-transparent'
                             }`}>
                             <CardTitle className="flex items-center gap-2">
-                                <span className="text-2xl">{myResult.is_winner ? '🏆' : myResult.is_eliminated ? '👀' : '📊'}</span>
+                                {myResult.is_winner ? (
+                                    <Trophy className="w-6 h-6 text-yellow-600" />
+                                ) : myResult.is_eliminated ? (
+                                    <ShieldAlert className="w-6 h-6 text-orange-600" />
+                                ) : (
+                                    <BarChart3 className="w-6 h-6 text-primary" />
+                                )}
                                 {t('score').replace(': {score}', '')}
                                 {myResult.is_winner && <Badge className="bg-yellow-400 text-yellow-900 border-0">{t('winner')}</Badge>}
                                 {myResult.is_eliminated && <Badge className="bg-orange-100 text-orange-700 border-0">{t('eliminated')}</Badge>}
@@ -128,7 +148,7 @@ export default function QuizResultsPage() {
                                 </div>
                                 {myResult.prize_fund > 0 && (
                                     <div className="bg-green-50 rounded-xl p-4 text-center">
-                                        <p className="text-3xl font-bold text-green-600">${myResult.prize_fund}</p>
+                                        <p className="text-3xl font-bold text-green-600">{formatCurrency(myResult.prize_fund, locale)}</p>
                                         <p className="text-muted-foreground text-sm">{tLeaderboard('prize')}</p>
                                     </div>
                                 )}
@@ -140,100 +160,130 @@ export default function QuizResultsPage() {
                 {/* All Results */}
                 <Card className="card-elevated border-0 rounded-2xl">
                     <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
-                            <span className="text-xl">🏆</span>
-                            {tLeaderboard('title')}
+                        <CardTitle className="flex items-center justify-between">
+                            <span className="flex items-center gap-2">
+                                <Trophy className="w-5 h-5 text-primary" />
+                                {tLeaderboard('title')}
+                            </span>
+                            {results && results.total > 0 && (
+                                <span className="text-sm font-normal text-muted-foreground">
+                                    {results.total} СѓС‡Р°СЃС‚РЅРёРєРѕРІ
+                                </span>
+                            )}
                         </CardTitle>
                     </CardHeader>
                     <CardContent>
                         {!results || results.results.length === 0 ? (
                             <div className="text-center py-12">
-                                <span className="text-5xl mb-4 block">📊</span>
+                                <Gamepad2 className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
                                 <p className="text-muted-foreground">{tLeaderboard('noPlayers')}</p>
                             </div>
                         ) : (
                             <div className="space-y-3">
-                                {results.results.map((result) => (
-                                    <div
-                                        key={result.id}
-                                        className={`flex items-center gap-4 p-4 rounded-xl border-2 transition-all ${result.user_id === user?.id
-                                            ? 'border-primary/50 bg-primary/5'
-                                            : result.is_winner
-                                                ? 'border-yellow-300 bg-yellow-50'
-                                                : 'border-transparent bg-secondary/30'
-                                            }`}
-                                    >
-                                        {/* Rank */}
-                                        <div className="w-10 text-center flex-shrink-0">
-                                            {result.rank <= 3 ? (
-                                                <span className="text-2xl">
-                                                    {result.rank === 1 ? '🥇' : result.rank === 2 ? '🥈' : '🥉'}
-                                                </span>
-                                            ) : (
-                                                <span className="font-bold text-lg text-muted-foreground">#{result.rank}</span>
-                                            )}
-                                        </div>
+                                {isPageLoading ? (
+                                    [...Array(5)].map((_, i) => (
+                                        <Skeleton key={i} className="h-16 w-full rounded-xl" />
+                                    ))
+                                ) : (
+                                    results.results.map((result) => (
+                                        <div
+                                            key={result.id}
+                                            className={`flex items-center gap-4 p-4 rounded-xl border-2 transition-all ${result.user_id === user?.id
+                                                ? 'border-primary/50 bg-primary/5'
+                                                : result.is_winner
+                                                    ? 'border-yellow-300 bg-yellow-50'
+                                                    : 'border-transparent bg-secondary/30'
+                                                }`}
+                                        >
+                                            {/* Rank */}
+                                            <div className="w-10 text-center flex-shrink-0">
+                                                {result.rank <= 3 ? (
+                                                    <span className="text-2xl inline-flex items-center justify-center">
+                                                        {result.rank === 1 ? (
+                                                            <Trophy className="w-6 h-6 text-yellow-600" />
+                                                        ) : result.rank === 2 ? (
+                                                            <Medal className="w-6 h-6 text-slate-500" />
+                                                        ) : (
+                                                            <Award className="w-6 h-6 text-amber-700" />
+                                                        )}
+                                                    </span>
+                                                ) : (
+                                                    <span className="font-bold text-lg text-muted-foreground">#{result.rank}</span>
+                                                )}
+                                            </div>
 
-                                        {/* Avatar & Name */}
-                                        <Avatar className="h-10 w-10 border-2 border-white shadow-sm">
-                                            <AvatarImage src={result.profile_picture} />
-                                            <AvatarFallback className="bg-primary/10 text-primary text-sm">
-                                                {result.username.substring(0, 2).toUpperCase()}
-                                            </AvatarFallback>
-                                        </Avatar>
-                                        <div className="flex-1 min-w-0">
-                                            <p className="font-medium truncate">
-                                                {result.username}
-                                                {result.user_id === user?.id && <span className="text-muted-foreground"> (You)</span>}
-                                            </p>
-                                            <p className="text-sm text-muted-foreground">
-                                                {result.correct_answers}/{result.total_questions} {t('correct')}
-                                            </p>
-                                        </div>
+                                            {/* Avatar & Name */}
+                                            <Avatar className="h-10 w-10 border-2 border-white shadow-sm">
+                                                <AvatarImage src={result.profile_picture} />
+                                                <AvatarFallback className="bg-primary/10 text-primary text-sm">
+                                                    {result.username.substring(0, 2).toUpperCase()}
+                                                </AvatarFallback>
+                                            </Avatar>
+                                            <div className="flex-1 min-w-0">
+                                                <p className="font-medium truncate">
+                                                    {result.username}
+                                                    {result.user_id === user?.id && <span className="text-muted-foreground"> (You)</span>}
+                                                </p>
+                                                <p className="text-sm text-muted-foreground">
+                                                    {result.correct_answers}/{result.total_questions} {t('correct')}
+                                                </p>
+                                            </div>
 
-                                        {/* Stats */}
-                                        <div className="flex items-center gap-2">
-                                            <Badge variant="outline" className="font-bold">{result.score}</Badge>
-                                            {result.prize_fund > 0 && (
-                                                <Badge className="bg-green-500 border-0">${result.prize_fund}</Badge>
-                                            )}
-                                            {result.is_eliminated && (
-                                                <Badge className="bg-orange-100 text-orange-700 border-0 text-xs">{t('eliminated')}</Badge>
-                                            )}
+                                            {/* Stats */}
+                                            <div className="flex items-center gap-2">
+                                                <Badge variant="outline" className="font-bold">{result.score}</Badge>
+                                                {result.prize_fund > 0 && (
+                                                    <Badge className="bg-green-500 border-0">{formatCurrency(result.prize_fund, locale)}</Badge>
+                                                )}
+                                                {result.is_eliminated && (
+                                                    <Badge className="bg-orange-100 text-orange-700 border-0 text-xs">{t('eliminated')}</Badge>
+                                                )}
+                                            </div>
                                         </div>
+                                    ))
+                                )}
+
+                                {/* Pagination */}
+                                {totalPages > 1 && (
+                                    <div className="flex items-center justify-center gap-2 pt-4 border-t">
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            disabled={currentPage === 1 || isPageLoading}
+                                            onClick={() => loadResultsPage(currentPage - 1)}
+                                        >
+                                            <ChevronLeft className="w-4 h-4" />
+                                        </Button>
+                                        <span className="px-4 py-2 text-sm text-muted-foreground">
+                                            {currentPage} / {totalPages}
+                                        </span>
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            disabled={currentPage >= totalPages || isPageLoading}
+                                            onClick={() => loadResultsPage(currentPage + 1)}
+                                        >
+                                            <ChevronRight className="w-4 h-4" />
+                                        </Button>
                                     </div>
-                                ))}
+                                )}
                             </div>
                         )}
                     </CardContent>
                 </Card>
 
                 <div className="text-center mt-8">
-                    <Button className="btn-coral px-8" size="lg" onClick={() => router.push('/')}>
+                    <Button className="btn-coral px-8 inline-flex items-center gap-2" size="lg" onClick={() => router.push('/')}>
+                        <Home className="w-4 h-4" />
                         {tNav('home')}
                     </Button>
                 </div>
             </main>
 
             {/* Mobile Navigation */}
-            <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-border/50 py-2 px-4">
-                <div className="flex justify-around">
-                    <Link href="/" className="flex flex-col items-center text-muted-foreground">
-                        <span className="text-xl">🏠</span>
-                        <span className="text-xs">{tNav('home')}</span>
-                    </Link>
-                    <Link href="/leaderboard" className="flex flex-col items-center text-muted-foreground">
-                        <span className="text-xl">🏆</span>
-                        <span className="text-xs">{tNav('leaderboard')}</span>
-                    </Link>
-                    {isAuthenticated && (
-                        <Link href="/profile" className="flex flex-col items-center text-muted-foreground">
-                            <span className="text-xl">👤</span>
-                            <span className="text-xs">{tNav('profile')}</span>
-                        </Link>
-                    )}
-                </div>
-            </div>
+            <MobileBottomNav />
         </div>
     );
 }
+
+

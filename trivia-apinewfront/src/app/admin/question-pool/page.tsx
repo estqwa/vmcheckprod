@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { Button } from '@/components/ui/button';
+import { BackButton } from '@/components/BackButton';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
@@ -157,7 +158,7 @@ function QuestionPoolContent() {
 ]`;
 
     return (
-        <div className="min-h-screen">
+        <div className="min-h-app">
             {/* Header */}
             <header className="border-b border-border/50 bg-white/80 backdrop-blur-sm sticky top-0 z-50">
                 <div className="container max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
@@ -168,16 +169,14 @@ function QuestionPoolContent() {
                         <span className="font-bold text-xl text-foreground">QazaQuiz</span>
                         <Badge className="bg-primary/10 text-primary border-0 ml-2">Админ</Badge>
                     </Link>
-                    <Link href="/admin">
-                        <Button variant="ghost">← Назад</Button>
-                    </Link>
+                    <BackButton href="/admin" label="Назад" />
                 </div>
             </header>
 
             {/* Main */}
             <main className="container max-w-4xl mx-auto px-4 py-8">
                 <h1 className="text-3xl font-bold mb-6 flex items-center gap-3">
-                    <span className="text-3xl">📦</span>
+                    <span className="text-3xl"></span>
                     Пул вопросов для адаптивной системы
                 </h1>
 
@@ -198,7 +197,7 @@ function QuestionPoolContent() {
                         <CardHeader>
                             <CardTitle className="flex items-center justify-between">
                                 <div className="flex items-center gap-2">
-                                    <span className="text-xl">📊</span>
+                                    <span className="text-xl"></span>
                                     Статистика пула
                                 </div>
                                 <Button
@@ -207,7 +206,7 @@ function QuestionPoolContent() {
                                     onClick={handleReset}
                                     disabled={isResetting || stats.used === 0}
                                 >
-                                    {isResetting ? 'Сброс...' : '🔄 Сбросить is_used'}
+                                    {isResetting ? 'Сброс...' : ' Сбросить is_used'}
                                 </Button>
                             </CardTitle>
                         </CardHeader>
@@ -244,7 +243,7 @@ function QuestionPoolContent() {
                 <Card className="mb-6 card-elevated border-0 rounded-2xl">
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2">
-                            <span className="text-xl">📝</span>
+                            <span className="text-xl"></span>
                             Загрузка вопросов (JSON)
                         </CardTitle>
                         <CardDescription>
@@ -264,20 +263,20 @@ function QuestionPoolContent() {
 
                         {parseError && (
                             <div className="p-3 rounded-lg bg-red-50 text-red-700 text-sm">
-                                ❌ {parseError}
+                                 {parseError}
                             </div>
                         )}
 
                         <div className="flex gap-2">
                             <Button variant="outline" onClick={handleParsePreview} disabled={!jsonInput.trim()}>
-                                👁️ Предпросмотр
+                                 Предпросмотр
                             </Button>
                             <Button
                                 className="btn-coral"
                                 onClick={handleUpload}
                                 disabled={!preview || isSubmitting}
                             >
-                                {isSubmitting ? 'Загрузка...' : `📤 Загрузить ${preview?.length || 0} вопросов`}
+                                {isSubmitting ? 'Загрузка...' : ` Загрузить ${preview?.length || 0} вопросов`}
                             </Button>
                         </div>
                     </CardContent>
@@ -288,7 +287,7 @@ function QuestionPoolContent() {
                     <Card className="card-elevated border-0 rounded-2xl">
                         <CardHeader>
                             <CardTitle className="flex items-center gap-2">
-                                <span className="text-xl">✅</span>
+                                <span className="text-xl"></span>
                                 Предпросмотр ({preview.length} вопросов)
                             </CardTitle>
                         </CardHeader>
@@ -309,15 +308,15 @@ function QuestionPoolContent() {
                                                     className={`p-2 rounded-lg ${j === q.correct_option ? 'bg-green-100 text-green-800 font-medium' : 'bg-muted'}`}
                                                 >
                                                     {String.fromCharCode(65 + j)}. {opt}
-                                                    {j === q.correct_option && ' ✓'}
+                                                    {j === q.correct_option && ' '}
                                                 </div>
                                             ))}
                                         </div>
                                         {(q.time_limit_sec || q.point_value) && (
                                             <div className="mt-2 text-xs text-muted-foreground">
-                                                {q.time_limit_sec && `⏱ ${q.time_limit_sec} сек`}
+                                                {q.time_limit_sec && ` ${q.time_limit_sec} сек`}
                                                 {q.time_limit_sec && q.point_value && ' | '}
-                                                {q.point_value && `🏆 ${q.point_value} очков`}
+                                                {q.point_value && ` ${q.point_value} очков`}
                                             </div>
                                         )}
                                     </div>
@@ -331,7 +330,7 @@ function QuestionPoolContent() {
                 <Card className="mt-6 border-0 rounded-2xl bg-muted/50">
                     <CardHeader>
                         <CardTitle className="text-base flex items-center gap-2">
-                            <span>📋</span>
+                            <span></span>
                             Формат JSON
                         </CardTitle>
                     </CardHeader>

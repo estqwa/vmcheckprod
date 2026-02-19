@@ -2,10 +2,12 @@
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
+import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../src/hooks/useAuth';
 import { BrandHeader } from '../../src/components/ui/BrandHeader';
 import { LanguageToggle } from '../../src/components/ui/LanguageToggle';
 import { palette, radii, shadow, spacing, typography } from '../../src/theme/tokens';
+import { formatCurrency } from '../../src/utils/format';
 
 export default function ProfileScreen() {
   const { t } = useTranslation();
@@ -24,21 +26,21 @@ export default function ProfileScreen() {
           <Text style={styles.username}>{user?.username ?? '-'}</Text>
           <Text style={styles.email}>{user?.email ?? '-'}</Text>
 
-          <View style={styles.statsGrid}>
-            <View style={styles.statTile}>
+          <View style={styles.statsGrid} accessibilityRole="summary">
+            <View style={styles.statTile} accessibilityLabel={`${t('profile.gamesPlayed')}: ${user?.games_played ?? 0}`}>
               <Text style={styles.statValue}>{user?.games_played ?? 0}</Text>
               <Text style={styles.statLabel}>{t('profile.gamesPlayed')}</Text>
             </View>
-            <View style={[styles.statTile, styles.primaryStatTile]}>
+            <View style={[styles.statTile, styles.primaryStatTile]} accessibilityLabel={`${t('profile.wins')}: ${user?.wins_count ?? 0}`}>
               <Text style={[styles.statValue, styles.primaryValue]}>{user?.wins_count ?? 0}</Text>
               <Text style={styles.statLabel}>{t('profile.wins')}</Text>
             </View>
-            <View style={styles.statTile}>
+            <View style={styles.statTile} accessibilityLabel={`${t('profile.totalScore')}: ${user?.total_score ?? 0}`}>
               <Text style={styles.statValue}>{user?.total_score ?? 0}</Text>
               <Text style={styles.statLabel}>{t('profile.totalScore')}</Text>
             </View>
-            <View style={[styles.statTile, styles.successStatTile]}>
-              <Text style={[styles.statValue, styles.successValue]}>${user?.total_prize_won ?? 0}</Text>
+            <View style={[styles.statTile, styles.successStatTile]} accessibilityLabel={`${t('profile.totalPrize')}: ${formatCurrency(user?.total_prize_won ?? 0)}`}>
+              <Text style={[styles.statValue, styles.successValue]}>{formatCurrency(user?.total_prize_won ?? 0)}</Text>
               <Text style={styles.statLabel}>{t('profile.totalPrize')}</Text>
             </View>
           </View>
@@ -47,16 +49,29 @@ export default function ProfileScreen() {
         <View style={styles.actionCard}>
           <Text style={styles.cardTitle}>{t('profile.actions')}</Text>
 
-          <TouchableOpacity style={styles.menuItem} onPress={() => router.push('/profile/history')}>
-            <Text style={styles.menuItemText}>📜 {t('profile.history')}</Text>
+          <TouchableOpacity style={styles.menuItem} onPress={() => router.push('/profile/history')} accessibilityRole="button">
+            <View style={styles.menuItemRow}>
+              <Ionicons name="document-text" size={16} color={palette.text} />
+              <Text style={styles.menuItemText}>{t('profile.history')}</Text>
+            </View>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.menuItem} onPress={() => router.push('/profile/sessions' as never)} accessibilityRole="button">
+            <View style={styles.menuItemRow}>
+              <Ionicons name="shield-checkmark" size={16} color={palette.text} />
+              <Text style={styles.menuItemText}>{t('profile.sessions')}</Text>
+            </View>
           </TouchableOpacity>
 
           <View style={styles.menuItemStatic}>
             <LanguageToggle />
           </View>
 
-          <TouchableOpacity style={[styles.menuItem, styles.logoutItem]} onPress={logout}>
-            <Text style={[styles.menuItemText, styles.logoutText]}>🚪 {t('auth.logout')}</Text>
+          <TouchableOpacity style={[styles.menuItem, styles.logoutItem]} onPress={logout} accessibilityRole="button" accessibilityLabel={t('auth.logout')}>
+            <View style={styles.menuItemRow}>
+              <Ionicons name="log-out-outline" size={16} color="#b91c1c" />
+              <Text style={[styles.menuItemText, styles.logoutText]}>{t('auth.logout')}</Text>
+            </View>
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -183,6 +198,11 @@ const styles = StyleSheet.create({
     color: palette.text,
     fontSize: 15,
     fontWeight: '600',
+  },
+  menuItemRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   logoutItem: {
     borderColor: '#fecaca',

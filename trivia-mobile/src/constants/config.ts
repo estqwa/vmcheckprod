@@ -1,7 +1,7 @@
 import Constants from 'expo-constants';
 
-// Default development URL for local Android emulator.
-const DEV_API_URL = 'http://10.0.2.2:8080';
+// Optional local backend URL for Android emulator (use via EXPO_PUBLIC_API_URL).
+const LOCAL_ANDROID_EMULATOR_API_URL = 'http://10.0.2.2:8080';
 const PROD_API_URL = 'https://qazaquiz.duckdns.org';
 
 const extraConfig = Constants.expoConfig?.extra;
@@ -9,7 +9,7 @@ const envApiUrl = process.env.EXPO_PUBLIC_API_URL;
 const envWsUrl = process.env.EXPO_PUBLIC_WS_URL;
 const extraApiUrl = typeof extraConfig?.apiUrl === 'string' ? extraConfig.apiUrl : undefined;
 const extraWsUrl = typeof extraConfig?.wsUrl === 'string' ? extraConfig.wsUrl : undefined;
-const defaultApiUrl = __DEV__ ? DEV_API_URL : PROD_API_URL;
+const defaultApiUrl = PROD_API_URL;
 
 export const API_URL: string = envApiUrl || extraApiUrl || defaultApiUrl;
 
@@ -17,6 +17,12 @@ export const WS_URL: string =
   envWsUrl ||
   extraWsUrl ||
   API_URL.replace(/^https:/, 'wss:').replace(/^http:/, 'ws:');
+
+if (__DEV__) {
+  console.log(
+    `[MobileConfig] API_URL=${API_URL}; WS_URL=${WS_URL}; localOverrideHint=${LOCAL_ANDROID_EMULATOR_API_URL}`
+  );
+}
 
 export const DEVICE_ID_KEY = 'trivia_device_id';
 export const ACCESS_TOKEN_KEY = 'trivia_access_token';

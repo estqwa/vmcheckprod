@@ -278,7 +278,7 @@ export default function QuizPlayPage() {
                 }}
             />
 
-            <div className="min-h-screen">
+            <div className="min-h-app">
                 {/* Header */}
                 <header className="border-b border-border/50 bg-white/80 backdrop-blur-sm sticky top-0 z-40">
                     <div className="container max-w-6xl mx-auto px-4 h-14 flex items-center justify-between">

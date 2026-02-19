@@ -1,38 +1,80 @@
-﻿import { useCallback, useMemo, useState } from 'react';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  FlatList,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+  type ListRenderItemInfo,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useQueryClient } from '@tanstack/react-query';
+import { hapticSelection, hapticSuccess, hapticWarning } from '../../../src/services/haptics';
 import { useTranslation } from 'react-i18next';
 import {
   type AnswerResultEvent,
+  type QuizAnswerRevealEvent,
+  type QuizAdBreakEndEvent,
+  type QuizAdBreakEvent,
   type QuizFinishEvent,
-  type QuizQuestionEvent,
   type QuizStateEvent,
   WS_SERVER_EVENTS,
   isAnswerResultEvent,
   isEliminationEvent,
+  isQuizAnswerRevealEvent,
+  isQuizAdBreakEndEvent,
+  isQuizAdBreakEvent,
+  isQuizCancelledEvent,
   isQuizFinishEvent,
   isQuizQuestionEvent,
+  isQuizStateQuestionEvent,
   isQuizStateEvent,
   isQuizTimerEvent,
   type QuestionOption,
   type WSServerMessage,
 } from '@trivia/shared';
 import { BrandHeader } from '../../../src/components/ui/BrandHeader';
+import { AdBreakOverlay } from '../../../src/components/game/AdBreakOverlay';
+import { ConnectionStatusPill } from '../../../src/components/ui/ConnectionStatusPill';
+import { useAuth } from '../../../src/hooks/useAuth';
 import { useQuizWS } from '../../../src/hooks/useQuizWS';
+import { leaderboardQueryKey, userQueryKey } from '../../../src/hooks/useUserQuery';
 import { palette, radii, shadow, spacing } from '../../../src/theme/tokens';
 
 type QuestionState = {
   id: number;
   text: string;
+  textKK?: string;
   options: QuestionOption[];
+  optionsKK?: QuestionOption[];
   current: number;
   total: number;
 };
 
+type LocalizableQuestionPayload = {
+  text: string;
+  text_kk?: string;
+  options: QuestionOption[];
+  options_kk?: QuestionOption[];
+};
+
+function getLocalizedQuestionData(question: LocalizableQuestionPayload, language: string) {
+  const isKazakh = language.startsWith('kk');
+  const text = isKazakh && typeof question.text_kk === 'string' ? question.text_kk : question.text;
+  const options = isKazakh && Array.isArray(question.options_kk) && question.options_kk.length > 0
+    ? question.options_kk
+    : question.options;
+
+  return { text, options };
+}
+
 export default function PlayScreen() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const router = useRouter();
+  const queryClient = useQueryClient();
+  const { logout } = useAuth();
   const { id } = useLocalSearchParams<{ id: string }>();
   const quizId = Number(id);
 
@@ -43,20 +85,62 @@ export default function PlayScreen() {
   const [score, setScore] = useState(0);
   const [correctCount, setCorrectCount] = useState(0);
   const [feedback, setFeedback] = useState<'correct' | 'incorrect' | null>(null);
+  const [revealedCorrectOption, setRevealedCorrectOption] = useState<number | null>(null);
+  const [adBreak, setAdBreak] = useState<QuizAdBreakEvent | null>(null);
+  const [showAdOverlay, setShowAdOverlay] = useState(false);
+
+  const hideAdOverlay = useCallback(() => {
+    setShowAdOverlay(false);
+    setAdBreak(null);
+  }, []);
+
+  const invalidateUserAndLeaderboard = useCallback(() => {
+    void Promise.all([
+      queryClient.invalidateQueries({ queryKey: userQueryKey }),
+      queryClient.invalidateQueries({ queryKey: leaderboardQueryKey }),
+    ]);
+  }, [queryClient]);
+
+  const handleSessionEnded = useCallback(async () => {
+    await logout();
+    router.replace('/(auth)/login');
+  }, [logout, router]);
 
   const handleMessage = useCallback(
     (msg: WSServerMessage) => {
+      if (msg.type === WS_SERVER_EVENTS.AD_BREAK && isQuizAdBreakEvent(msg.data)) {
+        const adData = msg.data as QuizAdBreakEvent;
+        if (adData.quiz_id === quizId) {
+          setAdBreak(adData);
+          setShowAdOverlay(true);
+        }
+        return;
+      }
+
+      if (msg.type === WS_SERVER_EVENTS.AD_BREAK_END && isQuizAdBreakEndEvent(msg.data)) {
+        const adEnd = msg.data as QuizAdBreakEndEvent;
+        if (adEnd.quiz_id === quizId) {
+          hideAdOverlay();
+        }
+        return;
+      }
+
       if (msg.type === WS_SERVER_EVENTS.QUESTION && isQuizQuestionEvent(msg.data)) {
+        const localized = getLocalizedQuestionData(msg.data, i18n.language);
         setQuestion({
           id: msg.data.question_id,
-          text: msg.data.text,
+          text: localized.text,
+          textKK: msg.data.text_kk,
           options: msg.data.options,
+          optionsKK: msg.data.options_kk,
           current: msg.data.number,
           total: msg.data.total_questions,
         });
         setSelectedOption(null);
         setFeedback(null);
+        setRevealedCorrectOption(null);
         setTimeLeft(msg.data.time_limit);
+        hideAdOverlay();
         return;
       }
 
@@ -68,11 +152,18 @@ export default function PlayScreen() {
       if (msg.type === WS_SERVER_EVENTS.ANSWER_RESULT && isAnswerResultEvent(msg.data)) {
         const answerData = msg.data as AnswerResultEvent;
         setFeedback(answerData.is_correct ? 'correct' : 'incorrect');
+        setRevealedCorrectOption(answerData.correct_option);
         setScore((prev) => prev + answerData.points_earned);
         setCorrectCount((prev) => (answerData.is_correct ? prev + 1 : prev));
         if (answerData.is_eliminated) {
           setIsEliminated(true);
         }
+        return;
+      }
+
+      if (msg.type === WS_SERVER_EVENTS.ANSWER_REVEAL && isQuizAnswerRevealEvent(msg.data)) {
+        const revealData = msg.data as QuizAnswerRevealEvent;
+        setRevealedCorrectOption(revealData.correct_option);
         return;
       }
 
@@ -84,6 +175,8 @@ export default function PlayScreen() {
       if (msg.type === WS_SERVER_EVENTS.STATE && isQuizStateEvent(msg.data)) {
         const stateData = msg.data as QuizStateEvent;
         if (stateData.status === 'completed') {
+          hideAdOverlay();
+          invalidateUserAndLeaderboard();
           router.replace(`/quiz/${quizId}/results`);
           return;
         }
@@ -102,14 +195,22 @@ export default function PlayScreen() {
         }
         if (stateData.current_question) {
           const currentQuestion = stateData.current_question as unknown;
-          if (isQuizQuestionEvent(currentQuestion)) {
+          if (isQuizStateQuestionEvent(currentQuestion)) {
+            const localized = getLocalizedQuestionData(currentQuestion, i18n.language);
             setQuestion({
               id: currentQuestion.question_id,
-              text: currentQuestion.text,
+              text: localized.text,
+              textKK: currentQuestion.text_kk,
               options: currentQuestion.options,
+              optionsKK: currentQuestion.options_kk,
               current: currentQuestion.number,
               total: currentQuestion.total_questions,
             });
+            if (typeof stateData.time_remaining !== 'number') {
+              setTimeLeft(currentQuestion.time_limit);
+            }
+            setRevealedCorrectOption(null);
+            hideAdOverlay();
           }
         }
         return;
@@ -118,154 +219,237 @@ export default function PlayScreen() {
       if (msg.type === WS_SERVER_EVENTS.FINISH && isQuizFinishEvent(msg.data)) {
         const finishData = msg.data as QuizFinishEvent;
         if (finishData.quiz_id === quizId) {
+          hideAdOverlay();
+          invalidateUserAndLeaderboard();
           router.replace(`/quiz/${quizId}/results`);
         }
         return;
       }
 
       if (msg.type === WS_SERVER_EVENTS.RESULTS_AVAILABLE) {
+        hideAdOverlay();
+        invalidateUserAndLeaderboard();
         router.replace(`/quiz/${quizId}/results`);
+        return;
+      }
+
+      if (msg.type === WS_SERVER_EVENTS.CANCELLED && isQuizCancelledEvent(msg.data)) {
+        if (msg.data.quiz_id === quizId) {
+          hideAdOverlay();
+          router.replace('/(tabs)');
+        }
       }
     },
-    [quizId, router]
+    [hideAdOverlay, i18n.language, invalidateUserAndLeaderboard, quizId, router]
   );
 
-  const { sendAnswer, connectionState } = useQuizWS({
+  const { sendAnswer, connectionState, isOffline } = useQuizWS({
     quizId,
     enabled: Number.isFinite(quizId) && quizId > 0,
     onMessage: handleMessage,
+    onSessionEnded: handleSessionEnded,
   });
 
-  const handleAnswer = (optionId: number) => {
-    if (selectedOption !== null || isEliminated || !question) return;
-    setSelectedOption(optionId);
-    sendAnswer(question.id, optionId);
-  };
-
-  const timerStyle = useMemo(() => {
-    if (timeLeft <= 5) {
-      return { backgroundColor: '#fee2e2', color: '#b91c1c' };
+  useEffect(() => {
+    if (feedback === 'correct') {
+      hapticSuccess();
+      return;
     }
-    return { backgroundColor: '#f3f4f6', color: '#1f2937' };
+    if (feedback === 'incorrect') {
+      hapticWarning();
+    }
+  }, [feedback]);
+
+  const handleAnswer = useCallback(
+    (optionId: number) => {
+      if (
+        selectedOption !== null ||
+        revealedCorrectOption !== null ||
+        isEliminated ||
+        !question ||
+        isOffline ||
+        connectionState !== 'connected' ||
+        showAdOverlay
+      ) {
+        return;
+      }
+      setSelectedOption(optionId);
+      hapticSelection();
+      sendAnswer(question.id, optionId);
+    },
+    [connectionState, isEliminated, isOffline, question, revealedCorrectOption, selectedOption, sendAnswer, showAdOverlay]
+  );
+
+  const timerTone = useMemo(() => {
+    if (timeLeft <= 5) {
+      return { badge: styles.timerBadgeDanger, text: styles.timerTextDanger };
+    }
+    return { badge: styles.timerBadgeNormal, text: styles.timerTextNormal };
   }, [timeLeft]);
 
-  const connectionPill = useMemo(() => {
-    if (connectionState === 'connected') {
-      return { text: `🟢 ${t('quiz.connected')}`, bg: '#dcfce7', color: '#166534' };
-    }
-    if (connectionState === 'reconnecting') {
-      return { text: `🟠 ${t('quiz.reconnecting')}`, bg: '#ffedd5', color: '#9a3412' };
-    }
-    if (connectionState === 'connecting') {
-      return { text: `🟡 ${t('quiz.connecting')}`, bg: '#fef9c3', color: '#854d0e' };
-    }
-    return { text: `🔴 ${t('quiz.disconnected')}`, bg: '#fee2e2', color: '#991b1b' };
-  }, [connectionState, t]);
 
-  const getOptionStyle = (optionId: number) => {
-    if (selectedOption === null) return [styles.optionButton, styles.optionIdle];
-    if (optionId === selectedOption) {
-      if (feedback === 'correct') return [styles.optionButton, styles.optionCorrect];
-      if (feedback === 'incorrect') return [styles.optionButton, styles.optionIncorrect];
-      return [styles.optionButton, styles.optionSelected];
+
+  const displayedQuestionText = useMemo(() => {
+    if (!question) return '';
+    if (i18n.language.startsWith('kk') && question.textKK) {
+      return question.textKK;
     }
-    return [styles.optionButton, styles.optionIdle];
-  };
+    return question.text;
+  }, [i18n.language, question]);
+
+  const displayedOptions = useMemo(() => {
+    if (!question) return [];
+    if (i18n.language.startsWith('kk') && question.optionsKK && question.optionsKK.length > 0) {
+      return question.optionsKK;
+    }
+    return question.options;
+  }, [i18n.language, question]);
+
+  const getOptionStyle = useCallback(
+    (optionId: number) => {
+      if (revealedCorrectOption !== null) {
+        if (optionId === revealedCorrectOption) {
+          return [styles.optionButton, styles.optionCorrect];
+        }
+        if (selectedOption !== null && optionId === selectedOption && selectedOption !== revealedCorrectOption) {
+          return [styles.optionButton, styles.optionIncorrect];
+        }
+        return [styles.optionButton, styles.optionIdle];
+      }
+
+      if (selectedOption === null) return [styles.optionButton, styles.optionIdle];
+      if (optionId === selectedOption) {
+        if (feedback === 'correct') return [styles.optionButton, styles.optionCorrect];
+        if (feedback === 'incorrect') return [styles.optionButton, styles.optionIncorrect];
+        return [styles.optionButton, styles.optionSelected];
+      }
+      return [styles.optionButton, styles.optionIdle];
+    },
+    [feedback, revealedCorrectOption, selectedOption]
+  );
+
+  const renderOption = useCallback(
+    ({ item, index }: ListRenderItemInfo<QuestionOption>) => (
+      <TouchableOpacity
+        style={getOptionStyle(item.id)}
+        onPress={() => handleAnswer(item.id)}
+        disabled={selectedOption !== null || revealedCorrectOption !== null || isOffline || connectionState !== 'connected' || showAdOverlay}
+        accessibilityRole="button"
+        accessibilityLabel={item.text}
+        accessibilityState={{ disabled: selectedOption !== null || revealedCorrectOption !== null || isOffline || connectionState !== 'connected' || showAdOverlay }}
+      >
+        <View style={styles.optionLetterWrap}>
+          <Text style={styles.optionLetter}>{String.fromCharCode(65 + index)}</Text>
+        </View>
+        <Text style={styles.optionText}>{item.text}</Text>
+      </TouchableOpacity>
+    ),
+    [connectionState, getOptionStyle, handleAnswer, isOffline, revealedCorrectOption, selectedOption, showAdOverlay]
+  );
+
+  const adOverlay = (
+    <AdBreakOverlay
+      adData={adBreak}
+      isVisible={showAdOverlay}
+      onAdEnd={hideAdOverlay}
+    />
+  );
 
   if (isEliminated) {
     return (
-      <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
-        <BrandHeader subtitle={t('quiz.play')} onBackPress={() => router.replace('/(tabs)')} />
-        <View style={styles.centerState}>
-          <View style={styles.eliminatedCard}>
-            <Text style={styles.eliminatedIcon}>👀</Text>
-            <Text style={styles.eliminatedTitle}>{t('quiz.eliminated')}</Text>
-            <Text style={styles.eliminatedScore}>{t('quiz.score', { score })}</Text>
+      <>
+        {adOverlay}
+        <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
+          <BrandHeader subtitle={t('quiz.play')} onBackPress={() => router.replace('/(tabs)')} />
+          <View style={styles.centerState}>
+            <View style={styles.eliminatedCard}>
+              <Text style={styles.eliminatedIcon}>OUT</Text>
+              <Text style={styles.eliminatedTitle}>{t('quiz.eliminated')}</Text>
+              <Text style={styles.eliminatedScore}>{t('quiz.score', { score })}</Text>
+            </View>
           </View>
-        </View>
-      </SafeAreaView>
+        </SafeAreaView>
+      </>
     );
   }
 
   if (!question) {
     return (
-      <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
-        <BrandHeader subtitle={t('quiz.play')} onBackPress={() => router.replace('/(tabs)')} />
-        <View style={styles.centerState}>
-          <View style={styles.waitCard}>
-            <Text style={styles.waitIcon}>⏳</Text>
-            <Text style={styles.waitText}>{t('quiz.waiting')}</Text>
-            <Text style={styles.waitSubText}>{connectionState === 'connected' ? t('quiz.ready') : t('quiz.connecting')}</Text>
+      <>
+        {adOverlay}
+        <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
+          <BrandHeader subtitle={t('quiz.play')} onBackPress={() => router.replace('/(tabs)')} />
+          <View style={styles.centerState}>
+            <View style={styles.waitCard}>
+              <Text style={styles.waitIcon}>...</Text>
+              <Text style={styles.waitText}>{t('quiz.waiting')}</Text>
+              <Text style={styles.waitSubText}>{connectionState === 'connected' ? t('quiz.ready') : t('quiz.connecting')}</Text>
+            </View>
           </View>
-        </View>
-      </SafeAreaView>
+        </SafeAreaView>
+      </>
     );
   }
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
-      <BrandHeader subtitle={t('quiz.play')} onBackPress={() => router.replace('/(tabs)')} />
+    <>
+      {adOverlay}
+      <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
+        <BrandHeader subtitle={t('quiz.play')} onBackPress={() => router.replace('/(tabs)')} />
 
-      <View style={styles.content}>
-        <View style={styles.connectionRow}>
-          <Text style={[styles.connectionPill, { backgroundColor: connectionPill.bg, color: connectionPill.color }]}>
-            {connectionPill.text}
-          </Text>
-        </View>
-
-        <View style={styles.scoreboard}>
-          <View style={styles.scoreItem}>
-            <Text style={styles.scoreValue}>{score}</Text>
-            <Text style={styles.scoreLabel}>{t('quiz.scoreLabel')}</Text>
-          </View>
-          <View style={styles.scoreItem}>
-            <Text style={[styles.scoreValue, { color: palette.success }]}>{correctCount}</Text>
-            <Text style={styles.scoreLabel}>{t('quiz.correct')}</Text>
-          </View>
-          <View style={styles.scoreItem}>
-            <Text style={styles.scoreValue}>{question.current}/{question.total}</Text>
-            <Text style={styles.scoreLabel}>{t('quiz.questionShort')}</Text>
-          </View>
-        </View>
-
-        <View style={styles.questionCard}>
-          <View style={styles.questionTopRow}>
-            <Text style={styles.questionCounter}>
-              {t('quiz.question', { current: question.current, total: question.total })}
-            </Text>
-            <View style={[styles.timerBadge, { backgroundColor: timerStyle.backgroundColor }]}>
-              <Text style={[styles.timerText, { color: timerStyle.color }]}>{timeLeft}s</Text>
+        <ScrollView contentContainerStyle={styles.contentScroll}>
+          <View style={styles.content}>
+            <View style={styles.connectionRow}>
+              <ConnectionStatusPill connectionState={connectionState} isOffline={isOffline} />
             </View>
-          </View>
 
-          <Text style={styles.questionText}>{question.text}</Text>
+            <View style={styles.scoreboard} accessibilityRole="summary">
+              <View style={styles.scoreItem} accessibilityLabel={`${t('quiz.scoreLabel')}: ${score}`}>
+                <Text style={styles.scoreValue}>{score}</Text>
+                <Text style={styles.scoreLabel}>{t('quiz.scoreLabel')}</Text>
+              </View>
+              <View style={styles.scoreItem} accessibilityLabel={`${t('quiz.correct')}: ${correctCount}`}>
+                <Text style={[styles.scoreValue, styles.scoreValueSuccess]}>{correctCount}</Text>
+                <Text style={styles.scoreLabel}>{t('quiz.correct')}</Text>
+              </View>
+              <View style={styles.scoreItem} accessibilityLabel={`${t('quiz.questionShort')}: ${question.current}/${question.total}`}>
+                <Text style={styles.scoreValue}>{question.current}/{question.total}</Text>
+                <Text style={styles.scoreLabel}>{t('quiz.questionShort')}</Text>
+              </View>
+            </View>
 
-          <View style={styles.optionsList}>
-            {question.options.map((option, index) => (
-              <TouchableOpacity
-                key={option.id}
-                style={getOptionStyle(option.id)}
-                onPress={() => handleAnswer(option.id)}
-                disabled={selectedOption !== null}
-              >
-                <View style={styles.optionLetterWrap}>
-                  <Text style={styles.optionLetter}>{String.fromCharCode(65 + index)}</Text>
+            <View style={styles.questionCard}>
+              <View style={styles.questionTopRow}>
+                <Text style={styles.questionCounter}>
+                  {t('quiz.question', { current: question.current, total: question.total })}
+                </Text>
+                <View style={[styles.timerBadge, timerTone.badge]} accessibilityLiveRegion="polite" accessibilityLabel={`${timeLeft} seconds`}>
+                  <Text style={[styles.timerText, timerTone.text]}>{timeLeft}s</Text>
                 </View>
-                <Text style={styles.optionText}>{option.text}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
+              </View>
 
-          {feedback ? (
-            <View style={feedback === 'correct' ? styles.feedbackOk : styles.feedbackBad}>
-              <Text style={feedback === 'correct' ? styles.feedbackOkText : styles.feedbackBadText}>
-                {feedback === 'correct' ? `✓ ${t('quiz.correct')}` : `✗ ${t('quiz.incorrect')}`}
-              </Text>
+              <Text style={styles.questionText}>{displayedQuestionText}</Text>
+
+              <FlatList
+                data={displayedOptions}
+                renderItem={renderOption}
+                keyExtractor={(option) => String(option.id)}
+                scrollEnabled={false}
+                contentContainerStyle={styles.optionsList}
+              />
+
+              {feedback ? (
+                <View style={feedback === 'correct' ? styles.feedbackOk : styles.feedbackBad}>
+                  <Text style={feedback === 'correct' ? styles.feedbackOkText : styles.feedbackBadText}>
+                    {feedback === 'correct' ? t('quiz.correct') : t('quiz.incorrect')}
+                  </Text>
+                </View>
+              ) : null}
             </View>
-          ) : null}
-        </View>
-      </View>
-    </SafeAreaView>
+          </View>
+        </ScrollView>
+      </SafeAreaView>
+    </>
   );
 }
 
@@ -274,21 +458,16 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: palette.background,
   },
-  content: {
-    flex: 1,
+  contentScroll: {
+    flexGrow: 1,
     padding: spacing.lg,
+    paddingBottom: spacing.xl,
+  },
+  content: {
     gap: spacing.md,
   },
   connectionRow: {
     alignItems: 'flex-start',
-  },
-  connectionPill: {
-    fontSize: 11,
-    fontWeight: '700',
-    borderRadius: radii.pill,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 5,
-    overflow: 'hidden',
   },
   centerState: {
     flex: 1,
@@ -308,7 +487,9 @@ const styles = StyleSheet.create({
     ...shadow.card,
   },
   waitIcon: {
-    fontSize: 44,
+    fontSize: 34,
+    fontWeight: '700',
+    color: '#64748b',
   },
   waitText: {
     color: palette.text,
@@ -330,7 +511,9 @@ const styles = StyleSheet.create({
     ...shadow.card,
   },
   eliminatedIcon: {
-    fontSize: 44,
+    color: '#9a3412',
+    fontSize: 24,
+    fontWeight: '800',
   },
   eliminatedTitle: {
     color: '#9a3412',
@@ -362,12 +545,14 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '800',
   },
+  scoreValueSuccess: {
+    color: palette.success,
+  },
   scoreLabel: {
     color: palette.textMuted,
     fontSize: 11,
   },
   questionCard: {
-    flex: 1,
     borderRadius: radii.xl,
     borderWidth: 1,
     borderColor: palette.border,
@@ -391,9 +576,21 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     paddingHorizontal: 10,
   },
+  timerBadgeNormal: {
+    backgroundColor: '#f3f4f6',
+  },
+  timerBadgeDanger: {
+    backgroundColor: '#fee2e2',
+  },
   timerText: {
     fontSize: 18,
     fontWeight: '800',
+  },
+  timerTextNormal: {
+    color: '#1f2937',
+  },
+  timerTextDanger: {
+    color: '#b91c1c',
   },
   questionText: {
     color: palette.text,

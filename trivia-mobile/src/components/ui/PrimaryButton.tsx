@@ -13,6 +13,9 @@ export function PrimaryButton({ title, loading = false, disabled, style, ...prop
       style={[styles.button, isDisabled ? styles.buttonDisabled : null, style]}
       disabled={isDisabled}
       activeOpacity={0.85}
+      accessibilityRole="button"
+      accessibilityLabel={title}
+      accessibilityState={{ disabled: isDisabled }}
       {...props}
     >
       {loading ? <ActivityIndicator color={palette.white} /> : <Text style={styles.text}>{title}</Text>}

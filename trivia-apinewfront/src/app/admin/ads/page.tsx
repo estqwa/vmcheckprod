@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { Button } from '@/components/ui/button';
+import { BackButton } from '@/components/BackButton';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -109,7 +110,7 @@ function AdsManagement() {
     };
 
     return (
-        <div className="min-h-screen">
+        <div className="min-h-app">
             {/* Header */}
             <header className="border-b border-border/50 bg-white/80 backdrop-blur-sm sticky top-0 z-50">
                 <div className="container max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
@@ -120,9 +121,7 @@ function AdsManagement() {
                         <span className="font-bold text-xl text-foreground">QazaQuiz</span>
                         <Badge className="bg-primary/10 text-primary border-0 ml-2">Админ</Badge>
                     </Link>
-                    <Link href="/admin">
-                        <Button variant="ghost">← Назад</Button>
-                    </Link>
+                    <BackButton href="/admin" label="Назад" />
                 </div>
             </header>
 
@@ -136,7 +135,7 @@ function AdsManagement() {
                 <Card className="mb-8 card-elevated border-0 rounded-2xl">
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2">
-                            <span className="text-xl">📤</span>
+                            <span className="text-xl"></span>
                             Загрузить рекламу
                         </CardTitle>
                     </CardHeader>
@@ -201,7 +200,7 @@ function AdsManagement() {
                 <Card className="card-elevated border-0 rounded-2xl">
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2">
-                            <span className="text-xl">📺</span>
+                            <span className="text-xl"></span>
                             Загруженные рекламы ({ads.length})
                         </CardTitle>
                     </CardHeader>
@@ -214,7 +213,7 @@ function AdsManagement() {
                             </div>
                         ) : ads.length === 0 ? (
                             <div className="text-center py-12">
-                                <span className="text-5xl mb-4 block">📺</span>
+                                <span className="text-5xl mb-4 block"></span>
                                 <p className="text-muted-foreground">Нет загруженных реклам</p>
                             </div>
                         ) : (
@@ -227,12 +226,13 @@ function AdsManagement() {
                                         {/* Preview */}
                                         <div className="w-24 h-16 bg-muted rounded-lg overflow-hidden flex-shrink-0">
                                             {ad.media_type === 'video' ? (
-                                                <video
-                                                    src={`${API_URL}${ad.url}`}
-                                                    className="w-full h-full object-cover"
-                                                    muted
-                                                />
+                                            <video
+                                                src={`${API_URL}${ad.url}`}
+                                                className="w-full h-full object-cover"
+                                                muted
+                                            />
                                             ) : (
+                                                // eslint-disable-next-line @next/next/no-img-element
                                                 <img
                                                     src={`${API_URL}${ad.url}`}
                                                     alt={ad.title}

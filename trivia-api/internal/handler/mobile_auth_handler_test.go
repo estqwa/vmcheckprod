@@ -234,6 +234,42 @@ func TestMobileWsTicket_MissingUserID(t *testing.T) {
 	assert.Equal(t, "token_missing", resp["error_type"])
 }
 
+func TestMobileGetActiveSessions_MissingUserID(t *testing.T) {
+	handler := &MobileAuthHandler{}
+
+	c, w := newTestGinContext("GET", "/api/mobile/auth/sessions", nil)
+	handler.MobileGetActiveSessions(c)
+
+	assert.Equal(t, http.StatusUnauthorized, w.Code)
+	resp := parseJSONResponse(t, w)
+	assert.Equal(t, "Unauthorized", resp["error"])
+	assert.Equal(t, "token_missing", resp["error_type"])
+}
+
+func TestMobileRevokeSession_MissingUserID(t *testing.T) {
+	handler := &MobileAuthHandler{}
+
+	c, w := newTestGinContext("POST", "/api/mobile/auth/revoke-session", map[string]uint{"session_id": 1})
+	handler.MobileRevokeSession(c)
+
+	assert.Equal(t, http.StatusUnauthorized, w.Code)
+	resp := parseJSONResponse(t, w)
+	assert.Equal(t, "Unauthorized", resp["error"])
+	assert.Equal(t, "token_missing", resp["error_type"])
+}
+
+func TestMobileLogoutAllDevices_MissingUserID(t *testing.T) {
+	handler := &MobileAuthHandler{}
+
+	c, w := newTestGinContext("POST", "/api/mobile/auth/logout-all", nil)
+	handler.MobileLogoutAllDevices(c)
+
+	assert.Equal(t, http.StatusUnauthorized, w.Code)
+	resp := parseJSONResponse(t, w)
+	assert.Equal(t, "Unauthorized", resp["error"])
+	assert.Equal(t, "token_missing", resp["error_type"])
+}
+
 // ============================================================================
 // handleAuthError — тестирование маппинга ошибок
 // ============================================================================

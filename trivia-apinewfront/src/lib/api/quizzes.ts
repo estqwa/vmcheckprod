@@ -6,17 +6,33 @@ interface PaginationParams {
     page_size?: number;
 }
 
+interface QuizFilterParams extends PaginationParams {
+    status?: string;
+    search?: string;
+}
+
+export interface PaginatedQuizzesResponse {
+    quizzes: Quiz[];
+    total: number;
+    page: number;
+    size: number;
+}
+
 // ============ Public Endpoints ============
 
 /**
- * Get list of quizzes with pagination
+ * Get list of quizzes with pagination and optional filters.
+ * Always passes status filter (even empty string) so backend returns pagination metadata.
  */
-export async function getQuizzes(params?: PaginationParams): Promise<Quiz[]> {
+export async function getQuizzes(params?: QuizFilterParams): Promise<PaginatedQuizzesResponse> {
     const query: Record<string, string> = {};
     if (params?.page) query.page = params.page.toString();
     if (params?.page_size) query.page_size = params.page_size.toString();
+    // Always pass status to force backend to return {quizzes, total, page, size}
+    query.status = params?.status ?? '';
+    if (params?.search) query.search = params.search;
 
-    return api.get<Quiz[]>('/api/quizzes', { query });
+    return api.get<PaginatedQuizzesResponse>('/api/quizzes', { query });
 }
 
 /**

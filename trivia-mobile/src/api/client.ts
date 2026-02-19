@@ -5,8 +5,11 @@
 // =============================================================================
 
 import { API_URL } from '../constants/config';
+import NetInfo from '@react-native-community/netinfo';
 import { getAccessToken, refreshTokens } from '../services/tokenService';
 import type { ApiError } from '@trivia/shared';
+
+const REQUEST_TIMEOUT_MS = 15_000;
 
 type HttpMethod = 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH';
 
@@ -27,6 +30,12 @@ export async function request<T, B = unknown>(
     options: RequestOptions = {}
 ): Promise<T> {
     let url = `${API_URL}${endpoint}`;
+
+    const networkState = await NetInfo.fetch();
+    const isOffline = networkState.isConnected === false || networkState.isInternetReachable === false;
+    if (isOffline) {
+        throw { error: 'No internet connection', error_type: 'offline', status: 0 } as ApiError & { status: number };
+    }
 
     // Build headers
     const headers: Record<string, string> = {
@@ -58,8 +67,15 @@ export async function request<T, B = unknown>(
         if (params) url += `?${params}`;
     }
 
+    // Helper: fetch с собственным AbortController и таймаутом
+    function fetchWithTimeout(fetchUrl: string, fetchConfig: RequestInit): Promise<Response> {
+        const ctrl = new AbortController();
+        const tid = setTimeout(() => ctrl.abort(), REQUEST_TIMEOUT_MS);
+        return fetch(fetchUrl, { ...fetchConfig, signal: ctrl.signal }).finally(() => clearTimeout(tid));
+    }
+
     try {
-        let response = await fetch(url, config);
+        let response = await fetchWithTimeout(url, config);
 
         // Handle 401 — try auto-refresh
         if (response.status === 401 && !options.skipAuth) {
@@ -67,9 +83,9 @@ export async function request<T, B = unknown>(
             if (errorData.error_type === 'token_expired') {
                 const newTokens = await refreshTokens();
                 if (newTokens) {
-                    // Retry with new token
+                    // Retry with new token — fresh controller, full timeout
                     headers['Authorization'] = `Bearer ${newTokens.accessToken}`;
-                    response = await fetch(url, { ...config, headers });
+                    response = await fetchWithTimeout(url, { ...config, headers });
                     if (response.ok) {
                         if (response.status === 204) return undefined as T;
                         return response.json();
@@ -83,8 +99,8 @@ export async function request<T, B = unknown>(
             let errorData: ApiError = { error: response.statusText };
             try {
                 errorData = await response.json();
-            } catch {
-                // Keep default error
+            } catch (parseErr) {
+                if (__DEV__) console.warn('[API] Failed to parse error response:', parseErr);
             }
             throw { ...errorData, status: response.status };
         }
@@ -101,7 +117,14 @@ export async function request<T, B = unknown>(
 
         return response.text() as unknown as T;
     } catch (error) {
-        console.error(`[API] ${method} ${endpoint} failed:`, error);
+        if (__DEV__) {
+            const isAbort = typeof error === 'object' && error !== null && 'name' in error && (error as { name: string }).name === 'AbortError';
+            if (isAbort) {
+                console.warn(`[API] ${method} ${endpoint} timed out after ${REQUEST_TIMEOUT_MS}ms`);
+            } else {
+                console.error(`[API] ${method} ${endpoint} failed:`, error);
+            }
+        }
         throw error;
     }
 }

@@ -237,7 +237,7 @@ func main() {
 
 	// Инициализируем обработчики
 	authHandler := handler.NewAuthHandler(authService, tokenManager, wsHub)
-	mobileAuthHandler := handler.NewMobileAuthHandler(authService, tokenManager)
+	mobileAuthHandler := handler.NewMobileAuthHandler(authService, tokenManager, wsHub)
 	quizHandler := handler.NewQuizHandler(quizService, resultService, quizManagerService)
 	wsHandler := handler.NewWSHandler(wsHub, wsManager, quizManagerService, jwtService, cfg.WebSocket, cfg.CORS.AllowedOrigins)
 	userHandler := handler.NewUserHandler(userService, resultService)
@@ -435,6 +435,10 @@ func main() {
 		mobileAuthed.Use(authMiddleware.RequireAuth())
 		{
 			mobileAuthed.POST("/ws-ticket", mobileAuthHandler.MobileWsTicket)
+			mobileAuthed.PUT("/profile", mobileAuthHandler.MobileUpdateProfile)
+			mobileAuthed.GET("/sessions", mobileAuthHandler.MobileGetActiveSessions)
+			mobileAuthed.POST("/revoke-session", mobileAuthHandler.MobileRevokeSession)
+			mobileAuthed.POST("/logout-all", mobileAuthHandler.MobileLogoutAllDevices)
 		}
 	}
 

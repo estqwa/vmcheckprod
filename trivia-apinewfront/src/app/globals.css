@@ -157,6 +157,14 @@
 
 /* ====== Кастомные утилиты ====== */
 
+/* Viewport-aware min-height:
+   100vh — fallback для старых браузеров
+   100dvh — динамическая высота viewport (учитывает адресную строку mobile Safari/Chrome) */
+.min-h-app {
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
 /* Градиентный текст заголовка */
 .text-gradient-hero {
   background: var(--title-gradient);

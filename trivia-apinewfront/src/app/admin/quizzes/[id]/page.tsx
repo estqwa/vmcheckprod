@@ -6,12 +6,15 @@ import Link from 'next/link';
 import { getQuizWithQuestions, getQuizAskedQuestions, scheduleQuiz, cancelQuiz, duplicateQuiz, addQuestions, QuizWithQuestions, AskedQuizQuestion } from '@/lib/api';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { Button } from '@/components/ui/button';
+import { formatCurrency } from '@/lib/formatCurrency';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { AdSlotsEditor } from '@/components/admin/AdSlotsEditor';
+import { BackButton } from '@/components/BackButton';
+import { formatDate } from '@/lib/formatDate';
 import { toast } from 'sonner';
 
 const statusColors: Record<string, { bg: string; text: string; label: string }> = {
@@ -79,9 +82,7 @@ function QuizDetailsContent() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [quizId]);
 
-    const formatDate = (dateStr: string) => {
-        return new Date(dateStr).toLocaleString('ru-RU');
-    };
+
 
     const handleSchedule = async () => {
         if (!scheduleTime) {
@@ -222,7 +223,7 @@ function QuizDetailsContent() {
 
     if (isLoading) {
         return (
-            <div className="min-h-screen">
+            <div className="min-h-app">
                 <header className="border-b border-border/50 bg-white/80 backdrop-blur-sm">
                     <div className="container max-w-6xl mx-auto px-4 h-16 flex items-center">
                         <Skeleton className="h-8 w-32" />
@@ -247,7 +248,7 @@ function QuizDetailsContent() {
     const status = statusColors[quiz.status] || statusColors.scheduled;
 
     return (
-        <div className="min-h-screen">
+        <div className="min-h-app">
             {/* Header */}
             <header className="border-b border-border/50 bg-white/80 backdrop-blur-sm sticky top-0 z-50">
                 <div className="container max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
@@ -258,9 +259,7 @@ function QuizDetailsContent() {
                         <span className="font-bold text-xl text-foreground">QazaQuiz</span>
                         <Badge className="bg-primary/10 text-primary border-0 ml-2">Админ</Badge>
                     </Link>
-                    <Link href="/admin">
-                        <Button variant="ghost">← Назад</Button>
-                    </Link>
+                    <BackButton href="/admin" />
                 </div>
             </header>
 
@@ -278,14 +277,14 @@ function QuizDetailsContent() {
                 <Card className="mb-6 card-elevated border-0 rounded-2xl">
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2">
-                            <span className="text-xl">📋</span>
+                            <span className="text-xl"></span>
                             Детали викторины
                         </CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-2">
                         {quiz.description && <p>{quiz.description}</p>}
                         <p><strong>Запланировано:</strong> {formatDate(quiz.scheduled_time)}</p>
-                        <p><strong>Призовой фонд:</strong> <span className="text-green-600 font-semibold">${quiz.prize_fund?.toLocaleString() || 0}</span></p>
+                        <p><strong>Призовой фонд:</strong> <span className="text-green-600 font-semibold">{formatCurrency(quiz.prize_fund || 0)}</span></p>
                         <p><strong>Поведение при 0 активных игроков:</strong> {quiz.finish_on_zero_players ? 'досрочно завершать' : 'идти до конца'}</p>
                         <p><strong>Создано:</strong> {formatDate(quiz.created_at)}</p>
                     </CardContent>
@@ -295,7 +294,7 @@ function QuizDetailsContent() {
                 <Card className="mb-6 card-elevated border-0 rounded-2xl">
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2">
-                            <span className="text-xl">⚡</span>
+                            <span className="text-xl"></span>
                             Действия
                         </CardTitle>
                     </CardHeader>
@@ -307,7 +306,7 @@ function QuizDetailsContent() {
                         )}
                         {canSchedule && (
                             <Button variant="outline" onClick={() => setShowScheduleForm(true)}>
-                                🕐 Перенести
+                                 Перенести
                             </Button>
                         )}
                         {canCancel && (
@@ -317,28 +316,24 @@ function QuizDetailsContent() {
                         )}
                         {canDuplicate && (
                             <Button variant="outline" onClick={() => setShowDuplicateForm(true)}>
-                                📋 Копировать
+                                 Копировать
                             </Button>
                         )}
                         {canViewWinners && (
                             <>
-                                <Link href={`/admin/quizzes/${quizId}/winners`}>
-                                    <Button className="bg-yellow-400 hover:bg-yellow-500 text-yellow-900">
-                                        🏆 Победители
-                                    </Button>
-                                </Link>
-                                <Link href={`/admin/quizzes/${quizId}/statistics`}>
-                                    <Button variant="outline" className="border-purple-300 text-purple-700 hover:bg-purple-50">
-                                        📈 Статистика
-                                    </Button>
-                                </Link>
+                                <Button asChild className="bg-yellow-400 hover:bg-yellow-500 text-yellow-900">
+                                    <Link href={`/admin/quizzes/${quizId}/winners`}> Победители</Link>
+                                </Button>
+                                <Button asChild variant="outline" className="border-purple-300 text-purple-700 hover:bg-purple-50">
+                                    <Link href={`/admin/quizzes/${quizId}/statistics`}> Статистика</Link>
+                                </Button>
                                 <Button
                                     variant="outline"
                                     onClick={() => {
                                         window.open(`${process.env.NEXT_PUBLIC_API_URL}/api/quizzes/${quizId}/results/export?format=csv`, '_blank');
                                     }}
                                 >
-                                    📥 CSV
+                                     CSV
                                 </Button>
                                 <Button
                                     variant="outline"
@@ -346,17 +341,15 @@ function QuizDetailsContent() {
                                         window.open(`${process.env.NEXT_PUBLIC_API_URL}/api/quizzes/${quizId}/results/export?format=xlsx`, '_blank');
                                     }}
                                 >
-                                    📊 Excel
+                                     Excel
                                 </Button>
                             </>
                         )}
                         {/* Live мониторинг — доступен для scheduled и in_progress */}
                         {(quiz.status === 'scheduled' || quiz.status === 'in_progress') && (
-                            <Link href={`/admin/quiz-live/${quizId}`}>
-                                <Button variant="outline" className="border-green-300 text-green-700 hover:bg-green-50">
-                                    📡 Live мониторинг
-                                </Button>
-                            </Link>
+                            <Button asChild variant="outline" className="border-green-300 text-green-700 hover:bg-green-50">
+                                <Link href={`/admin/quiz-live/${quizId}`}> Live мониторинг</Link>
+                            </Button>
                         )}
                     </CardContent>
                 </Card>
@@ -415,7 +408,7 @@ function QuizDetailsContent() {
                     <Card className="mb-6 card-elevated border-0 rounded-2xl">
                         <CardHeader>
                             <CardTitle className="flex items-center gap-2">
-                                <span className="text-xl">❓</span>
+                                <span className="text-xl"></span>
                                 Добавить вопросы
                             </CardTitle>
                         </CardHeader>
@@ -507,7 +500,7 @@ function QuizDetailsContent() {
                 <Card className="mb-6 card-elevated border-0 rounded-2xl">
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2">
-                            <span className="text-xl">📚</span>
+                            <span className="text-xl"></span>
                             Фактически заданные вопросы ({askedQuestions.length})
                         </CardTitle>
                         <CardDescription>
@@ -538,7 +531,7 @@ function QuizDetailsContent() {
                                                     className={`p-2 rounded-lg ${opt.id === item.question.correct_option ? 'bg-green-100 border border-green-300' : 'bg-muted'}`}
                                                 >
                                                     {String.fromCharCode(65 + opt.id)}. {opt.text}
-                                                    {opt.id === item.question.correct_option && <span className="ml-2 text-green-700 font-semibold">✓</span>}
+                                                    {opt.id === item.question.correct_option && <span className="ml-2 text-green-700 font-semibold"></span>}
                                                 </div>
                                             ))}
                                         </div>
@@ -556,14 +549,14 @@ function QuizDetailsContent() {
                 <Card className="card-elevated border-0 rounded-2xl">
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2">
-                            <span className="text-xl">📝</span>
+                            <span className="text-xl"></span>
                             Вопросы, добавленные в викторину ({quiz.questions?.length ?? 0})
                         </CardTitle>
                     </CardHeader>
                     <CardContent>
                         {(quiz.questions?.length ?? 0) === 0 ? (
                             <div className="text-center py-12">
-                                <span className="text-5xl mb-4 block">❓</span>
+                                <span className="text-5xl mb-4 block"></span>
                                 <p className="text-muted-foreground">Вопросов пока нет. Добавьте их выше!</p>
                             </div>
                         ) : (

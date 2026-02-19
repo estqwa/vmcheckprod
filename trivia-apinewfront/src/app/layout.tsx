@@ -1,4 +1,5 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
+import { cookies } from "next/headers";
 import { Inter, Geist_Mono } from "next/font/google";
 import { Toaster } from "@/components/ui/sonner";
 import { QueryProvider } from "@/providers/QueryProvider";
@@ -20,15 +21,25 @@ export const metadata: Metadata = {
   description: "Join live trivia games and win real cash prizes. Answer questions correctly and beat other players!",
 };
 
-export default function RootLayout({
+export const viewport: Viewport = {
+  viewportFit: "cover",
+};
+
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // Динамический lang из cookie NEXT_LOCALE с валидацией (только ru|kk)
+  // Компромисс: чтение cookie делает layout динамическим, но он уже динамический из-за auth context
+  const cookieStore = await cookies();
+  const raw = cookieStore.get("NEXT_LOCALE")?.value;
+  const locale = raw === "kk" ? "kk" : "ru";
+
   return (
-    <html lang="en">
+    <html lang={locale} suppressHydrationWarning>
       <body
-        className={`${inter.variable} ${geistMono.variable} antialiased min-h-screen bg-background font-sans`}
+        className={`${inter.variable} ${geistMono.variable} antialiased min-h-app bg-background font-sans`}
       >
         <QueryProvider>
           <AuthProvider>

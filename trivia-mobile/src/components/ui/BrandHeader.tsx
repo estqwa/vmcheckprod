@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { palette, radii, spacing } from '../../theme/tokens';
 
 type BrandHeaderProps = {
@@ -11,15 +12,16 @@ type BrandHeaderProps = {
 };
 
 export function BrandHeader({ title = 'QazaQuiz', subtitle, onBackPress, rightSlot }: BrandHeaderProps) {
+  const { t } = useTranslation();
   return (
-    <View style={styles.wrapper}>
+    <View style={styles.wrapper} accessibilityRole="header">
       <View style={styles.left}>
         {onBackPress ? (
-          <TouchableOpacity style={styles.backButton} onPress={onBackPress}>
+          <TouchableOpacity style={styles.backButton} onPress={onBackPress} accessibilityRole="button" accessibilityLabel={t('common.back')}>
             <Ionicons name="arrow-back" size={18} color={palette.text} />
           </TouchableOpacity>
         ) : null}
-        <View style={styles.brandIcon}>
+        <View style={styles.brandIcon} accessibilityElementsHidden>
           <Text style={styles.brandIconText}>Q</Text>
         </View>
         <View>

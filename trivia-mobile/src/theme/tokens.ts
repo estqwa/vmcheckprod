@@ -1,54 +1,43 @@
-import type { TextStyle, ViewStyle } from 'react-native';
+﻿import type { TextStyle, ViewStyle } from 'react-native';
+import { designTokens } from '@trivia/shared';
 
 export const palette = {
-  primary: '#ff6b6b',
-  primaryPressed: '#fa5252',
-  background: '#fafbfc',
-  surface: '#ffffff',
-  surfaceMuted: '#f3f4f6',
-  text: '#4a4a4a',
-  textMuted: '#9ca3af',
-  border: '#e5e7eb',
-  accentSurface: '#fff0f0',
-  success: '#10b981',
-  warning: '#f59e0b',
-  danger: '#ef4444',
-  info: '#94a3b8',
-  prize: '#16a34a',
+  ...designTokens.color,
+  primaryPressed: designTokens.color.primaryHover,
   white: '#ffffff',
   black: '#000000',
 } as const;
 
 export const radii = {
-  sm: 8,
-  md: 12,
-  lg: 16,
-  xl: 20,
-  pill: 999,
+  sm: designTokens.radius.sm,
+  md: designTokens.radius.md,
+  lg: designTokens.radius.lg,
+  xl: designTokens.radius.xl,
+  pill: designTokens.radius.pill,
 } as const;
 
 export const spacing = {
-  xs: 6,
-  sm: 10,
-  md: 14,
-  lg: 18,
-  xl: 24,
-  xxl: 32,
+  xs: designTokens.spacing.xs,
+  sm: designTokens.spacing.sm,
+  md: designTokens.spacing.md,
+  lg: designTokens.spacing.lg,
+  xl: designTokens.spacing.xl,
+  xxl: designTokens.spacing.xxl,
 } as const;
 
 export const typography = {
   title: {
-    fontSize: 28,
-    fontWeight: '800',
+    fontSize: designTokens.typography.title.size,
+    fontWeight: designTokens.typography.title.weight,
     color: palette.text,
   } satisfies TextStyle,
   subtitle: {
-    fontSize: 15,
+    fontSize: designTokens.typography.subtitle.size,
     color: palette.textMuted,
   } satisfies TextStyle,
   sectionTitle: {
-    fontSize: 20,
-    fontWeight: '700',
+    fontSize: designTokens.typography.sectionTitle.size,
+    fontWeight: designTokens.typography.sectionTitle.weight,
     color: palette.text,
   } satisfies TextStyle,
 } as const;
@@ -81,8 +70,4 @@ export function getQuizStatusTone(status: string): QuizStatusTone {
     default:
       return { backgroundColor: '#f3f4f6', textColor: '#374151' };
   }
-}
-
-export function formatCompactCurrency(value: number): string {
-  return `${value.toLocaleString()} тг`;
 }

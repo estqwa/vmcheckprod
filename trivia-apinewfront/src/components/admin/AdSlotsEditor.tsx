@@ -141,7 +141,7 @@ export function AdSlotsEditor({ quizId, questionCount }: AdSlotsEditorProps) {
     return (
         <Card>
             <CardHeader>
-                <CardTitle className="text-lg">📺 Рекламные слоты</CardTitle>
+                <CardTitle className="text-lg"> Рекламные слоты</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
                 {/* Add slot form */}
@@ -215,14 +215,14 @@ export function AdSlotsEditor({ quizId, questionCount }: AdSlotsEditorProps) {
                                     size="sm"
                                     onClick={() => handleToggleActive(slot)}
                                 >
-                                    {slot.is_active ? '⏸️' : '▶️'}
+                                    {slot.is_active ? '' : ''}
                                 </Button>
                                 <Button
                                     variant="ghost"
                                     size="sm"
                                     onClick={() => handleDeleteSlot(slot.id)}
                                 >
-                                    🗑️
+                                    
                                 </Button>
                             </div>
                         ))}

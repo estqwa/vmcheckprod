@@ -9,13 +9,16 @@
 } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useRouter, useSegments } from 'expo-router';
-import type { User } from '@trivia/shared';
+import type { Session, User } from '@trivia/shared';
 import {
   login as authLogin,
   register as authRegister,
   logout as authLogout,
+  logoutAllDevices as authLogoutAllDevices,
   checkAuth,
   getWsTicket as authGetWsTicket,
+  getActiveSessions as authGetActiveSessions,
+  revokeSession as authRevokeSession,
   updateProfile as authUpdateProfile,
 } from '../api/auth';
 
@@ -30,7 +33,9 @@ interface AuthContextType {
   clearError: () => void;
   getWsTicket: () => Promise<string>;
   updateProfile: (data: { username?: string; profile_picture?: string }) => Promise<void>;
-  setUser: (user: User | null) => void;
+  getActiveSessions: () => Promise<Session[]>;
+  revokeSession: (sessionId: number) => Promise<void>;
+  logoutAllDevices: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -138,15 +143,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser((prev) =>
         prev
           ? {
-              ...prev,
-              username: data.username ?? prev.username,
-              profile_picture: data.profile_picture ?? prev.profile_picture,
-            }
+            ...prev,
+            username: data.username ?? prev.username,
+            profile_picture: data.profile_picture ?? prev.profile_picture,
+          }
           : prev
       );
     },
     []
   );
+
+  const getActiveSessions = useCallback(async () => {
+    return authGetActiveSessions();
+  }, []);
+
+  const revokeSession = useCallback(async (sessionId: number) => {
+    await authRevokeSession(sessionId);
+  }, []);
+
+  const logoutAllDevices = useCallback(async () => {
+    setIsAuthPending(true);
+    try {
+      await authLogoutAllDevices();
+    } finally {
+      await authLogout();
+      setUser(null);
+      queryClient.clear();
+      setIsAuthPending(false);
+    }
+  }, [queryClient]);
 
   const value = useMemo<AuthContextType>(
     () => ({
@@ -160,9 +185,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       clearError,
       getWsTicket,
       updateProfile,
-      setUser,
+      getActiveSessions,
+      revokeSession,
+      logoutAllDevices,
     }),
-    [user, isLoading, isAuthenticated, error, login, register, logout, clearError, getWsTicket, updateProfile]
+    [
+      user,
+      isLoading,
+      isAuthenticated,
+      error,
+      login,
+      register,
+      logout,
+      clearError,
+      getWsTicket,
+      updateProfile,
+      getActiveSessions,
+      revokeSession,
+      logoutAllDevices,
+    ]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

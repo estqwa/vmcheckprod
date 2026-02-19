@@ -47,7 +47,7 @@ export default function RegisterPage() {
     };
 
     return (
-        <div className="min-h-screen flex flex-col">
+        <div className="min-h-app flex flex-col">
             {/* Header */}
             <header className="border-b border-border/50 bg-white/80 backdrop-blur-sm">
                 <div className="container max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">

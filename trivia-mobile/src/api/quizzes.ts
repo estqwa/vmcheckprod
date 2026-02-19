@@ -8,7 +8,7 @@ import type { Quiz, QuizResult, PaginatedResults } from '@trivia/shared';
 type QuizListResponse = Quiz[] | { quizzes: Quiz[] };
 
 export async function getUpcomingQuizzes(): Promise<Quiz[]> {
-  const response = await api.get<QuizListResponse>('/api/quizzes');
+  const response = await api.get<QuizListResponse>('/api/quizzes/scheduled');
   return Array.isArray(response) ? response : response.quizzes ?? [];
 }
 
@@ -37,8 +37,11 @@ export async function getQuizResults(
   });
 }
 
-export async function getQuizHistory(page = 1, pageSize = 20): Promise<QuizResult[]> {
-  const response = await api.get<{ results: QuizResult[]; total: number; page: number; page_size: number }>(
+export async function getQuizHistory(
+  page = 1,
+  pageSize = 20
+): Promise<PaginatedResults<QuizResult>> {
+  return api.get<PaginatedResults<QuizResult>>(
     '/api/users/me/results',
     {
       query: {
@@ -47,5 +50,4 @@ export async function getQuizHistory(page = 1, pageSize = 20): Promise<QuizResul
       },
     }
   );
-  return response.results ?? [];
 }

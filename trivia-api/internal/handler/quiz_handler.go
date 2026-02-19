@@ -364,33 +364,19 @@ func (h *QuizHandler) ListQuizzes(c *gin.Context) {
 		}
 	}
 
-	// Проверяем, есть ли какие-либо фильтры
-	hasFilters := filters.Status != "" || filters.Search != "" || filters.DateFrom != nil || filters.DateTo != nil
-
-	if hasFilters {
-		// Используем метод с фильтрами
-		quizzes, total, err := h.quizService.ListQuizzesWithFilters(page, pageSize, filters)
-		if err != nil {
-			h.handleQuizError(c, err)
-			return
-		}
-
-		c.JSON(http.StatusOK, gin.H{
-			"quizzes": dto.NewListQuizResponse(quizzes),
-			"total":   total,
-			"page":    page,
-			"size":    pageSize,
-		})
-	} else {
-		// Используем обычный метод без фильтров
-		quizzes, err := h.quizService.ListQuizzes(page, pageSize)
-		if err != nil {
-			h.handleQuizError(c, err)
-			return
-		}
-
-		c.JSON(http.StatusOK, dto.NewListQuizResponse(quizzes))
+	// Always return paginated payload for consistent frontend behavior.
+	quizzes, total, err := h.quizService.ListQuizzesWithFilters(page, pageSize, filters)
+	if err != nil {
+		h.handleQuizError(c, err)
+		return
 	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"quizzes": dto.NewListQuizResponse(quizzes),
+		"total":   total,
+		"page":    page,
+		"size":    pageSize,
+	})
 }
 
 // DuplicateQuizRequest представляет запрос на дублирование викторины

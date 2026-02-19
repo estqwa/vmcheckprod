@@ -11,7 +11,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { formatCurrency } from '@/lib/formatCurrency';
 import { MobileBottomNav } from '@/components/MobileBottomNav';
 import { PageHeader } from '@/components/PageHeader';
-import { Clock3, Gamepad2, Play, Trophy } from 'lucide-react';
+import { ArrowRight, Clock3, Gamepad2, Play, Trophy } from 'lucide-react';
 
 export default function HomePage() {
     const { isAuthenticated, isLoading: authLoading } = useAuth();
@@ -143,7 +143,10 @@ export default function HomePage() {
                         ) : (
                             <>
                                 <Button asChild size="lg" className="btn-coral text-base px-8">
-                                    <Link href="/register">{tNav('register')} в†’</Link>
+                                    <Link href="/register" className="flex items-center gap-2">
+                                        {tNav('register')}
+                                        <ArrowRight size={16} />
+                                    </Link>
                                 </Button>
                                 <Button asChild size="lg" variant="outline" className="text-base px-8">
                                     <Link href="/login">{tNav('login')}</Link>

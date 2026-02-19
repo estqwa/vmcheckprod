@@ -18,21 +18,39 @@ export interface PaginatedQuizzesResponse {
     size: number;
 }
 
+type QuizzesApiResponse =
+    | PaginatedQuizzesResponse
+    | Quiz[];
+
 // ============ Public Endpoints ============
 
 /**
  * Get list of quizzes with pagination and optional filters.
- * Always passes status filter (even empty string) so backend returns pagination metadata.
+ * Backend can return either:
+ * - paginated object { quizzes, total, page, size } (when filters are applied)
+ * - plain array Quiz[] (legacy/no-filters path)
+ * Normalize both shapes to a single paginated response for UI consistency.
  */
 export async function getQuizzes(params?: QuizFilterParams): Promise<PaginatedQuizzesResponse> {
     const query: Record<string, string> = {};
     if (params?.page) query.page = params.page.toString();
     if (params?.page_size) query.page_size = params.page_size.toString();
-    // Always pass status to force backend to return {quizzes, total, page, size}
-    query.status = params?.status ?? '';
-    if (params?.search) query.search = params.search;
+    if (params?.status) query.status = params.status;
+    const search = params?.search?.trim();
+    if (search) query.search = search;
 
-    return api.get<PaginatedQuizzesResponse>('/api/quizzes', { query });
+    const response = await api.get<QuizzesApiResponse>('/api/quizzes', { query });
+
+    if (Array.isArray(response)) {
+        return {
+            quizzes: response,
+            total: response.length,
+            page: params?.page ?? 1,
+            size: params?.page_size ?? response.length,
+        };
+    }
+
+    return response;
 }
 
 /**

@@ -202,8 +202,15 @@ func (r *QuizRepo) ListWithFilters(filters repository.QuizFilters, limit, offset
 		return nil, 0, err
 	}
 
+	// Preserve legacy ordering for "no filters" mode (id DESC).
+	// With active filters keep business-oriented ordering by scheduled_time DESC.
+	orderBy := "id DESC"
+	if filters.Status != "" || filters.Search != "" || filters.DateFrom != nil || filters.DateTo != nil {
+		orderBy = "scheduled_time DESC"
+	}
+
 	// Применяем пагинацию и сортировку
-	err := query.Limit(limit).Offset(offset).Order("scheduled_time DESC").Find(&quizzes).Error
+	err := query.Limit(limit).Offset(offset).Order(orderBy).Find(&quizzes).Error
 	if err != nil {
 		return nil, 0, err
 	}

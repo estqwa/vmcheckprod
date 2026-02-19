@@ -33,3 +33,4 @@ _tmp_*
 .gocache/
 .gotelemetry/
 документы/Finalizing Frontend Plan.md
+.agent/skills

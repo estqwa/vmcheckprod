@@ -167,7 +167,7 @@ export default function QuizResultsPage() {
                             </span>
                             {results && results.total > 0 && (
                                 <span className="text-sm font-normal text-muted-foreground">
-                                    {results.total} СѓС‡Р°СЃС‚РЅРёРєРѕРІ
+                                    {t('participants', { count: results.total })}
                                 </span>
                             )}
                         </CardTitle>

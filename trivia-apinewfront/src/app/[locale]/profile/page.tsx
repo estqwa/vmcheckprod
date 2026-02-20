@@ -50,7 +50,7 @@ function ProfileContent() {
     const handleLogout = async () => {
         try {
             await logout();
-            toast.success(t('logoutSuccess') || 'Р’С‹ РІС‹С€Р»Рё РёР· Р°РєРєР°СѓРЅС‚Р°');
+            toast.success(t('logoutSuccess') || 'Logged out');
             router.push('/');
         } catch {
             toast.error(tCommon('error'));
@@ -60,7 +60,7 @@ function ProfileContent() {
     const handleLogoutAll = async () => {
         try {
             await logoutAll();
-            toast.success(t('logoutAllSuccess') || 'Р’С‹ РІС‹С€Р»Рё СЃРѕ РІСЃРµС… СѓСЃС‚СЂРѕР№СЃС‚РІ');
+            toast.success(t('logoutAllSuccess') || 'Logged out from all devices');
             router.push('/login');
         } catch {
             toast.error(tCommon('error'));
@@ -71,7 +71,7 @@ function ProfileContent() {
         try {
             await revokeSession(sessionId);
             setSessions(sessions.filter(s => s.id !== sessionId));
-            toast.success(t('sessionRevoked') || 'РЎРµСЃСЃРёСЏ Р·Р°РІРµСЂС€РµРЅР°');
+            toast.success(t('sessionRevoked') || 'Session revoked');
         } catch {
             toast.error(tCommon('error'));
         }
@@ -149,7 +149,7 @@ function ProfileContent() {
                     </CardHeader>
                     <CardContent>
                         <div className="flex items-center justify-between">
-                            <p className="text-muted-foreground">{t('selectLanguage') || 'Р’С‹Р±РµСЂРёС‚Рµ СЏР·С‹Рє РёРЅС‚РµСЂС„РµР№СЃР°'}</p>
+                            <p className="text-muted-foreground">{t('selectLanguage') || 'Choose interface language'}</p>
                             <LanguageSwitcher />
                         </div>
                     </CardContent>
@@ -162,7 +162,7 @@ function ProfileContent() {
                             <Shield className="w-5 h-5 text-primary" />
                             {t('sessions') || 'Active sessions'}
                         </CardTitle>
-                        <CardDescription>{t('sessionsDescription') || 'РЈРїСЂР°РІР»СЏР№С‚Рµ СѓСЃС‚СЂРѕР№СЃС‚РІР°РјРё'}</CardDescription>
+                        <CardDescription>{t('sessionsDescription') || 'Manage your devices'}</CardDescription>
                     </CardHeader>
                     <CardContent>
                         {isLoadingSessions ? (
@@ -171,7 +171,7 @@ function ProfileContent() {
                                 <Skeleton className="h-16 w-full rounded-xl" />
                             </div>
                         ) : sessions.length === 0 ? (
-                            <p className="text-muted-foreground text-center py-4">{t('noSessions') || 'РќРµС‚ Р°РєС‚РёРІРЅС‹С… СЃРµСЃСЃРёР№'}</p>
+                            <p className="text-muted-foreground text-center py-4">{t('noSessions') || 'No active sessions'}</p>
                         ) : (
                             <div className="space-y-3">
                                 {sessions.map((session) => (
@@ -179,7 +179,7 @@ function ProfileContent() {
                                         <div>
                                             <p className="font-medium">{session.device_id || 'Unknown'}</p>
                                             <p className="text-xs text-muted-foreground">
-                                                IP: {session.ip_address} вЂў {formatDate(session.created_at)}
+                                                IP: {session.ip_address} • {formatDate(session.created_at)}
                                             </p>
                                         </div>
                                         <Button
@@ -188,7 +188,7 @@ function ProfileContent() {
                                             onClick={() => handleRevokeSession(session.id)}
                                             className="text-destructive hover:text-destructive"
                                         >
-                                            {t('endSession') || 'Р—Р°РІРµСЂС€РёС‚СЊ'}
+                                            {t('endSession') || 'End session'}
                                         </Button>
                                     </div>
                                 ))}
@@ -217,7 +217,7 @@ function ProfileContent() {
                             {tNav('logout')}
                         </Button>
                         <Button variant="destructive" onClick={handleLogoutAll} className="h-11">
-                            {t('logoutAll') || 'Р’С‹Р№С‚Рё СЃРѕ РІСЃРµС… СѓСЃС‚СЂРѕР№СЃС‚РІ'}
+                            {t('logoutAll') || 'Logout all'}
                         </Button>
                     </CardContent>
                 </Card>

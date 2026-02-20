@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { LanguageSwitcher } from '@/components/LanguageSwitcher';
+import { UserPlus } from 'lucide-react';
 
 export default function RegisterPage() {
     const router = useRouter();
@@ -27,18 +28,18 @@ export default function RegisterPage() {
         e.preventDefault();
 
         if (password !== confirmPassword) {
-            toast.error(t('passwordMismatch') || 'Пароли не совпадают');
+            toast.error(t('passwordMismatch') || 'Passwords do not match');
             return;
         }
 
         if (password.length < 6) {
-            toast.error(t('passwordTooShort') || 'Пароль должен быть минимум 6 символов');
+            toast.error(t('passwordTooShort') || 'Password must be at least 6 characters');
             return;
         }
 
         try {
             await register(username, email, password);
-            toast.success(t('registerSuccess') || 'Аккаунт создан!');
+            toast.success(t('registerSuccess') || 'Account created!');
             router.push('/');
         } catch (error: unknown) {
             const err = error as { error?: string };
@@ -66,10 +67,10 @@ export default function RegisterPage() {
                 <Card className="w-full max-w-md card-elevated border-0 rounded-2xl">
                     <CardHeader className="text-center pb-2">
                         <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-4">
-                            <span className="text-3xl">🎮</span>
+                            <UserPlus className="w-8 h-8 text-primary" />
                         </div>
                         <CardTitle className="text-2xl">{t('register')}</CardTitle>
-                        <CardDescription>{t('registerDescription') || 'Создайте аккаунт'}</CardDescription>
+                        <CardDescription>{t('registerDescription') || 'Create your account'}</CardDescription>
                     </CardHeader>
                     <form onSubmit={handleSubmit}>
                         <CardContent className="space-y-4">
@@ -104,7 +105,7 @@ export default function RegisterPage() {
                                 <Input
                                     id="password"
                                     type="password"
-                                    placeholder="••••••••"
+                                    placeholder="password"
                                     value={password}
                                     onChange={(e) => setPassword(e.target.value)}
                                     required
@@ -117,7 +118,7 @@ export default function RegisterPage() {
                                 <Input
                                     id="confirmPassword"
                                     type="password"
-                                    placeholder="••••••••"
+                                    placeholder="password"
                                     value={confirmPassword}
                                     onChange={(e) => setConfirmPassword(e.target.value)}
                                     required

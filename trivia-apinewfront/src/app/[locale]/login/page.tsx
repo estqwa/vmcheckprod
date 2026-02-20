@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { LanguageSwitcher } from '@/components/LanguageSwitcher';
+import { LogIn } from 'lucide-react';
 
 export default function LoginPage() {
     const router = useRouter();
@@ -26,7 +27,7 @@ export default function LoginPage() {
 
         try {
             await login(email, password);
-            toast.success(t('loginSuccess') || 'С возвращением!');
+            toast.success(t('loginSuccess') || 'Welcome back!');
             router.push('/');
         } catch (error: unknown) {
             const err = error as { error?: string };
@@ -54,10 +55,10 @@ export default function LoginPage() {
                 <Card className="w-full max-w-md card-elevated border-0 rounded-2xl">
                     <CardHeader className="text-center pb-2">
                         <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-4">
-                            <span className="text-3xl">👋</span>
+                            <LogIn className="w-8 h-8 text-primary" />
                         </div>
                         <CardTitle className="text-2xl">{t('login')}</CardTitle>
-                        <CardDescription>{t('loginDescription') || 'Введите данные для входа'}</CardDescription>
+                        <CardDescription>{t('loginDescription') || 'Enter your credentials to sign in'}</CardDescription>
                     </CardHeader>
                     <form onSubmit={handleSubmit}>
                         <CardContent className="space-y-4">
@@ -78,7 +79,7 @@ export default function LoginPage() {
                                 <Input
                                     id="password"
                                     type="password"
-                                    placeholder="••••••••"
+                                    placeholder="password"
                                     value={password}
                                     onChange={(e) => setPassword(e.target.value)}
                                     required

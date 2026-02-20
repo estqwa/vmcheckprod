@@ -434,7 +434,7 @@ function QuizDetailsContent() {
 
                                     {/* Казахский текст (опционально) */}
                                     <div className="border-t border-border pt-4 mt-2">
-                                        <p className="text-sm text-muted-foreground mb-2">🇰🇿 Казахский текст (опционально)</p>
+                                        <p className="text-sm text-muted-foreground mb-2">KZ: Казахский текст (опционально)</p>
                                         <div>
                                             <Label>Сұрақ мәтіні (KZ)</Label>
                                             <Input value={q.text_kk} onChange={(e) => updateQuestion(qIndex, 'text_kk', e.target.value)} placeholder="Казахский текст вопроса" className="h-11" />

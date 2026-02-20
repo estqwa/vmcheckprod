@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
@@ -249,6 +249,7 @@ export default function QuizResultsPage() {
                                         <Button
                                             variant="outline"
                                             size="sm"
+                                            aria-label="Previous page"
                                             disabled={currentPage === 1 || isPageLoading}
                                             onClick={() => loadResultsPage(currentPage - 1)}
                                         >
@@ -260,6 +261,7 @@ export default function QuizResultsPage() {
                                         <Button
                                             variant="outline"
                                             size="sm"
+                                            aria-label="Next page"
                                             disabled={currentPage >= totalPages || isPageLoading}
                                             onClick={() => loadResultsPage(currentPage + 1)}
                                         >

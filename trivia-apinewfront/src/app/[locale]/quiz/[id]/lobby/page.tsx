@@ -13,6 +13,7 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from 'sonner';
 import { LanguageSwitcher } from '@/components/LanguageSwitcher';
+import { ArrowLeft, CheckCircle2, Gamepad2, Loader2, Wifi, WifiOff, Zap } from 'lucide-react';
 
 export default function QuizLobbyPage() {
     const params = useParams();
@@ -40,7 +41,7 @@ export default function QuizLobbyPage() {
                 setQuiz(data);
             } catch (error) {
                 console.error('Failed to fetch quiz:', error);
-                toast.error(t('notFound') || 'Викторина не найдена');
+                toast.error(t('notFound') || 'Quiz not found');
                 router.push('/');
             } finally {
                 setIsLoading(false);
@@ -85,7 +86,7 @@ export default function QuizLobbyPage() {
 
         switch (msg.type) {
             case 'quiz:start':
-                toast.success(t('starting') || 'Викторина начинается!');
+                toast.success(t('starting') || 'Quiz is starting!');
                 router.push(`/quiz/${quizId}/play`);
                 break;
             case 'quiz:countdown':
@@ -127,10 +128,14 @@ export default function QuizLobbyPage() {
 
     const getConnectionStatus = () => {
         switch (connectionState) {
-            case 'connected': return { icon: '🟢', text: t('connected') || 'Подключён', color: 'text-green-600 bg-green-50' };
-            case 'connecting': return { icon: '🟡', text: t('connecting') || 'Подключение...', color: 'text-yellow-600 bg-yellow-50' };
-            case 'reconnecting': return { icon: '🟠', text: t('reconnecting') || 'Переподключение...', color: 'text-orange-600 bg-orange-50' };
-            default: return { icon: '🔴', text: t('disconnected') || 'Отключён', color: 'text-red-600 bg-red-50' };
+            case 'connected':
+                return { Icon: Wifi, text: t('connected') || 'Connected', color: 'text-green-600 bg-green-50', iconClass: 'text-green-600' };
+            case 'connecting':
+                return { Icon: Loader2, text: t('connecting') || 'Connecting...', color: 'text-yellow-600 bg-yellow-50', iconClass: 'text-yellow-600 animate-spin' };
+            case 'reconnecting':
+                return { Icon: Zap, text: t('reconnecting') || 'Reconnecting...', color: 'text-orange-600 bg-orange-50', iconClass: 'text-orange-600' };
+            default:
+                return { Icon: WifiOff, text: t('disconnected') || 'Disconnected', color: 'text-red-600 bg-red-50', iconClass: 'text-red-600' };
         }
     };
 
@@ -140,17 +145,18 @@ export default function QuizLobbyPage() {
         <div className="min-h-app">
             {/* Header */}
             <header className="border-b border-border/50 bg-white/80 backdrop-blur-sm">
-                <div className="container max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
-                    <Link href="/" className="flex items-center gap-2">
+                <div className="container max-w-6xl mx-auto px-4 py-2 min-h-16 flex flex-wrap items-center justify-between gap-2">
+                    <Link href="/" className="flex items-center gap-2 shrink-0">
                         <div className="w-9 h-9 rounded-lg bg-primary flex items-center justify-center">
                             <span className="text-white font-bold text-lg">Q</span>
                         </div>
                         <span className="font-bold text-xl text-foreground">QazaQuiz</span>
                     </Link>
-                    <div className="flex items-center gap-2">
+                    <div className="ml-auto sm:ml-0 flex items-center gap-2">
                         <LanguageSwitcher />
                         <Badge className={`${status.color} border-0`}>
-                            {status.icon} {status.text}
+                            <status.Icon className={`w-3.5 h-3.5 mr-1 ${status.iconClass}`} />
+                            {status.text}
                         </Badge>
                     </div>
                 </div>
@@ -160,7 +166,7 @@ export default function QuizLobbyPage() {
                 <Card className="card-elevated border-0 rounded-2xl overflow-hidden">
                     <CardHeader className="text-center bg-gradient-to-b from-primary/5 to-transparent pb-6">
                         <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-4">
-                            <span className="text-3xl">🎮</span>
+                            <Gamepad2 className="w-8 h-8 text-primary" />
                         </div>
                         <CardTitle className="text-2xl">{quiz.title}</CardTitle>
                         {quiz.description && (
@@ -171,19 +177,19 @@ export default function QuizLobbyPage() {
                     <CardContent className="space-y-6 text-center pt-0">
                         {/* Timer */}
                         <div>
-                            <p className="text-sm text-muted-foreground mb-3">{t('startsIn') || 'Игра начнётся через'}</p>
+                            <p className="text-sm text-muted-foreground mb-3">{t('startsIn') || 'Starts in'}</p>
                             <div className="flex justify-center gap-2">
                                 <div className="timer-block">
                                     <div className="value">{String(timeRemaining.hours).padStart(2, '0')}</div>
-                                    <div className="label">{t('hours') || 'Часов'}</div>
+                                    <div className="label">{t('hours') || 'Hours'}</div>
                                 </div>
                                 <div className="timer-block">
                                     <div className="value">{String(timeRemaining.minutes).padStart(2, '0')}</div>
-                                    <div className="label">{t('minutes') || 'Минут'}</div>
+                                    <div className="label">{t('minutes') || 'Minutes'}</div>
                                 </div>
                                 <div className="timer-block">
                                     <div className="value">{String(timeRemaining.seconds).padStart(2, '0')}</div>
-                                    <div className="label">{t('seconds') || 'Секунд'}</div>
+                                    <div className="label">{t('seconds') || 'Seconds'}</div>
                                 </div>
                             </div>
                         </div>
@@ -192,44 +198,50 @@ export default function QuizLobbyPage() {
                         <div className="flex justify-center gap-8">
                             <div>
                                 <p className="text-2xl font-bold text-green-600">{playerCount}</p>
-                                <p className="text-muted-foreground text-sm">{t('online') || 'Онлайн'}</p>
+                                <p className="text-muted-foreground text-sm">{t('online') || 'Online'}</p>
                             </div>
                             <div>
                                 <p className="text-2xl font-bold">{quiz.question_count}</p>
-                                <p className="text-muted-foreground text-sm">{t('questions') || 'Вопросов'}</p>
+                                <p className="text-muted-foreground text-sm">{t('questions') || 'Questions'}</p>
                             </div>
                         </div>
 
                         {/* Status */}
                         {isConnected ? (
                             <div className="bg-green-50 border border-green-200 rounded-xl p-4">
-                                <p className="text-green-700 font-medium">✓ {t('ready') || 'Вы готовы!'}</p>
+                                <p className="text-green-700 font-medium flex items-center justify-center gap-2">
+                                    <CheckCircle2 className="w-4 h-4" />
+                                    {t('ready') || 'Ready'}
+                                </p>
                                 <p className="text-sm text-green-600/80">
                                     {t('waiting')}
                                 </p>
                             </div>
                         ) : connectionState === 'disconnected' ? (
                             <div className="bg-red-50 border border-red-200 rounded-xl p-4">
-                                <p className="text-red-700 font-medium">{t('connectionLost') || 'Соединение потеряно'}</p>
+                                <p className="text-red-700 font-medium">{t('connectionLost') || 'Connection lost'}</p>
                                 <p className="text-sm text-red-600/80">
-                                    {t('reconnecting') || 'Пытаемся переподключиться...'}
+                                    {t('reconnecting') || 'Trying to reconnect...'}
                                 </p>
                             </div>
                         ) : (
                             <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4">
-                                <p className="text-yellow-700 font-medium">{t('connecting') || 'Подключаемся...'}</p>
+                                <p className="text-yellow-700 font-medium">{t('connecting') || 'Connecting...'}</p>
                             </div>
                         )}
 
                         <p className="text-sm text-muted-foreground">
-                            {t('playingAs') || 'Играете как'} <span className="font-semibold text-foreground">{user?.username}</span>
+                            {t('playingAs') || 'Playing as'} <span className="font-semibold text-foreground">{user?.username}</span>
                         </p>
                     </CardContent>
                 </Card>
 
                 <div className="text-center mt-8">
                     <Button asChild variant="ghost">
-                        <Link href="/">← {t('leaveLobby') || 'Покинуть лобби'}</Link>
+                        <Link href="/" className="inline-flex items-center gap-2">
+                            <ArrowLeft className="w-4 h-4" />
+                            {t('leaveLobby') || 'Leave lobby'}
+                        </Link>
                     </Button>
                 </div>
             </main>

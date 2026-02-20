@@ -1,4 +1,4 @@
-﻿import { useState } from 'react';
+import { useState } from 'react';
 import {
   KeyboardAvoidingView,
   Platform,
@@ -12,6 +12,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { BrandHeader } from '../../src/components/ui/BrandHeader';
 import { LanguageToggle } from '../../src/components/ui/LanguageToggle';
 import { PrimaryButton } from '../../src/components/ui/PrimaryButton';
@@ -53,7 +54,7 @@ export default function LoginScreen() {
         <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
           <View style={styles.card}>
             <View style={styles.iconCircle}>
-              <Text style={styles.icon}>👋</Text>
+              <Ionicons name="log-in-outline" size={30} color={palette.primary} />
             </View>
 
             <Text style={styles.title}>{t('auth.login')}</Text>
@@ -146,9 +147,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     alignSelf: 'center',
-  },
-  icon: {
-    fontSize: 30,
   },
   title: {
     ...typography.title,

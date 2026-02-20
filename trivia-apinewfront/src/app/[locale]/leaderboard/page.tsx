@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
@@ -132,6 +132,7 @@ export default function LeaderboardPage() {
                                 <Button
                                     variant="outline"
                                     size="sm"
+                                    aria-label="Next page"
                                     disabled={page === totalPages}
                                     onClick={() => setPage((p) => p + 1)}
                                 >

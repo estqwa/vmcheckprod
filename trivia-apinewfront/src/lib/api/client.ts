@@ -48,8 +48,8 @@ export async function request<T, B = unknown>(
         credentials: 'include', // Important: sends HttpOnly cookies
     };
 
-    // Add body for mutating requests
-    if (body && ['POST', 'PUT', 'PATCH'].includes(method)) {
+    // Add body for mutating requests (including DELETE for endpoints like account deletion)
+    if (body && ['POST', 'PUT', 'PATCH', 'DELETE'].includes(method)) {
         if (body instanceof FormData) {
             config.body = body;
             // Let the browser set the Content-Type with the boundary for FormData
@@ -156,8 +156,8 @@ export const api = {
     put: <T, B = unknown>(endpoint: string, body?: B, options?: RequestOptions) =>
         request<T, B>('PUT', endpoint, body, options),
 
-    delete: <T>(endpoint: string, options?: RequestOptions) =>
-        request<T>('DELETE', endpoint, undefined, options),
+    delete: <T, B = unknown>(endpoint: string, body?: B, options?: RequestOptions) =>
+        request<T, B>('DELETE', endpoint, body, options),
 
     patch: <T, B = unknown>(endpoint: string, body?: B, options?: RequestOptions) =>
         request<T, B>('PATCH', endpoint, body, options),

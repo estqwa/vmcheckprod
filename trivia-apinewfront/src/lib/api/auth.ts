@@ -1,14 +1,22 @@
 import { api, setCsrfToken, getCsrfToken } from './client';
-import { User, AuthResponse, Session } from './types';
+import {
+    User,
+    AuthResponse,
+    Session,
+    RegisterData,
+    MessageResponse,
+    EmailVerificationStatus,
+    EmailVerificationConfirmData,
+    GoogleExchangeRequestData,
+    GoogleLinkRequestData,
+    GoogleLinkResponse,
+    DeleteAccountRequestData,
+} from './types';
 
 // Lock to prevent multiple simultaneous CSRF fetch requests
 let csrfFetchPromise: Promise<string> | null = null;
 
-interface RegisterData {
-    username: string;
-    email: string;
-    password: string;
-}
+
 
 interface LoginData {
     email: string;
@@ -32,6 +40,22 @@ export async function login(data: LoginData): Promise<AuthResponse> {
     const response = await api.post<AuthResponse>('/api/auth/login', data);
     setCsrfToken(response.csrfToken);
     return response;
+}
+
+/**
+ * Login / register with Google via backend exchange endpoint.
+ */
+export async function googleExchange(data: GoogleExchangeRequestData): Promise<AuthResponse> {
+    const response = await api.post<AuthResponse, GoogleExchangeRequestData>('/api/auth/google/exchange', data);
+    setCsrfToken(response.csrfToken);
+    return response;
+}
+
+/**
+ * Explicitly link Google identity to current account.
+ */
+export async function googleLink(data: GoogleLinkRequestData): Promise<GoogleLinkResponse> {
+    return api.post<GoogleLinkResponse, GoogleLinkRequestData>('/api/auth/google/link', data);
 }
 
 /**
@@ -79,6 +103,22 @@ export async function refreshTokens(): Promise<{ csrfToken: string }> {
  */
 export async function getCurrentUser(): Promise<User> {
     return api.get<User>('/api/users/me');
+}
+
+export async function getEmailVerificationStatus(): Promise<EmailVerificationStatus> {
+    return api.get<EmailVerificationStatus>('/api/auth/verify-email/status');
+}
+
+export async function sendEmailVerificationCode(): Promise<MessageResponse> {
+    return api.post<MessageResponse>('/api/auth/verify-email/send', {});
+}
+
+export async function confirmEmailVerificationCode(data: EmailVerificationConfirmData): Promise<MessageResponse> {
+    return api.post<MessageResponse, EmailVerificationConfirmData>('/api/auth/verify-email/confirm', data);
+}
+
+export async function deleteAccount(data?: DeleteAccountRequestData): Promise<MessageResponse> {
+    return api.delete<MessageResponse, DeleteAccountRequestData>('/api/users/me', data ?? {});
 }
 
 /**

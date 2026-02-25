@@ -2,8 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { cookies } from "next/headers";
 import { Inter, Geist_Mono } from "next/font/google";
 import { Toaster } from "@/components/ui/sonner";
-import { QueryProvider } from "@/providers/QueryProvider";
-import { AuthProvider } from "@/providers/AuthProvider";
+import { AppProviders } from "@/providers/AppProviders";
 import "./globals.css";
 
 const inter = Inter({
@@ -41,12 +40,10 @@ export default async function RootLayout({
       <body
         className={`${inter.variable} ${geistMono.variable} antialiased min-h-app bg-background font-sans`}
       >
-        <QueryProvider>
-          <AuthProvider>
-            {children}
-            <Toaster position="top-right" richColors />
-          </AuthProvider>
-        </QueryProvider>
+        <AppProviders>
+          {children}
+          <Toaster position="top-right" richColors />
+        </AppProviders>
       </body>
     </html>
   );

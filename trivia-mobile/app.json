@@ -14,9 +14,11 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "online.qazaquiz.app"
     },
     "android": {
+      "package": "online.qazaquiz.app",
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
@@ -31,10 +33,14 @@
     },
     "plugins": [
       "expo-router",
-      ["@sentry/react-native/expo", {
-        "organization": "qazaquiz",
-        "project": "trivia-mobile"
-      }]
+      [
+        "@sentry/react-native/expo",
+        {
+          "organization": "qazaquiz",
+          "project": "trivia-mobile"
+        }
+      ],
+      "@react-native-community/datetimepicker"
     ],
     "extra": {
       "apiUrl": "https://qazaquiz.duckdns.org",

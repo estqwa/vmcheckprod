@@ -17,7 +17,8 @@ redis:
   db: 0
 
 jwt:
-  expirationHrs: 24
+  accessTokenTTL: "15m"  # Access token: 15 минут (стандарт для web)
+  expirationHrs: 24  # Legacy fallback, используется JWTService для cleanup
   wsTicketExpirySec: 60 # Например, 60 секунд
   cleanup_interval: "1h" # Например, 1 час
   # db_jwt_key_encryption_key: "НЕ УКАЗЫВАТЬ ЗДЕСЬ - ТОЛЬКО ЧЕРЕЗ ENV"
@@ -84,3 +85,37 @@ websocket:
     pongWait: 60                    # Тайм-аут ожидания понга в секундах
     maxConnectionsPerIP: 100        # Макс. количество подключений с одного IP
     cleanupInterval: 300            # Интервал очистки неактивных клиентов в секундах
+email:
+  provider: "resend"
+  resendApiKey: ""
+  from: "noreply@example.com"
+  verificationCodeTTL: "15m"
+  resendCooldownSec: 60
+  maxAttempts: 5
+  codePepper: ""
+
+google_oauth:
+  enabled: false
+  webClientID: ""
+  webClientSecret: ""
+  androidClientID: ""
+  iosClientID: ""
+  redirectURIWeb: ""
+
+apple_signin:
+  enabled: false
+  teamID: ""
+  keyID: ""
+  bundleID: ""
+  serviceID: ""
+  audience: ""
+
+features:
+  email_verification_enabled: false
+  email_verification_soft_gate_enabled: false
+  google_oauth_enabled: false
+  apple_signin_enabled: false
+
+legal:
+  tosVersion: "1.0"
+  privacyVersion: "1.0"

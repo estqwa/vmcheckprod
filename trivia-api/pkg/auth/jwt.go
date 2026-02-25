@@ -38,7 +38,8 @@ type JWTCustomClaims struct {
 
 // JWTService предоставляет методы для работы с JWT
 type JWTService struct {
-	expirationHrs int
+	expirationHrs  int
+	accessTokenTTL time.Duration
 	// Черный список для инвалидированных пользователей (in-memory)
 	invalidatedUsers map[uint]time.Time
 	// Мьютекс для безопасной работы с картой в многопоточной среде
@@ -80,6 +81,7 @@ func NewJWTService(
 	if expirationHrs <= 0 {
 		expirationHrs = 24 // Default to 24 hours
 	}
+	accessTokenTTL := time.Duration(expirationHrs) * time.Hour
 	wsExpiry := time.Duration(wsTicketExpirySec) * time.Second
 	if wsExpiry <= 0 {
 		wsExpiry = 60 * time.Second // Default to 60 seconds
@@ -91,6 +93,7 @@ func NewJWTService(
 
 	service := &JWTService{
 		expirationHrs:    expirationHrs,
+		accessTokenTTL:   accessTokenTTL,
 		invalidatedUsers: make(map[uint]time.Time),
 		invalidTokenRepo: invalidTokenRepo,
 		wsTicketExpiry:   wsExpiry, // Store configured WS ticket expiry
@@ -114,6 +117,17 @@ func NewJWTService(
 	go service.listenForInvalidationEvents()
 
 	return service, nil // Возвращаем сервис и nil ошибку при успехе
+}
+
+// SetAccessTokenTTL updates access token lifetime used in JWT signatures.
+func (s *JWTService) SetAccessTokenTTL(ttl time.Duration) {
+	if ttl <= 0 {
+		log.Printf("[JWT] ignoring invalid access token TTL: %v", ttl)
+		return
+	}
+
+	s.accessTokenTTL = ttl
+	log.Printf("[JWT] access token TTL set to %s", ttl)
 }
 
 // loadInvalidatedTokensFromDB загружает информацию об инвалидированных токенах из БД
@@ -165,7 +179,7 @@ func (s *JWTService) GenerateTokenWithKey(user *entity.User, csrfSecret string, 
 		Role:       user.Role,  // Роль пользователя (user/admin)
 		CSRFSecret: csrfSecret, // Включаем CSRF секрет
 		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour * time.Duration(s.expirationHrs))),
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(s.accessTokenTTL)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
 			Issuer:    "trivia-api", // Добавим издателя
 			Subject:   fmt.Sprintf("%d", user.ID),

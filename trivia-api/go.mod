@@ -18,7 +18,10 @@ require (
 
 require (
 	github.com/golang-migrate/migrate/v4 v4.18.3
+	github.com/jackc/pgx/v5 v5.7.2
 	github.com/lib/pq v1.10.9
+	github.com/resend/resend-go/v2 v2.28.0
+	github.com/xuri/excelize/v2 v2.10.0
 )
 
 require (
@@ -44,7 +47,6 @@ require (
 	github.com/goccy/go-json v0.10.5 // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect
 	github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761 // indirect
-	github.com/jackc/pgx/v5 v5.7.2 // indirect
 	github.com/jackc/puddle/v2 v2.2.2 // indirect
 	github.com/jinzhu/inflection v1.0.0 // indirect
 	github.com/jinzhu/now v1.1.5 // indirect
@@ -69,7 +71,6 @@ require (
 	github.com/twitchyliquid64/golang-asm v0.15.1 // indirect
 	github.com/ugorji/go/codec v1.2.12 // indirect
 	github.com/xuri/efp v0.0.1 // indirect
-	github.com/xuri/excelize/v2 v2.10.0 // indirect
 	github.com/xuri/nfp v0.0.2-0.20250530014748-2ddeb826f9a9 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	golang.org/x/arch v0.15.0 // indirect

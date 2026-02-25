@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
+  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -17,12 +18,15 @@ import { BrandHeader } from '../../src/components/ui/BrandHeader';
 import { LanguageToggle } from '../../src/components/ui/LanguageToggle';
 import { PrimaryButton } from '../../src/components/ui/PrimaryButton';
 import { useAuth } from '../../src/hooks/useAuth';
+import { useGoogleCodeAuthRequest } from '../../src/hooks/useGoogleCodeAuthRequest';
 import { palette, radii, shadow, spacing, typography } from '../../src/theme/tokens';
 
 export default function LoginScreen() {
   const { t } = useTranslation();
   const router = useRouter();
-  const { login, error, clearError, isLoading } = useAuth();
+  const { login, loginWithGoogle, error, clearError, isLoading } = useAuth();
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+  const google = useGoogleCodeAuthRequest();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -41,6 +45,56 @@ export default function LoginScreen() {
     } catch {
       // Error is surfaced through auth context.
     }
+  };
+
+  useEffect(() => {
+    const handleGoogleResponse = async () => {
+      if (!google.response || google.response.type !== 'success') return;
+      const code = google.response.params?.code;
+      const codeVerifier = google.request?.codeVerifier;
+      if (!code || !codeVerifier) {
+        Alert.alert(t('common.error'), t('auth.googleAuthIncomplete'));
+        return;
+      }
+
+      setLocalError(null);
+      setIsGoogleLoading(true);
+      try {
+        const user = await loginWithGoogle({
+          code,
+          redirect_uri: google.redirectUri,
+          code_verifier: codeVerifier,
+          platform: google.platform,
+        });
+        if (!user.email_verified) {
+          router.replace('/(auth)/verify-email' as never);
+        }
+      } catch (err: unknown) {
+        const apiErr = err as { error?: string; error_type?: string };
+        if (apiErr.error_type === 'link_required') {
+          Alert.alert(
+            t('common.error'),
+            apiErr.error || t('auth.googleLinkRequired')
+          );
+        } else {
+          setLocalError(apiErr.error || t('auth.googleSignInFailed'));
+        }
+      } finally {
+        setIsGoogleLoading(false);
+      }
+    };
+
+    void handleGoogleResponse();
+  }, [google.response, google.request, google.redirectUri, google.platform, loginWithGoogle, router, t]);
+
+  const handleGooglePress = async () => {
+    if (!google.enabled || !google.request) {
+      setLocalError(t('auth.googleNotConfigured'));
+      return;
+    }
+    clearError();
+    setLocalError(null);
+    await google.promptAsync();
   };
 
   return (
@@ -103,6 +157,19 @@ export default function LoginScreen() {
             </View>
 
             <PrimaryButton title={t('auth.login')} loading={isLoading} onPress={handleSubmit} />
+
+            {google.enabled ? (
+              <TouchableOpacity
+                style={styles.googleButton}
+                onPress={() => void handleGooglePress()}
+                disabled={!google.request || isLoading || isGoogleLoading}
+                accessibilityRole="button"
+              >
+                <Text style={styles.googleButtonText}>
+                  {isGoogleLoading ? t('auth.googleLoading') : t('auth.googleLogin')}
+                </Text>
+              </TouchableOpacity>
+            ) : null}
 
             <View style={styles.switchRow}>
               <Text style={styles.switchText}>{t('auth.noAccount')}</Text>
@@ -201,6 +268,21 @@ const styles = StyleSheet.create({
   switchLink: {
     color: palette.primary,
     fontSize: 13,
+    fontWeight: '700',
+  },
+  googleButton: {
+    minHeight: 48,
+    borderRadius: radii.md,
+    borderWidth: 1,
+    borderColor: palette.border,
+    backgroundColor: '#ffffff',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: spacing.md,
+  },
+  googleButtonText: {
+    color: palette.text,
+    fontSize: 14,
     fontWeight: '700',
   },
 });

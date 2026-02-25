@@ -9,12 +9,25 @@
 } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useRouter, useSegments } from 'expo-router';
-import type { Session, User } from '@trivia/shared';
+import type { RegisterData, Session, User } from '@trivia/shared';
+import type {
+  EmailVerificationStatus,
+  EmailVerificationConfirmData,
+  GoogleExchangeRequestData,
+  GoogleLinkRequestData,
+  DeleteAccountRequestData,
+} from '@trivia/shared';
 import {
   login as authLogin,
   register as authRegister,
+  googleExchange as authGoogleExchange,
+  googleLink as authGoogleLink,
   logout as authLogout,
   logoutAllDevices as authLogoutAllDevices,
+  deleteAccount as authDeleteAccount,
+  getEmailVerificationStatus as authGetEmailVerificationStatus,
+  sendEmailVerificationCode as authSendEmailVerificationCode,
+  confirmEmailVerificationCode as authConfirmEmailVerificationCode,
   checkAuth,
   getWsTicket as authGetWsTicket,
   getActiveSessions as authGetActiveSessions,
@@ -28,8 +41,14 @@ interface AuthContextType {
   isAuthenticated: boolean;
   error: string | null;
   login: (email: string, password: string) => Promise<void>;
-  register: (username: string, email: string, password: string) => Promise<void>;
+  register: (data: RegisterData) => Promise<void>;
+  loginWithGoogle: (data: GoogleExchangeRequestData) => Promise<User>;
+  linkGoogle: (data: GoogleLinkRequestData) => Promise<User>;
   logout: () => Promise<void>;
+  deleteAccount: (data?: DeleteAccountRequestData) => Promise<void>;
+  getEmailVerificationStatus: () => Promise<EmailVerificationStatus>;
+  sendEmailVerificationCode: () => Promise<void>;
+  confirmEmailVerificationCode: (data: EmailVerificationConfirmData) => Promise<void>;
   clearError: () => void;
   getWsTicket: () => Promise<string>;
   updateProfile: (data: { username?: string; profile_picture?: string }) => Promise<void>;
@@ -78,6 +97,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (isBootstrapping) return;
 
     const inAuthGroup = segments[0] === '(auth)';
+    const isVerifyEmailScreen = String(segments[1] ?? '') === 'verify-email';
 
     if (!isAuthenticated && !inAuthGroup) {
       router.replace('/(auth)/login');
@@ -85,9 +105,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     if (isAuthenticated && inAuthGroup) {
+      if (isVerifyEmailScreen && !user?.email_verified) {
+        return;
+      }
       router.replace('/(tabs)');
     }
-  }, [isAuthenticated, isBootstrapping, segments, router]);
+  }, [isAuthenticated, isBootstrapping, segments, router, user?.email_verified]);
 
   const login = useCallback(async (email: string, password: string) => {
     setError(null);
@@ -104,15 +127,47 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const register = useCallback(async (username: string, email: string, password: string) => {
+  const register = useCallback(async (data: RegisterData) => {
     setError(null);
     setIsAuthPending(true);
     try {
-      const newUser = await authRegister({ username, email, password });
+      const newUser = await authRegister(data);
       setUser(newUser);
     } catch (err: unknown) {
       const apiErr = err as { error?: string };
       setError(apiErr.error || 'Registration failed');
+      throw err;
+    } finally {
+      setIsAuthPending(false);
+    }
+  }, []);
+
+  const loginWithGoogle = useCallback(async (data: GoogleExchangeRequestData): Promise<User> => {
+    setError(null);
+    setIsAuthPending(true);
+    try {
+      const loggedInUser = await authGoogleExchange(data);
+      setUser(loggedInUser);
+      return loggedInUser;
+    } catch (err: unknown) {
+      const apiErr = err as { error?: string };
+      setError(apiErr.error || 'Google sign-in failed');
+      throw err;
+    } finally {
+      setIsAuthPending(false);
+    }
+  }, []);
+
+  const linkGoogle = useCallback(async (data: GoogleLinkRequestData): Promise<User> => {
+    setError(null);
+    setIsAuthPending(true);
+    try {
+      const updatedUser = await authGoogleLink(data);
+      setUser(updatedUser);
+      return updatedUser;
+    } catch (err: unknown) {
+      const apiErr = err as { error?: string };
+      setError(apiErr.error || 'Google link failed');
       throw err;
     } finally {
       setIsAuthPending(false);
@@ -129,6 +184,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setIsAuthPending(false);
     }
   }, [queryClient]);
+
+  const deleteAccount = useCallback(async (data?: DeleteAccountRequestData) => {
+    setIsAuthPending(true);
+    try {
+      await authDeleteAccount(data);
+      await authLogout();
+    } finally {
+      setUser(null);
+      queryClient.clear();
+      setIsAuthPending(false);
+    }
+  }, [queryClient]);
+
+  const getEmailVerificationStatus = useCallback(async (): Promise<EmailVerificationStatus> => {
+    return authGetEmailVerificationStatus();
+  }, []);
+
+  const sendEmailVerificationCode = useCallback(async () => {
+    await authSendEmailVerificationCode();
+  }, []);
+
+  const confirmEmailVerificationCode = useCallback(async (data: EmailVerificationConfirmData) => {
+    await authConfirmEmailVerificationCode(data);
+    const currentUser = await checkAuth();
+    setUser(currentUser);
+  }, []);
 
   const clearError = useCallback(() => setError(null), []);
 
@@ -181,7 +262,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       error,
       login,
       register,
+      loginWithGoogle,
+      linkGoogle,
       logout,
+      deleteAccount,
+      getEmailVerificationStatus,
+      sendEmailVerificationCode,
+      confirmEmailVerificationCode,
       clearError,
       getWsTicket,
       updateProfile,
@@ -196,7 +283,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       error,
       login,
       register,
+      loginWithGoogle,
+      linkGoogle,
       logout,
+      deleteAccount,
+      getEmailVerificationStatus,
+      sendEmailVerificationCode,
+      confirmEmailVerificationCode,
       clearError,
       getWsTicket,
       updateProfile,

@@ -9,23 +9,23 @@ type RefreshTokenRepository interface {
 	// CreateToken создает новый refresh-токен и возвращает его ID
 	CreateToken(refreshToken *entity.RefreshToken) (uint, error)
 
-	// GetTokenByValue находит refresh-токен по его значению
-	GetTokenByValue(token string) (*entity.RefreshToken, error)
+	// GetTokenByHash находит refresh-токен по SHA-256 hash значению
+	GetTokenByHash(tokenHash string) (*entity.RefreshToken, error)
 
 	// GetTokenByID находит refresh-токен по его ID
 	GetTokenByID(id uint) (*entity.RefreshToken, error)
 
-	// CheckToken проверяет действительность refresh-токена
-	CheckToken(token string) (bool, error)
+	// CheckTokenByHash проверяет действительность refresh-токена по hash
+	CheckTokenByHash(tokenHash string) (bool, error)
 
-	// MarkTokenAsExpired помечает токен как истекший
-	MarkTokenAsExpired(token string) error
+	// MarkTokenAsExpiredByHash помечает токен как истекший по hash
+	MarkTokenAsExpiredByHash(tokenHash string) error
 
 	// MarkTokenAsExpiredByID помечает токен как истекший по его ID
 	MarkTokenAsExpiredByID(id uint) error
 
-	// DeleteToken физически удаляет токен по его значению (используется в критических ситуациях)
-	DeleteToken(token string) error
+	// DeleteTokenByHash физически удаляет токен по hash (используется в критических ситуациях)
+	DeleteTokenByHash(tokenHash string) error
 
 	// MarkAllAsExpiredForUser помечает все токены пользователя как истекшие
 	MarkAllAsExpiredForUser(userID uint) error

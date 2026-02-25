@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { useAuth } from '@/providers/AuthProvider';
+import { GoogleCodeAuthButton } from '@/components/auth/GoogleCodeAuthButton';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -34,6 +35,7 @@ export default function LoginPage() {
             toast.error(err.error || t('loginError'));
         }
     };
+
 
     return (
         <div className="min-h-app flex flex-col">
@@ -91,6 +93,14 @@ export default function LoginPage() {
                             <Button type="submit" className="w-full h-12 btn-coral text-base" disabled={isLoading}>
                                 {isLoading ? tCommon('loading') : t('loginButton')}
                             </Button>
+                            <GoogleCodeAuthButton
+                                label={t('googleLogin') || 'Continue with Google'}
+                                action="login"
+                                returnPath="/"
+                                className="w-full h-12"
+                                disabled={isLoading}
+                                onError={(message) => toast.error(message)}
+                            />
                             <p className="text-sm text-muted-foreground text-center">
                                 {t('noAccount')}{' '}
                                 <Link href="/register" className="text-primary hover:underline font-medium">

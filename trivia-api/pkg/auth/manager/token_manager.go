@@ -314,12 +314,12 @@ func (m *TokenManager) RefreshTokens(refreshToken, csrfTokenHeader, deviceID, ip
 		log.Println("CRITICAL: [TokenManager] JWTService not set in TokenManager. Cannot refresh tokens.")
 		return nil, NewTokenError(TokenGenerationFailed, "JWTService not configured", nil)
 	}
-	// Валидируем refresh токен
-	tokenEntity, err := m.refreshTokenRepo.GetTokenByValue(refreshToken)
+	// Вычисляем hash от raw refresh token для поиска в БД
+	tokenHash := hashToken(refreshToken)
+
+	// Валидируем refresh токен по hash
+	tokenEntity, err := m.refreshTokenRepo.GetTokenByHash(tokenHash)
 	if err != nil {
-		// TODO: Обработать repository.ErrExpiredToken отдельно или перенести его в apperrors
-		// if errors.Is(err, apperrors.ErrNotFound) { // Старый код
-		// Проверяем на обе ошибки: не найдено или истек
 		if errors.Is(err, apperrors.ErrNotFound) || errors.Is(err, apperrors.ErrExpiredToken) {
 			return nil, NewTokenError(InvalidRefreshToken, "недействительный или истекший refresh токен", err)
 		}
@@ -334,8 +334,8 @@ func (m *TokenManager) RefreshTokens(refreshToken, csrfTokenHeader, deviceID, ip
 		return nil, NewTokenError(UserNotFound, "пользователь не найден", err)
 	}
 
-	// Помечаем старый refresh токен как истекший
-	if err := m.refreshTokenRepo.MarkTokenAsExpired(refreshToken); err != nil {
+	// Помечаем старый refresh токен как истекший по hash
+	if err := m.refreshTokenRepo.MarkTokenAsExpiredByHash(tokenHash); err != nil {
 		log.Printf("[TokenManager] Ошибка при маркировке старого refresh-токена как истекшего (ID: %d): %v", tokenEntity.ID, err)
 		// Не критично, продолжаем
 	}
@@ -388,8 +388,9 @@ func (m *TokenManager) RefreshTokens(refreshToken, csrfTokenHeader, deviceID, ip
 
 // GetTokenInfo возвращает информацию о сроках действия текущих токенов
 func (m *TokenManager) GetTokenInfo(refreshToken string) (*TokenInfo, error) {
-	// Находим refresh-токен в БД
-	token, err := m.refreshTokenRepo.GetTokenByValue(refreshToken)
+	// Вычисляем hash и находим refresh-токен в БД
+	tokenHash := hashToken(refreshToken)
+	token, err := m.refreshTokenRepo.GetTokenByHash(tokenHash)
 	if err != nil {
 		return nil, NewTokenError(InvalidRefreshToken, "Недействительный refresh-токен", err)
 	}
@@ -408,12 +409,12 @@ func (m *TokenManager) GetTokenInfo(refreshToken string) (*TokenInfo, error) {
 
 // RevokeRefreshToken отзывает (помечает как истекший) указанный refresh токен
 func (m *TokenManager) RevokeRefreshToken(refreshToken string) error {
-	if err := m.refreshTokenRepo.MarkTokenAsExpired(refreshToken); err != nil {
-		// Проверяем, была ли ошибка "не найдено"
-		// if errors.Is(err, repository.ErrNotFound) { // Старый код
-		if errors.Is(err, apperrors.ErrNotFound) { // Используем новую ошибку
+	// Вычисляем hash от raw token для поиска в БД
+	tokenHash := hashToken(refreshToken)
+	if err := m.refreshTokenRepo.MarkTokenAsExpiredByHash(tokenHash); err != nil {
+		if errors.Is(err, apperrors.ErrNotFound) {
 			log.Printf("[TokenManager] Попытка отозвать несуществующий refresh токен.")
-			return NewTokenError(InvalidRefreshToken, "токен не найден", err) // Возвращаем ошибку недействительного токена
+			return NewTokenError(InvalidRefreshToken, "токен не найден", err)
 		}
 		log.Printf("[TokenManager] Ошибка при отзыве refresh-токена: %v", err)
 		return NewTokenError(DatabaseError, "ошибка при отзыве токена", err)
@@ -797,21 +798,24 @@ func (m *TokenManager) initializeAndEnsureKeys(ctx context.Context) error {
 
 // Служебные функции
 
-// generateRefreshToken генерирует новый refresh-токен и сохраняет его в БД
-// Теперь возвращает сгенерированную строку токена
+// generateRefreshToken генерирует новый refresh-токен, вычисляет SHA-256 hash, и сохраняет hash в БД.
+// Возвращает RAW (unhashed) строку токена — только она отправляется клиенту.
 func (m *TokenManager) generateRefreshToken(userID uint, deviceID, ipAddress, userAgent string) (string, error) {
-	// Генерируем случайный токен
+	// Генерируем случайный токен (32 байта = 64 hex символов)
 	randomBytes := make([]byte, 32)
 	if _, err := rand.Read(randomBytes); err != nil {
 		return "", err
 	}
-	tokenString := hex.EncodeToString(randomBytes)
+	rawToken := hex.EncodeToString(randomBytes)
 
-	// Время истечения - "скользящее окно" 30 дней от текущего момента
+	// Вычисляем SHA-256 hash для хранения в БД
+	tokenHash := hashToken(rawToken)
+
+	// Время истечения
 	expiresAt := time.Now().Add(m.refreshTokenExpiry)
 
-	// Создаем запись в БД
-	token := entity.NewRefreshToken(userID, tokenString, deviceID, ipAddress, userAgent, expiresAt)
+	// Сохраняем только hash токена (raw token не хранится в БД).
+	token := entity.NewRefreshToken(userID, tokenHash, deviceID, ipAddress, userAgent, expiresAt)
 
 	// Сохраняем в БД
 	_, err := m.refreshTokenRepo.CreateToken(token)
@@ -819,7 +823,15 @@ func (m *TokenManager) generateRefreshToken(userID uint, deviceID, ipAddress, us
 		return "", err
 	}
 
-	return tokenString, nil
+	// Возвращаем RAW token клиенту (hash остаётся только в БД)
+	return rawToken, nil
+}
+
+// hashToken вычисляет SHA-256 hex hash от raw token string
+func hashToken(rawToken string) string {
+	hasher := sha256.New()
+	hasher.Write([]byte(rawToken))
+	return hex.EncodeToString(hasher.Sum(nil))
 }
 
 // generateRandomString генерирует случайную строку указанной длины в hex формате

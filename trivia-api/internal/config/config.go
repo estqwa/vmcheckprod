@@ -16,6 +16,11 @@ type Config struct {
 	Redis     RedisConfig
 	JWT       JWTConfig
 	Auth      AuthConfig
+	Email     EmailConfig
+	Google    GoogleOAuthConfig `mapstructure:"google_oauth"`
+	Apple     AppleSignInConfig `mapstructure:"apple_signin"`
+	Features  FeaturesConfig
+	Legal     LegalConfig
 	CORS      CORSConfig
 	WebSocket WebSocketConfig
 }
@@ -69,7 +74,8 @@ type RedisConfig struct {
 
 // JWTConfig содержит настройки JWT
 type JWTConfig struct {
-	ExpirationHrs         int           `mapstructure:"expirationHrs"`
+	AccessTokenTTL        string        `mapstructure:"accessTokenTTL"`            // Время жизни access token (напр. "15m")
+	ExpirationHrs         int           `mapstructure:"expirationHrs"`             // Legacy: используется JWTService для cleanup
 	WSTicketExpirySec     int           `mapstructure:"wsTicketExpirySec"`         // Время жизни тикета для WebSocket в секундах
 	CleanupInterval       time.Duration `mapstructure:"cleanup_interval"`          // Интервал очистки кеша
 	DBJWTKeyEncryptionKey string        `mapstructure:"db_jwt_key_encryption_key"` // Ключ для шифрования JWT ключей в БД
@@ -79,6 +85,49 @@ type JWTConfig struct {
 type AuthConfig struct {
 	SessionLimit         int
 	RefreshTokenLifetime int
+}
+
+// EmailConfig contains transactional email settings.
+type EmailConfig struct {
+	Provider          string        `mapstructure:"provider"`
+	ResendAPIKey      string        `mapstructure:"resendApiKey"`
+	From              string        `mapstructure:"from"`
+	VerificationTTL   time.Duration `mapstructure:"verificationCodeTTL"`
+	ResendCooldownSec int           `mapstructure:"resendCooldownSec"`
+	MaxAttempts       int           `mapstructure:"maxAttempts"`
+	CodePepper        string        `mapstructure:"codePepper"`
+}
+
+// GoogleOAuthConfig stores OAuth credentials for Google sign-in.
+type GoogleOAuthConfig struct {
+	Enabled         bool   `mapstructure:"enabled"`
+	WebClientID     string `mapstructure:"webClientID"`
+	WebClientSecret string `mapstructure:"webClientSecret"`
+	AndroidClientID string `mapstructure:"androidClientID"`
+	IOSClientID     string `mapstructure:"iosClientID"`
+	RedirectURIWeb  string `mapstructure:"redirectURIWeb"`
+}
+
+// AppleSignInConfig is kept for phase-4 readiness (runtime is disabled now).
+type AppleSignInConfig struct {
+	Enabled   bool   `mapstructure:"enabled"`
+	TeamID    string `mapstructure:"teamID"`
+	KeyID     string `mapstructure:"keyID"`
+	BundleID  string `mapstructure:"bundleID"`
+	ServiceID string `mapstructure:"serviceID"`
+	Audience  string `mapstructure:"audience"`
+}
+
+type FeaturesConfig struct {
+	EmailVerificationEnabled         bool `mapstructure:"email_verification_enabled"`
+	EmailVerificationSoftGateEnabled bool `mapstructure:"email_verification_soft_gate_enabled"`
+	GoogleOAuthEnabled               bool `mapstructure:"google_oauth_enabled"`
+	AppleSignInEnabled               bool `mapstructure:"apple_signin_enabled"`
+}
+
+type LegalConfig struct {
+	TOSVersion     string `mapstructure:"tosVersion"`
+	PrivacyVersion string `mapstructure:"privacyVersion"`
 }
 
 // CORSConfig содержит настройки CORS (Cross-Origin Resource Sharing)
@@ -177,6 +226,7 @@ func Load(configPath string) (*Config, error) {
 	vip.BindEnv("redis.master_name", "REDIS_MASTER_NAME")
 
 	// Привязка для секции JWT
+	vip.BindEnv("jwt.accessTokenTTL", "JWT_ACCESS_TOKEN_TTL")
 	vip.BindEnv("jwt.expirationHrs", "JWT_EXPIRATIONHRS")
 	vip.BindEnv("jwt.wsTicketExpirySec", "JWT_WSTICKETEXPIRYSEC")
 	vip.BindEnv("jwt.cleanup_interval", "JWT_CLEANUP_INTERVAL")
@@ -185,6 +235,41 @@ func Load(configPath string) (*Config, error) {
 	// Привязка для секции Auth
 	vip.BindEnv("auth.sessionLimit", "AUTH_SESSIONLIMIT")
 	vip.BindEnv("auth.refreshTokenLifetime", "AUTH_REFRESHTOKENLIFETIME")
+
+	// Привязка для секции Email
+	vip.BindEnv("email.provider", "EMAIL_PROVIDER")
+	vip.BindEnv("email.resendApiKey", "EMAIL_RESEND_API_KEY")
+	vip.BindEnv("email.from", "EMAIL_FROM")
+	vip.BindEnv("email.verificationCodeTTL", "EMAIL_VERIFICATION_CODE_TTL")
+	vip.BindEnv("email.resendCooldownSec", "EMAIL_VERIFICATION_RESEND_COOLDOWN_SEC")
+	vip.BindEnv("email.maxAttempts", "EMAIL_VERIFICATION_MAX_ATTEMPTS")
+	vip.BindEnv("email.codePepper", "EMAIL_VERIFICATION_CODE_PEPPER")
+
+	// Привязка для секции Google OAuth
+	vip.BindEnv("google_oauth.enabled", "GOOGLE_OAUTH_ENABLED")
+	vip.BindEnv("google_oauth.webClientID", "GOOGLE_WEB_CLIENT_ID")
+	vip.BindEnv("google_oauth.webClientSecret", "GOOGLE_WEB_CLIENT_SECRET")
+	vip.BindEnv("google_oauth.androidClientID", "GOOGLE_ANDROID_CLIENT_ID")
+	vip.BindEnv("google_oauth.iosClientID", "GOOGLE_IOS_CLIENT_ID")
+	vip.BindEnv("google_oauth.redirectURIWeb", "GOOGLE_WEB_REDIRECT_URI")
+
+	// Привязка для секции Apple Sign-In (readiness)
+	vip.BindEnv("apple_signin.enabled", "APPLE_SIGNIN_ENABLED")
+	vip.BindEnv("apple_signin.teamID", "APPLE_TEAM_ID")
+	vip.BindEnv("apple_signin.keyID", "APPLE_KEY_ID")
+	vip.BindEnv("apple_signin.bundleID", "APPLE_BUNDLE_ID")
+	vip.BindEnv("apple_signin.serviceID", "APPLE_SERVICE_ID")
+	vip.BindEnv("apple_signin.audience", "APPLE_AUDIENCE")
+
+	// Feature flags
+	vip.BindEnv("features.email_verification_enabled", "FEATURE_EMAIL_VERIFICATION_ENABLED")
+	vip.BindEnv("features.email_verification_soft_gate_enabled", "FEATURE_EMAIL_VERIFICATION_SOFT_GATE_ENABLED")
+	vip.BindEnv("features.google_oauth_enabled", "FEATURE_GOOGLE_OAUTH_ENABLED")
+	vip.BindEnv("features.apple_signin_enabled", "FEATURE_APPLE_SIGNIN_ENABLED")
+
+	// Legal versions
+	vip.BindEnv("legal.tosVersion", "LEGAL_TOS_VERSION")
+	vip.BindEnv("legal.privacyVersion", "LEGAL_PRIVACY_VERSION")
 
 	// Привязка для Server
 	vip.BindEnv("server.port", "SERVER_PORT")
@@ -214,6 +299,9 @@ func Load(configPath string) (*Config, error) {
 	if err := vip.Unmarshal(&cfg); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal config: %w", err)
 	}
+	if !vip.IsSet("features.email_verification_soft_gate_enabled") {
+		cfg.Features.EmailVerificationSoftGateEnabled = cfg.Features.EmailVerificationEnabled
+	}
 
 	// 6. Логирование конфигурации (только в debug режиме)
 	if os.Getenv("GIN_MODE") != "release" {
@@ -227,6 +315,11 @@ func Load(configPath string) (*Config, error) {
 		log.Printf("Redis Mode: %s", cfg.Redis.Mode)
 		log.Printf("JWT Expiration Hours: %d", cfg.JWT.ExpirationHrs)
 		log.Printf("DB JWT Key Encryption Key Set: %t", cfg.JWT.DBJWTKeyEncryptionKey != "")
+		log.Printf("Email Provider: %s", cfg.Email.Provider)
+		log.Printf("Email Verification Enabled: %t", cfg.Features.EmailVerificationEnabled)
+		log.Printf("Email Verification Soft Gate Enabled: %t", cfg.Features.EmailVerificationSoftGateEnabled)
+		log.Printf("Google OAuth Enabled: %t", cfg.Features.GoogleOAuthEnabled)
+		log.Printf("Apple Sign-In Enabled: %t", cfg.Features.AppleSignInEnabled)
 		log.Printf("Server Port: %s", cfg.Server.Port)
 		log.Printf("Websocket Cluster Enabled: %t", cfg.WebSocket.Cluster.Enabled)
 		log.Printf("-----------------------------------------")
@@ -238,6 +331,37 @@ func Load(configPath string) (*Config, error) {
 	}
 	if cfg.Database.Host == "" || cfg.Database.DBName == "" || cfg.Database.User == "" {
 		return nil, fmt.Errorf("database configuration (host, dbname, user) is incomplete in config (check DATABASE_HOST, DATABASE_DBNAME, DATABASE_USER env vars)")
+	}
+	if cfg.Features.EmailVerificationEnabled {
+		if cfg.Email.Provider == "" || cfg.Email.From == "" {
+			return nil, fmt.Errorf("email verification is enabled but email provider/from are not configured")
+		}
+		if cfg.Email.Provider == "resend" && cfg.Email.ResendAPIKey == "" {
+			return nil, fmt.Errorf("email verification is enabled with resend provider but EMAIL_RESEND_API_KEY is missing")
+		}
+		if cfg.Email.VerificationTTL <= 0 {
+			cfg.Email.VerificationTTL = 15 * time.Minute
+		}
+		if cfg.Email.ResendCooldownSec <= 0 {
+			cfg.Email.ResendCooldownSec = 60
+		}
+		if cfg.Email.MaxAttempts <= 0 {
+			cfg.Email.MaxAttempts = 5
+		}
+	}
+	if cfg.Features.GoogleOAuthEnabled {
+		if cfg.Google.WebClientID == "" {
+			return nil, fmt.Errorf("google oauth is enabled but GOOGLE_WEB_CLIENT_ID is missing")
+		}
+		if cfg.Google.RedirectURIWeb == "" {
+			return nil, fmt.Errorf("google oauth is enabled but GOOGLE_WEB_REDIRECT_URI is missing")
+		}
+	}
+	if cfg.Legal.TOSVersion == "" {
+		cfg.Legal.TOSVersion = "1.0"
+	}
+	if cfg.Legal.PrivacyVersion == "" {
+		cfg.Legal.PrivacyVersion = "1.0"
 	}
 	// Проверяем пароли для БД и Redis, если приложение не в режиме разработки (например, в production)
 	// Для этого нам нужен способ определить режим. Сначала проверяем env var напрямую, потом viper.

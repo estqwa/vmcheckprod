@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -26,12 +27,12 @@ import (
 )
 
 func main() {
-	// Загружаем конфигурацию
+	// Р—Р°РіСЂСѓР¶Р°РµРј РєРѕРЅС„РёРіСѓСЂР°С†РёСЋ
 	configPath := os.Getenv("CONFIG_PATH")
 	if configPath == "" {
 		configPath = "config/config.yaml"
 	}
-	log.Printf("Загрузка конфигурации из %s", configPath)
+	log.Printf("Р—Р°РіСЂСѓР·РєР° РєРѕРЅС„РёРіСѓСЂР°С†РёРё РёР· %s", configPath)
 
 	cfg, err := config.Load(configPath)
 	if err != nil {
@@ -39,20 +40,20 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Инициализируем подключение к PostgreSQL
+	// РРЅРёС†РёР°Р»РёР·РёСЂСѓРµРј РїРѕРґРєР»СЋС‡РµРЅРёРµ Рє PostgreSQL
 	db, err := database.NewPostgresDB(cfg.Database.PostgresConnectionString())
 	if err != nil {
 		log.Printf("Failed to connect to database: %v", err)
 		os.Exit(1)
 	}
 
-	// Применяем миграции
+	// РџСЂРёРјРµРЅСЏРµРј РјРёРіСЂР°С†РёРё
 	if err := database.MigrateDB(db); err != nil {
 		log.Printf("Failed to migrate database: %v", err)
 		os.Exit(1)
 	}
 
-	// Инициализируем подключение к Redis с использованием унифицированной конфигурации
+	// РРЅРёС†РёР°Р»РёР·РёСЂСѓРµРј РїРѕРґРєР»СЋС‡РµРЅРёРµ Рє Redis СЃ РёСЃРїРѕР»СЊР·РѕРІР°РЅРёРµРј СѓРЅРёС„РёС†РёСЂРѕРІР°РЅРЅРѕР№ РєРѕРЅС„РёРіСѓСЂР°С†РёРё
 	redisClient, err := database.NewUniversalRedisClient(cfg.Redis)
 	if err != nil {
 		log.Printf("Failed to connect to Redis: %v", err)
@@ -60,7 +61,7 @@ func main() {
 	}
 	log.Println("Successfully connected to Redis")
 
-	// Инициализируем репозитории
+	// РРЅРёС†РёР°Р»РёР·РёСЂСѓРµРј СЂРµРїРѕР·РёС‚РѕСЂРёРё
 	userRepo := pgRepo.NewUserRepo(db)
 	quizRepo := pgRepo.NewQuizRepo(db)
 	questionRepo := pgRepo.NewQuestionRepo(db)
@@ -72,170 +73,231 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Инициализируем репозитории для рекламы
+	// РРЅРёС†РёР°Р»РёР·РёСЂСѓРµРј СЂРµРїРѕР·РёС‚РѕСЂРёРё РґР»СЏ СЂРµРєР»Р°РјС‹
 	adAssetRepo := pgRepo.NewAdAssetRepository(db)
 	quizAdSlotRepo := pgRepo.NewQuizAdSlotRepository(db)
 
-	// Инициализируем репозиторий для инвалидированных токенов
+	// РРЅРёС†РёР°Р»РёР·РёСЂСѓРµРј СЂРµРїРѕР·РёС‚РѕСЂРёР№ РґР»СЏ РёРЅРІР°Р»РёРґРёСЂРѕРІР°РЅРЅС‹С… С‚РѕРєРµРЅРѕРІ
 	invalidTokenRepo := pgRepo.NewInvalidTokenRepo(db)
 
-	// Инициализируем репозиторий для refresh-токенов
+	// РРЅРёС†РёР°Р»РёР·РёСЂСѓРµРј СЂРµРїРѕР·РёС‚РѕСЂРёР№ РґР»СЏ refresh-С‚РѕРєРµРЅРѕРІ
 	refreshTokenRepo, err := pgRepo.NewRefreshTokenRepo(db)
 	if err != nil {
 		log.Printf("Failed to initialize RefreshTokenRepo: %v", err)
 		os.Exit(1)
 	}
 
-	// Инициализируем репозиторий для JWT ключей
+	// РРЅРёС†РёР°Р»РёР·РёСЂСѓРµРј СЂРµРїРѕР·РёС‚РѕСЂРёР№ РґР»СЏ JWT РєР»СЋС‡РµР№
 	jwtKeyRepo, err := pgRepo.NewPostgresJWTKeyRepository(db, cfg.JWT.DBJWTKeyEncryptionKey)
 	if err != nil {
 		log.Printf("Failed to initialize JWTKeyRepository: %v", err)
 		os.Exit(1)
 	}
 
-	// --- Инициализация конфигурации для QuizManager ---
+	// --- РРЅРёС†РёР°Р»РёР·Р°С†РёСЏ РєРѕРЅС„РёРіСѓСЂР°С†РёРё РґР»СЏ QuizManager ---
 	quizConfig := quizmanager.DefaultConfig()
 
-	// --- Инициализация TokenManager и JWTService ---
+	// --- РРЅРёС†РёР°Р»РёР·Р°С†РёСЏ TokenManager Рё JWTService ---
 
-	// 1. Создаем TokenManager
+	// 1. РЎРѕР·РґР°РµРј TokenManager
 	tokenManager, err := manager.NewTokenManager(refreshTokenRepo, userRepo, jwtKeyRepo)
 	if err != nil {
 		log.Printf("Failed to initialize TokenManager: %v", err)
 		os.Exit(1)
 	}
-	// Устанавливаем параметры TokenManager из конфигурации
-	tokenManager.SetAccessTokenExpiry(time.Duration(cfg.JWT.ExpirationHrs) * time.Hour)
+	// РЈСЃС‚Р°РЅР°РІР»РёРІР°РµРј РїР°СЂР°РјРµС‚СЂС‹ TokenManager РёР· РєРѕРЅС„РёРіСѓСЂР°С†РёРё
+	// Access token TTL: РёСЃРїРѕР»СЊР·СѓРµРј РЅРѕРІС‹Р№ accessTokenTTL, fallback РЅР° legacy expirationHrs
+	accessTTL := time.Duration(cfg.JWT.ExpirationHrs) * time.Hour
+	if cfg.JWT.AccessTokenTTL != "" {
+		ttl, parseErr := time.ParseDuration(cfg.JWT.AccessTokenTTL)
+		if parseErr != nil {
+			log.Printf("WARNING: failed to parse jwt.accessTokenTTL '%s': %v. Falling back to expirationHrs.", cfg.JWT.AccessTokenTTL, parseErr)
+		} else {
+			accessTTL = ttl
+		}
+	}
+	tokenManager.SetAccessTokenExpiry(accessTTL)
 	tokenManager.SetRefreshTokenExpiry(time.Duration(cfg.Auth.RefreshTokenLifetime) * time.Hour)
 	tokenManager.SetMaxRefreshTokensPerUser(cfg.Auth.SessionLimit)
 
 	isProduction := gin.Mode() == gin.ReleaseMode
-	tokenManager.SetProductionMode(isProduction) // Устанавливаем режим для Secure кук
+	tokenManager.SetProductionMode(isProduction) // РЈСЃС‚Р°РЅР°РІР»РёРІР°РµРј СЂРµР¶РёРј РґР»СЏ Secure РєСѓРє
 
-	// ВНИМАНИЕ: SameSiteNoneMode требует Secure=true. Убедитесь, что isProduction устанавливается корректно.
-	// Для локальной разработки без HTTPS, SameSiteLaxMode или SameSiteDefaultMode может быть более подходящим.
-	// Если isProduction=false (HTTP), SameSite=None не будет работать корректно в большинстве браузеров.
-	sameSitePolicy := http.SameSiteLaxMode // По умолчанию Lax
+	// Р’РќРРњРђРќРР•: SameSiteNoneMode С‚СЂРµР±СѓРµС‚ Secure=true. РЈР±РµРґРёС‚РµСЃСЊ, С‡С‚Рѕ isProduction СѓСЃС‚Р°РЅР°РІР»РёРІР°РµС‚СЃСЏ РєРѕСЂСЂРµРєС‚РЅРѕ.
+	// Р”Р»СЏ Р»РѕРєР°Р»СЊРЅРѕР№ СЂР°Р·СЂР°Р±РѕС‚РєРё Р±РµР· HTTPS, SameSiteLaxMode РёР»Рё SameSiteDefaultMode РјРѕР¶РµС‚ Р±С‹С‚СЊ Р±РѕР»РµРµ РїРѕРґС…РѕРґСЏС‰РёРј.
+	// Р•СЃР»Рё isProduction=false (HTTP), SameSite=None РЅРµ Р±СѓРґРµС‚ СЂР°Р±РѕС‚Р°С‚СЊ РєРѕСЂСЂРµРєС‚РЅРѕ РІ Р±РѕР»СЊС€РёРЅСЃС‚РІРµ Р±СЂР°СѓР·РµСЂРѕРІ.
+	sameSitePolicy := http.SameSiteLaxMode // РџРѕ СѓРјРѕР»С‡Р°РЅРёСЋ Lax
 	if isProduction {
-		sameSitePolicy = http.SameSiteNoneMode // None только для HTTPS
+		sameSitePolicy = http.SameSiteNoneMode // None С‚РѕР»СЊРєРѕ РґР»СЏ HTTPS
 	}
 	tokenManager.SetCookieAttributes(
 		"/",            // Path
 		"",             // Domain
-		isProduction,   // Secure (true для прода)
+		isProduction,   // Secure (true РґР»СЏ РїСЂРѕРґР°)
 		true,           // HttpOnly
-		sameSitePolicy, // Используем вычисленную политику
+		sameSitePolicy, // РСЃРїРѕР»СЊР·СѓРµРј РІС‹С‡РёСЃР»РµРЅРЅСѓСЋ РїРѕР»РёС‚РёРєСѓ
 	)
 
-	// Создаем контекст с отменой для корректного завершения работы горутин
-	// Этот контекст будет использоваться для управления жизненным циклом горутин в сервисах
+	// РЎРѕР·РґР°РµРј РєРѕРЅС‚РµРєСЃС‚ СЃ РѕС‚РјРµРЅРѕР№ РґР»СЏ РєРѕСЂСЂРµРєС‚РЅРѕРіРѕ Р·Р°РІРµСЂС€РµРЅРёСЏ СЂР°Р±РѕС‚С‹ РіРѕСЂСѓС‚РёРЅ
+	// Р­С‚РѕС‚ РєРѕРЅС‚РµРєСЃС‚ Р±СѓРґРµС‚ РёСЃРїРѕР»СЊР·РѕРІР°С‚СЊСЃСЏ РґР»СЏ СѓРїСЂР°РІР»РµРЅРёСЏ Р¶РёР·РЅРµРЅРЅС‹Рј С†РёРєР»РѕРј РіРѕСЂСѓС‚РёРЅ РІ СЃРµСЂРІРёСЃР°С…
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	// --- Инициализация WebSocket (PubSubProvider создается здесь) ---
+	// --- РРЅРёС†РёР°Р»РёР·Р°С†РёСЏ WebSocket (PubSubProvider СЃРѕР·РґР°РµС‚СЃСЏ Р·РґРµСЃСЊ) ---
 	var wsHub ws.HubInterface
-	var pubSubProvider ws.PubSubProvider = &ws.NoOpPubSub{} // Провайдер по умолчанию
+	var pubSubProvider ws.PubSubProvider = &ws.NoOpPubSub{} // РџСЂРѕРІР°Р№РґРµСЂ РїРѕ СѓРјРѕР»С‡Р°РЅРёСЋ
 
-	// Создаем PubSubProvider только если кластеризация включена
+	// РЎРѕР·РґР°РµРј PubSubProvider С‚РѕР»СЊРєРѕ РµСЃР»Рё РєР»Р°СЃС‚РµСЂРёР·Р°С†РёСЏ РІРєР»СЋС‡РµРЅР°
 	if cfg.WebSocket.Cluster.Enabled {
-		log.Println("Инициализация Redis PubSub для кластеризации WebSocket...")
+		log.Println("РРЅРёС†РёР°Р»РёР·Р°С†РёСЏ Redis PubSub РґР»СЏ РєР»Р°СЃС‚РµСЂРёР·Р°С†РёРё WebSocket...")
 		redisPubSubClient, errPubSub := database.NewUniversalRedisClient(cfg.Redis)
 		if errPubSub != nil {
-			log.Printf("Ошибка при инициализации Redis клиента для PubSub: %v. Кластеризация WS будет неактивна.", errPubSub)
+			log.Printf("РћС€РёР±РєР° РїСЂРё РёРЅРёС†РёР°Р»РёР·Р°С†РёРё Redis РєР»РёРµРЅС‚Р° РґР»СЏ PubSub: %v. РљР»Р°СЃС‚РµСЂРёР·Р°С†РёСЏ WS Р±СѓРґРµС‚ РЅРµР°РєС‚РёРІРЅР°.", errPubSub)
 			pubSubProvider = &ws.NoOpPubSub{}
 		} else {
 			redisProvider, errProv := ws.NewRedisPubSub(redisPubSubClient)
 			if errProv != nil {
-				log.Printf("Ошибка при создании Redis PubSub провайдера: %v. Кластеризация WS будет неактивна.", errProv)
+				log.Printf("РћС€РёР±РєР° РїСЂРё СЃРѕР·РґР°РЅРёРё Redis PubSub РїСЂРѕРІР°Р№РґРµСЂР°: %v. РљР»Р°СЃС‚РµСЂРёР·Р°С†РёСЏ WS Р±СѓРґРµС‚ РЅРµР°РєС‚РёРІРЅР°.", errProv)
 				redisPubSubClient.Close()
 				pubSubProvider = &ws.NoOpPubSub{}
 			} else {
-				log.Println("Redis PubSub провайдер успешно инициализирован")
+				log.Println("Redis PubSub РїСЂРѕРІР°Р№РґРµСЂ СѓСЃРїРµС€РЅРѕ РёРЅРёС†РёР°Р»РёР·РёСЂРѕРІР°РЅ")
 				pubSubProvider = redisProvider
 			}
 		}
 	}
-	// --- Конец инициализации WebSocket ---
+	// --- РљРѕРЅРµС† РёРЅРёС†РёР°Р»РёР·Р°С†РёРё WebSocket ---
 
-	// 2. Создаем JWTService, передавая ему tokenManager как KeyProvider, pubSubProvider и ctx
+	// 2. РЎРѕР·РґР°РµРј JWTService, РїРµСЂРµРґР°РІР°СЏ РµРјСѓ tokenManager РєР°Рє KeyProvider, pubSubProvider Рё ctx
 	jwtService, err := auth.NewJWTService(
 		cfg.JWT.ExpirationHrs,
 		invalidTokenRepo,
 		cfg.JWT.WSTicketExpirySec,
 		cfg.JWT.CleanupInterval,
-		tokenManager,   // tokenManager реализует KeyProvider
-		pubSubProvider, // <<< ПЕРЕДАЕМ СЮДА
-		ctx,            // <<< ПЕРЕДАЕМ СЮДА КОРНЕВОЙ КОНТЕКСТ ПРИЛОЖЕНИЯ
+		tokenManager,   // tokenManager СЂРµР°Р»РёР·СѓРµС‚ KeyProvider
+		pubSubProvider, // <<< РџР•Р Р•Р”РђР•Рњ РЎР®Р”Рђ
+		ctx,            // <<< РџР•Р Р•Р”РђР•Рњ РЎР®Р”Рђ РљРћР РќР•Р’РћР™ РљРћРќРўР•РљРЎРў РџР РР›РћР–Р•РќРРЇ
 	)
 	if err != nil {
 		log.Printf("Failed to initialize JWTService: %v", err)
 		os.Exit(1)
 	}
+	jwtService.SetAccessTokenTTL(accessTTL)
 
-	// 3. Устанавливаем jwtService в tokenManager
+	// 3. РЈСЃС‚Р°РЅР°РІР»РёРІР°РµРј jwtService РІ tokenManager
 	tokenManager.SetJWTService(jwtService)
 
-	// --- Конец измененной инициализации TokenManager и JWTService ---
+	// --- РљРѕРЅРµС† РёР·РјРµРЅРµРЅРЅРѕР№ РёРЅРёС†РёР°Р»РёР·Р°С†РёРё TokenManager Рё JWTService ---
 
-	// Передаем TokenManager в AuthService
-	authService, err := service.NewAuthService(userRepo, jwtService, tokenManager, refreshTokenRepo, invalidTokenRepo)
+	// РРЅРёС†РёР°Р»РёР·РёСЂСѓРµРј СЂРµРїРѕР·РёС‚РѕСЂРёР№ СЋСЂРёРґРёС‡РµСЃРєРёС… СЃРѕРіР»Р°СЃРёР№
+	legalRepo := pgRepo.NewUserLegalAcceptanceRepo(db)
+	emailVerificationRepo := pgRepo.NewEmailVerificationRepo(db)
+	userIdentityRepo := pgRepo.NewUserIdentityRepo(db)
+
+	// РџРµСЂРµРґР°РµРј TokenManager Рё legalRepo РІ AuthService
+	authService, err := service.NewAuthService(userRepo, jwtService, tokenManager, refreshTokenRepo, invalidTokenRepo, legalRepo)
 	if err != nil {
 		log.Printf("Failed to initialize AuthService: %v", err)
 		os.Exit(1)
 	}
+	authService.SetFeatureFlags(cfg.Features.EmailVerificationEnabled, cfg.Features.GoogleOAuthEnabled)
+	authService.SetLegalVersions(cfg.Legal.TOSVersion, cfg.Legal.PrivacyVersion)
+	authService.SetEmailVerificationRepository(emailVerificationRepo)
+	authService.SetIdentityRepository(userIdentityRepo)
 
-	// Запускаем фоновую задачу для очистки истекших CSRF токенов и других ресурсов
+	if cfg.Features.EmailVerificationEnabled {
+		var emailSvc service.EmailService
+		switch strings.ToLower(strings.TrimSpace(cfg.Email.Provider)) {
+		case "resend":
+			resendSvc, emailErr := service.NewResendEmailService(cfg.Email.ResendAPIKey, cfg.Email.From)
+			if emailErr != nil {
+				log.Printf("Failed to initialize ResendEmailService: %v", emailErr)
+				os.Exit(1)
+			}
+			emailSvc = resendSvc
+		default:
+			log.Printf("Unsupported email provider for verification: %s", cfg.Email.Provider)
+			os.Exit(1)
+		}
+
+		emailVerificationService, emailErr := service.NewEmailVerificationService(
+			userRepo,
+			emailVerificationRepo,
+			emailSvc,
+			cfg.Email.VerificationTTL,
+			time.Duration(cfg.Email.ResendCooldownSec)*time.Second,
+			cfg.Email.MaxAttempts,
+			cfg.Email.CodePepper,
+		)
+		if emailErr != nil {
+			log.Printf("Failed to initialize EmailVerificationService: %v", emailErr)
+			os.Exit(1)
+		}
+		authService.SetEmailVerificationService(emailVerificationService)
+	}
+
+	if cfg.Features.GoogleOAuthEnabled {
+		googleOAuthService, googleErr := service.NewGoogleOAuthService(userRepo, userIdentityRepo, tokenManager, cfg.Google)
+		if googleErr != nil {
+			log.Printf("Failed to initialize GoogleOAuthService: %v", googleErr)
+			os.Exit(1)
+		}
+		authService.SetGoogleOAuthService(googleOAuthService)
+	}
+
+	// Р—Р°РїСѓСЃРєР°РµРј С„РѕРЅРѕРІСѓСЋ Р·Р°РґР°С‡Сѓ РґР»СЏ РѕС‡РёСЃС‚РєРё РёСЃС‚РµРєС€РёС… CSRF С‚РѕРєРµРЅРѕРІ Рё РґСЂСѓРіРёС… СЂРµСЃСѓСЂСЃРѕРІ
 	go func() {
 		ticker := time.NewTicker(1 * time.Hour)
 		defer ticker.Stop()
 
-		log.Println("Запуск механизма периодической очистки CSRF токенов и истекших refresh-токенов (каждый час)")
+		log.Println("Р—Р°РїСѓСЃРє РјРµС…Р°РЅРёР·РјР° РїРµСЂРёРѕРґРёС‡РµСЃРєРѕР№ РѕС‡РёСЃС‚РєРё CSRF С‚РѕРєРµРЅРѕРІ Рё РёСЃС‚РµРєС€РёС… refresh-С‚РѕРєРµРЅРѕРІ (РєР°Р¶РґС‹Р№ С‡Р°СЃ)")
 
 		for {
 			select {
 			case <-ticker.C:
-				log.Println("Выполняю периодическую очистку CSRF токенов и истекших refresh-токенов...")
+				log.Println("Р’С‹РїРѕР»РЅСЏСЋ РїРµСЂРёРѕРґРёС‡РµСЃРєСѓСЋ РѕС‡РёСЃС‚РєСѓ CSRF С‚РѕРєРµРЅРѕРІ Рё РёСЃС‚РµРєС€РёС… refresh-С‚РѕРєРµРЅРѕРІ...")
 				if err := tokenManager.CleanupExpiredTokens(); err != nil {
-					log.Printf("Ошибка при очистке токенов: %v", err)
+					log.Printf("РћС€РёР±РєР° РїСЂРё РѕС‡РёСЃС‚РєРµ С‚РѕРєРµРЅРѕРІ: %v", err)
 				} else {
-					log.Println("Очистка токенов выполнена успешно")
+					log.Println("РћС‡РёСЃС‚РєР° С‚РѕРєРµРЅРѕРІ РІС‹РїРѕР»РЅРµРЅР° СѓСЃРїРµС€РЅРѕ")
 				}
 			case <-ctx.Done():
-				log.Println("Завершение работы горутины очистки токенов")
+				log.Println("Р—Р°РІРµСЂС€РµРЅРёРµ СЂР°Р±РѕС‚С‹ РіРѕСЂСѓС‚РёРЅС‹ РѕС‡РёСЃС‚РєРё С‚РѕРєРµРЅРѕРІ")
 				return
 			}
 		}
 	}()
 
-	// Инициализация WebSocket Hub
-	// ВАЖНО: Всегда создаём ShardedHub, даже если шардирование выключено.
-	// Раньше wsHub оставался nil, что ломало весь WebSocket.
-	// Sharding.Enabled контролирует только запуск ClusterHub для межсерверного
-	// взаимодействия, но локальный Hub нужен всегда.
-	log.Println("WebSocket: инициализация ShardedHub")
+	// РРЅРёС†РёР°Р»РёР·Р°С†РёСЏ WebSocket Hub
+	// Р’РђР–РќРћ: Р’СЃРµРіРґР° СЃРѕР·РґР°С‘Рј ShardedHub, РґР°Р¶Рµ РµСЃР»Рё С€Р°СЂРґРёСЂРѕРІР°РЅРёРµ РІС‹РєР»СЋС‡РµРЅРѕ.
+	// Р Р°РЅСЊС€Рµ wsHub РѕСЃС‚Р°РІР°Р»СЃСЏ nil, С‡С‚Рѕ Р»РѕРјР°Р»Рѕ РІРµСЃСЊ WebSocket.
+	// Sharding.Enabled РєРѕРЅС‚СЂРѕР»РёСЂСѓРµС‚ С‚РѕР»СЊРєРѕ Р·Р°РїСѓСЃРє ClusterHub РґР»СЏ РјРµР¶СЃРµСЂРІРµСЂРЅРѕРіРѕ
+	// РІР·Р°РёРјРѕРґРµР№СЃС‚РІРёСЏ, РЅРѕ Р»РѕРєР°Р»СЊРЅС‹Р№ Hub РЅСѓР¶РµРЅ РІСЃРµРіРґР°.
+	log.Println("WebSocket: РёРЅРёС†РёР°Р»РёР·Р°С†РёСЏ ShardedHub")
 	shardedHub := ws.NewShardedHub(cfg.WebSocket, pubSubProvider, cacheRepo)
-	go shardedHub.Run() // Запускаем обработчик шардов
+	go shardedHub.Run() // Р—Р°РїСѓСЃРєР°РµРј РѕР±СЂР°Р±РѕС‚С‡РёРє С€Р°СЂРґРѕРІ
 	wsHub = shardedHub
 
 	if cfg.WebSocket.Sharding.Enabled {
-		log.Println("WebSocket: кластерный режим включен")
+		log.Println("WebSocket: РєР»Р°СЃС‚РµСЂРЅС‹Р№ СЂРµР¶РёРј РІРєР»СЋС‡РµРЅ")
 	} else {
-		log.Println("WebSocket: работа в автономном режиме (без кластера)")
+		log.Println("WebSocket: СЂР°Р±РѕС‚Р° РІ Р°РІС‚РѕРЅРѕРјРЅРѕРј СЂРµР¶РёРјРµ (Р±РµР· РєР»Р°СЃС‚РµСЂР°)")
 	}
 
 	wsManager := ws.NewManager(wsHub)
 
-	// Инициализируем сервисы
+	// РРЅРёС†РёР°Р»РёР·РёСЂСѓРµРј СЃРµСЂРІРёСЃС‹
 	quizService := service.NewQuizService(quizRepo, questionRepo, cacheRepo, quizConfig, db)
 	resultService := service.NewResultService(resultRepo, userRepo, quizRepo, questionRepo, cacheRepo, db, wsManager, quizConfig)
+	resultService.SetEmailVerificationGate(cfg.Features.EmailVerificationSoftGateEnabled)
 	userService := service.NewUserService(userRepo)
 	quizManagerService := service.NewQuizManager(quizRepo, questionRepo, resultRepo, resultService, cacheRepo, wsManager, db, quizAdSlotRepo)
 
-	// Инициализируем сервисы рекламы
+	// РРЅРёС†РёР°Р»РёР·РёСЂСѓРµРј СЃРµСЂРІРёСЃС‹ СЂРµРєР»Р°РјС‹
 	adService := service.NewAdService(adAssetRepo, "./uploads/ads")
 	quizAdSlotService := service.NewQuizAdSlotService(quizAdSlotRepo, adAssetRepo, quizRepo)
 
-	// Инициализируем обработчики
+	// РРЅРёС†РёР°Р»РёР·РёСЂСѓРµРј РѕР±СЂР°Р±РѕС‚С‡РёРєРё
 	authHandler := handler.NewAuthHandler(authService, tokenManager, wsHub)
 	mobileAuthHandler := handler.NewMobileAuthHandler(authService, tokenManager, wsHub)
 	quizHandler := handler.NewQuizHandler(quizService, resultService, quizManagerService)
@@ -243,31 +305,32 @@ func main() {
 	userHandler := handler.NewUserHandler(userService, resultService)
 	adHandler := handler.NewAdHandler(adService, quizAdSlotService)
 
-	// Инициализируем middleware
+	// РРЅРёС†РёР°Р»РёР·РёСЂСѓРµРј middleware
 	authMiddleware := middleware.NewAuthMiddlewareWithManager(jwtService, tokenManager)
+	rateLimiter := middleware.NewRateLimiter(redisClient)
 
-	// Инициализируем роутер Gin
+	// РРЅРёС†РёР°Р»РёР·РёСЂСѓРµРј СЂРѕСѓС‚РµСЂ Gin
 	router := gin.Default()
 
-	// Настройка доверенных прокси для корректной работы c.ClientIP()
-	// В production (GIN_MODE=release): не доверяем прокси (защита от IP spoofing)
-	// В development: доверяем localhost
-	// При деплое на VM с load balancer: добавьте IP балансировщика в список
+	// РќР°СЃС‚СЂРѕР№РєР° РґРѕРІРµСЂРµРЅРЅС‹С… РїСЂРѕРєСЃРё РґР»СЏ РєРѕСЂСЂРµРєС‚РЅРѕР№ СЂР°Р±РѕС‚С‹ c.ClientIP()
+	// Р’ production (GIN_MODE=release): РЅРµ РґРѕРІРµСЂСЏРµРј РїСЂРѕРєСЃРё (Р·Р°С‰РёС‚Р° РѕС‚ IP spoofing)
+	// Р’ development: РґРѕРІРµСЂСЏРµРј localhost
+	// РџСЂРё РґРµРїР»РѕРµ РЅР° VM СЃ load balancer: РґРѕР±Р°РІСЊС‚Рµ IP Р±Р°Р»Р°РЅСЃРёСЂРѕРІС‰РёРєР° РІ СЃРїРёСЃРѕРє
 	if isProduction {
-		// Production: не доверять прокси-заголовкам
-		// Если используете load balancer, замените nil на []string{"IP_БАЛАНСИРОВЩИКА"}
+		// Production: РЅРµ РґРѕРІРµСЂСЏС‚СЊ РїСЂРѕРєСЃРё-Р·Р°РіРѕР»РѕРІРєР°Рј
+		// Р•СЃР»Рё РёСЃРїРѕР»СЊР·СѓРµС‚Рµ load balancer, Р·Р°РјРµРЅРёС‚Рµ nil РЅР° []string{"IP_Р‘РђР›РђРќРЎРР РћР’Р©РРљРђ"}
 		if err := router.SetTrustedProxies(nil); err != nil {
 			log.Printf("Warning: failed to set trusted proxies: %v", err)
 		}
 	} else {
-		// Development: доверяем localhost
+		// Development: РґРѕРІРµСЂСЏРµРј localhost
 		if err := router.SetTrustedProxies([]string{"127.0.0.1", "::1"}); err != nil {
 			log.Printf("Warning: failed to set trusted proxies: %v", err)
 		}
 	}
 
-	// Настройка CORS
-	// Fail-fast: если список origins пустой — это ошибка конфигурации
+	// РќР°СЃС‚СЂРѕР№РєР° CORS
+	// Fail-fast: РµСЃР»Рё СЃРїРёСЃРѕРє origins РїСѓСЃС‚РѕР№ вЂ” СЌС‚Рѕ РѕС€РёР±РєР° РєРѕРЅС„РёРіСѓСЂР°С†РёРё
 	if len(cfg.CORS.AllowedOrigins) == 0 {
 		log.Fatal("CORS configuration error: allowed_origins list is empty. This would block all browser clients.")
 	}
@@ -275,37 +338,40 @@ func main() {
 		AllowOrigins:     cfg.CORS.AllowedOrigins,
 		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
 		AllowHeaders:     []string{"Origin", "Content-Type", "Accept", "Authorization", "X-CSRF-Token"},
-		ExposeHeaders:    []string{"Content-Length", "X-Quiz-Schedule-Warning"},
+		ExposeHeaders:    []string{"Content-Length", "X-Quiz-Schedule-Warning", "Retry-After", "X-RateLimit-Limit", "X-RateLimit-Remaining", "X-RateLimit-Reset"},
 		AllowCredentials: true,
 		MaxAge:           12 * time.Hour,
 	}))
 
-	// Статические файлы для админ-панели
+	// РЎС‚Р°С‚РёС‡РµСЃРєРёРµ С„Р°Р№Р»С‹ РґР»СЏ Р°РґРјРёРЅ-РїР°РЅРµР»Рё
 	router.StaticFS("/admin", http.Dir("./static/admin"))
 
-	// Статические файлы для загруженных реклам
+	// РЎС‚Р°С‚РёС‡РµСЃРєРёРµ С„Р°Р№Р»С‹ РґР»СЏ Р·Р°РіСЂСѓР¶РµРЅРЅС‹С… СЂРµРєР»Р°Рј
 	router.Static("/uploads/ads", "./uploads/ads")
 
-	// Настраиваем маршруты API
+	// РќР°СЃС‚СЂР°РёРІР°РµРј РјР°СЂС€СЂСѓС‚С‹ API
 	api := router.Group("/api")
 	{
-		// Аутентификация
-		authGroup := api.Group("/auth") // Переименовано для ясности
+		// РђСѓС‚РµРЅС‚РёС„РёРєР°С†РёСЏ
+		authGroup := api.Group("/auth")
+		authDefaultRateLimit := rateLimiter.Limit(middleware.DefaultAuthRateLimitConfig())
 		{
-			authGroup.POST("/register", authHandler.Register)
-			authGroup.POST("/login", authHandler.Login)
-			authGroup.POST("/refresh", authHandler.RefreshToken)
-			authGroup.POST("/check-refresh", authHandler.CheckRefreshToken)
-			authGroup.POST("/token-info", authHandler.GetTokenInfo)
+			authGroup.POST("/register", rateLimiter.Limit(middleware.StrictAuthRateLimitConfig()), authHandler.Register)
+			authGroup.POST("/login", rateLimiter.Limit(middleware.StrictAuthRateLimitConfig()), authHandler.Login)
+			authGroup.POST("/refresh", authDefaultRateLimit, authHandler.RefreshToken)
+			authGroup.POST("/check-refresh", authDefaultRateLimit, authHandler.CheckRefreshToken)
+			authGroup.POST("/token-info", authDefaultRateLimit, authHandler.GetTokenInfo)
+			authGroup.POST("/google/exchange", authDefaultRateLimit, authHandler.GoogleExchange)
 
-			// Маршруты, требующие аутентификации
+			// РњР°СЂС€СЂСѓС‚С‹, С‚СЂРµР±СѓСЋС‰РёРµ Р°СѓС‚РµРЅС‚РёС„РёРєР°С†РёРё
 			authedAuth := authGroup.Group("/")
-			authedAuth.Use(authMiddleware.RequireAuth())
+			authedAuth.Use(authDefaultRateLimit, authMiddleware.RequireAuth())
 			{
-				// Эндпоинт для получения CSRF токена (хеша)
+				// Р­РЅРґРїРѕРёРЅС‚ РґР»СЏ РїРѕР»СѓС‡РµРЅРёСЏ CSRF С‚РѕРєРµРЅР° (С…РµС€Р°)
 				authedAuth.GET("/csrf", authHandler.GetCSRFToken)
+				authedAuth.GET("/verify-email/status", authHandler.GetEmailVerificationStatus)
 
-				// Маршруты, требующие и аутентификации, и CSRF токена
+				// РњР°СЂС€СЂСѓС‚С‹, С‚СЂРµР±СѓСЋС‰РёРµ Рё Р°СѓС‚РµРЅС‚РёС„РёРєР°С†РёРё, Рё CSRF С‚РѕРєРµРЅР°
 				csrfProtected := authedAuth.Group("/")
 				csrfProtected.Use(authMiddleware.RequireCSRF())
 				{
@@ -315,12 +381,15 @@ func main() {
 					csrfProtected.POST("/revoke-session", authHandler.RevokeSession)
 					csrfProtected.POST("/change-password", authHandler.ChangePassword)
 					csrfProtected.POST("/ws-ticket", authHandler.GenerateWsTicket)
+					csrfProtected.POST("/verify-email/send", authHandler.SendEmailVerificationCode)
+					csrfProtected.POST("/verify-email/confirm", authHandler.ConfirmEmailVerificationCode)
+					csrfProtected.POST("/google/link", authHandler.GoogleLink)
 				}
 			}
 
-			// Маршрут для сброса инвалидаций токенов (только для администраторов)
+			// РњР°СЂС€СЂСѓС‚ РґР»СЏ СЃР±СЂРѕСЃР° РёРЅРІР°Р»РёРґР°С†РёР№ С‚РѕРєРµРЅРѕРІ (С‚РѕР»СЊРєРѕ РґР»СЏ Р°РґРјРёРЅРёСЃС‚СЂР°С‚РѕСЂРѕРІ)
 			adminAuth := authGroup.Group("/admin")
-			adminAuth.Use(authMiddleware.RequireAuth(), authMiddleware.AdminOnly())
+			adminAuth.Use(authDefaultRateLimit, authMiddleware.RequireAuth(), authMiddleware.AdminOnly())
 			adminAuth.Use(authMiddleware.RequireCSRF())
 			{
 				adminAuth.POST("/reset-auth", authHandler.ResetAuth)
@@ -329,43 +398,44 @@ func main() {
 			}
 		}
 
-		// Пользователи
+		// РџРѕР»СЊР·РѕРІР°С‚РµР»Рё
 		users := api.Group("/users")
 		users.Use(authMiddleware.RequireAuth())
 		{
 			users.GET("/me", authHandler.GetMe)
-			users.GET("/me/results", userHandler.GetMyResults) // История игр
+			users.GET("/me/results", userHandler.GetMyResults) // РСЃС‚РѕСЂРёСЏ РёРіСЂ
 			users.PUT("/me", authMiddleware.RequireCSRF(), authHandler.UpdateProfile)
 			users.PUT("/me/language", authMiddleware.RequireCSRF(), authHandler.UpdateLanguage)
+			users.DELETE("/me", authMiddleware.RequireCSRF(), authHandler.DeleteMe)
 		}
 
-		// Лидерборд (публичный маршрут)
+		// Р›РёРґРµСЂР±РѕСЂРґ (РїСѓР±Р»РёС‡РЅС‹Р№ РјР°СЂС€СЂСѓС‚)
 		api.GET("/leaderboard", userHandler.GetLeaderboard)
 
-		// Викторины
+		// Р’РёРєС‚РѕСЂРёРЅС‹
 		quizzes := api.Group("/quizzes")
 		{
 			quizzes.GET("", quizHandler.ListQuizzes)
 			quizzes.GET("/active", quizHandler.GetActiveQuiz)
 			quizzes.GET("/scheduled", quizHandler.GetScheduledQuizzes)
 
-			// Группа маршрутов, требующих quizID
+			// Р“СЂСѓРїРїР° РјР°СЂС€СЂСѓС‚РѕРІ, С‚СЂРµР±СѓСЋС‰РёС… quizID
 			quizWithID := quizzes.Group("/:id")
-			quizWithID.Use(middleware.ExtractUintParam("id", "quizID")) // Применяем middleware
+			quizWithID.Use(middleware.ExtractUintParam("id", "quizID")) // РџСЂРёРјРµРЅСЏРµРј middleware
 			{
 				quizWithID.GET("", quizHandler.GetQuiz)
 				quizWithID.GET("/with-questions", quizHandler.GetQuizWithQuestions)
 				quizWithID.GET("/results", quizHandler.GetQuizResults)
 
-				// Маршруты для аутентифицированных пользователей
-				authedQuizzes := quizWithID.Group("") // Наследует middleware
+				// РњР°СЂС€СЂСѓС‚С‹ РґР»СЏ Р°СѓС‚РµРЅС‚РёС„РёС†РёСЂРѕРІР°РЅРЅС‹С… РїРѕР»СЊР·РѕРІР°С‚РµР»РµР№
+				authedQuizzes := quizWithID.Group("") // РќР°СЃР»РµРґСѓРµС‚ middleware
 				authedQuizzes.Use(authMiddleware.RequireAuth())
 				{
 					authedQuizzes.GET("/my-result", quizHandler.GetUserQuizResult)
 				}
 
-				// Маршруты для администраторов
-				adminQuizzes := quizWithID.Group("") // Наследует middleware
+				// РњР°СЂС€СЂСѓС‚С‹ РґР»СЏ Р°РґРјРёРЅРёСЃС‚СЂР°С‚РѕСЂРѕРІ
+				adminQuizzes := quizWithID.Group("") // РќР°СЃР»РµРґСѓРµС‚ middleware
 				adminQuizzes.Use(authMiddleware.RequireAuth(), authMiddleware.AdminOnly())
 				adminQuizzes.Use(authMiddleware.RequireCSRF())
 				{
@@ -373,12 +443,12 @@ func main() {
 					adminQuizzes.PUT("/schedule", quizHandler.ScheduleQuiz)
 					adminQuizzes.PUT("/cancel", quizHandler.CancelQuiz)
 					adminQuizzes.POST("/duplicate", quizHandler.DuplicateQuiz)
-					adminQuizzes.GET("/results/export", quizHandler.ExportQuizResults) // CSV/Excel экспорт
-					adminQuizzes.GET("/statistics", quizHandler.GetQuizStatistics)     // Расширенная статистика
-					adminQuizzes.GET("/winners", quizHandler.GetQuizWinners)           // Список победителей
+					adminQuizzes.GET("/results/export", quizHandler.ExportQuizResults) // CSV/Excel СЌРєСЃРїРѕСЂС‚
+					adminQuizzes.GET("/statistics", quizHandler.GetQuizStatistics)     // Р Р°СЃС€РёСЂРµРЅРЅР°СЏ СЃС‚Р°С‚РёСЃС‚РёРєР°
+					adminQuizzes.GET("/winners", quizHandler.GetQuizWinners)           // РЎРїРёСЃРѕРє РїРѕР±РµРґРёС‚РµР»РµР№
 					adminQuizzes.GET("/asked-questions", quizHandler.GetQuizAskedQuestions)
 
-					// Рекламные слоты викторины
+					// Р РµРєР»Р°РјРЅС‹Рµ СЃР»РѕС‚С‹ РІРёРєС‚РѕСЂРёРЅС‹
 					adminQuizzes.POST("/ad-slots", adHandler.CreateAdSlot)
 					adminQuizzes.GET("/ad-slots", adHandler.ListAdSlots)
 					adminQuizzes.PUT("/ad-slots/:slotId", adHandler.UpdateAdSlot)
@@ -386,7 +456,7 @@ func main() {
 				}
 			}
 
-			// Маршрут создания викторины (не требует ID)
+			// РњР°СЂС€СЂСѓС‚ СЃРѕР·РґР°РЅРёСЏ РІРёРєС‚РѕСЂРёРЅС‹ (РЅРµ С‚СЂРµР±СѓРµС‚ ID)
 			adminCreateQuiz := quizzes.Group("")
 			adminCreateQuiz.Use(authMiddleware.RequireAuth(), authMiddleware.AdminOnly())
 			adminCreateQuiz.Use(authMiddleware.RequireCSRF())
@@ -395,7 +465,7 @@ func main() {
 			}
 		}
 
-		// Управление рекламой (админ)
+		// РЈРїСЂР°РІР»РµРЅРёРµ СЂРµРєР»Р°РјРѕР№ (Р°РґРјРёРЅ)
 		adminAds := api.Group("/admin/ads")
 		adminAds.Use(authMiddleware.RequireAuth(), authMiddleware.AdminOnly())
 		adminAds.Use(authMiddleware.RequireCSRF())
@@ -405,7 +475,7 @@ func main() {
 			adminAds.DELETE("/:id", adHandler.DeleteAdAsset)
 		}
 
-		// Пул вопросов для адаптивной системы (admin)
+		// РџСѓР» РІРѕРїСЂРѕСЃРѕРІ РґР»СЏ Р°РґР°РїС‚РёРІРЅРѕР№ СЃРёСЃС‚РµРјС‹ (admin)
 		adminQuestionPool := api.Group("/admin/question-pool")
 		adminQuestionPool.Use(authMiddleware.RequireAuth(), authMiddleware.AdminOnly())
 		adminQuestionPool.Use(authMiddleware.RequireCSRF())
@@ -417,46 +487,58 @@ func main() {
 	}
 
 	// ============================================================================
-	// Mobile Auth Endpoints (Bearer + JSON, без cookies/CSRF)
+	// Mobile Auth Endpoints (Bearer + JSON, Р±РµР· cookies/CSRF)
 	// ============================================================================
 	mobileAuth := api.Group("/mobile/auth")
+	mobileDefaultRateLimit := rateLimiter.Limit(middleware.DefaultAuthRateLimitConfig())
 	{
-		// Публичные эндпоинты (не требуют аутентификации)
-		mobileAuth.POST("/login", mobileAuthHandler.MobileLogin)
-		mobileAuth.POST("/register", mobileAuthHandler.MobileRegister)
-		mobileAuth.POST("/refresh", mobileAuthHandler.MobileRefresh)
+		// РџСѓР±Р»РёС‡РЅС‹Рµ СЌРЅРґРїРѕРёРЅС‚С‹ (РЅРµ С‚СЂРµР±СѓСЋС‚ Р°СѓС‚РµРЅС‚РёС„РёРєР°С†РёРё)
+		mobileAuth.POST("/login", rateLimiter.Limit(middleware.StrictAuthRateLimitConfig()), mobileAuthHandler.MobileLogin)
+		mobileAuth.POST("/register", rateLimiter.Limit(middleware.StrictAuthRateLimitConfig()), mobileAuthHandler.MobileRegister)
+		mobileAuth.POST("/refresh", mobileDefaultRateLimit, mobileAuthHandler.MobileRefresh)
+		mobileAuth.POST("/google/exchange", mobileDefaultRateLimit, mobileAuthHandler.MobileGoogleExchange)
 
-		// Logout не требует RequireAuth — работает по refresh_token из body.
-		// Это позволяет выйти даже с протухшим access token.
-		mobileAuth.POST("/logout", mobileAuthHandler.MobileLogout)
+		// Logout РЅРµ С‚СЂРµР±СѓРµС‚ RequireAuth вЂ” СЂР°Р±РѕС‚Р°РµС‚ РїРѕ refresh_token РёР· body.
+		// Р­С‚Рѕ РїРѕР·РІРѕР»СЏРµС‚ РІС‹Р№С‚Рё РґР°Р¶Рµ СЃ РїСЂРѕС‚СѓС…С€РёРј access token.
+		mobileAuth.POST("/logout", mobileDefaultRateLimit, mobileAuthHandler.MobileLogout)
 
-		// Требуют Bearer auth, но НЕ CSRF
+		// РўСЂРµР±СѓСЋС‚ Bearer auth, РЅРѕ РќР• CSRF
 		mobileAuthed := mobileAuth.Group("/")
-		mobileAuthed.Use(authMiddleware.RequireAuth())
+		mobileAuthed.Use(mobileDefaultRateLimit, authMiddleware.RequireAuth())
 		{
 			mobileAuthed.POST("/ws-ticket", mobileAuthHandler.MobileWsTicket)
 			mobileAuthed.PUT("/profile", mobileAuthHandler.MobileUpdateProfile)
 			mobileAuthed.GET("/sessions", mobileAuthHandler.MobileGetActiveSessions)
 			mobileAuthed.POST("/revoke-session", mobileAuthHandler.MobileRevokeSession)
 			mobileAuthed.POST("/logout-all", mobileAuthHandler.MobileLogoutAllDevices)
+			mobileAuthed.POST("/verify-email/send", mobileAuthHandler.MobileSendEmailVerificationCode)
+			mobileAuthed.POST("/verify-email/confirm", mobileAuthHandler.MobileConfirmEmailVerificationCode)
+			mobileAuthed.GET("/verify-email/status", mobileAuthHandler.MobileGetEmailVerificationStatus)
+			mobileAuthed.POST("/google/link", mobileAuthHandler.MobileGoogleLink)
+			mobileAuthed.DELETE("/me", mobileAuthHandler.MobileDeleteMe)
 		}
 	}
+	mobileUsers := api.Group("/mobile/users")
+	mobileUsers.Use(mobileDefaultRateLimit, authMiddleware.RequireAuth())
+	{
+		mobileUsers.DELETE("/me", mobileAuthHandler.MobileDeleteMe)
+	}
 
-	// WebSocket маршрут
-	// Редакция ticket из access-логов Gin: ticket — секретные данные.
-	// ВАЖНО: редакция ПОСЛЕ обработки, чтобы HandleConnection прочитал реальный ticket.
-	// Gin Logger использует defer, который выполнится после нашего return — увидит [REDACTED].
+	// WebSocket РјР°СЂС€СЂСѓС‚
+	// Р РµРґР°РєС†РёСЏ ticket РёР· access-Р»РѕРіРѕРІ Gin: ticket вЂ” СЃРµРєСЂРµС‚РЅС‹Рµ РґР°РЅРЅС‹Рµ.
+	// Р’РђР–РќРћ: СЂРµРґР°РєС†РёСЏ РџРћРЎР›Р• РѕР±СЂР°Р±РѕС‚РєРё, С‡С‚РѕР±С‹ HandleConnection РїСЂРѕС‡РёС‚Р°Р» СЂРµР°Р»СЊРЅС‹Р№ ticket.
+	// Gin Logger РёСЃРїРѕР»СЊР·СѓРµС‚ defer, РєРѕС‚РѕСЂС‹Р№ РІС‹РїРѕР»РЅРёС‚СЃСЏ РїРѕСЃР»Рµ РЅР°С€РµРіРѕ return вЂ” СѓРІРёРґРёС‚ [REDACTED].
 	router.GET("/ws", func(c *gin.Context) {
-		// Сначала обрабатываем — HandleConnection читает c.Query("ticket")
+		// РЎРЅР°С‡Р°Р»Р° РѕР±СЂР°Р±Р°С‚С‹РІР°РµРј вЂ” HandleConnection С‡РёС‚Р°РµС‚ c.Query("ticket")
 		wsHandler.HandleConnection(c)
-		// После обработки перезаписываем URL, чтобы ticket не попал в access-логи
+		// РџРѕСЃР»Рµ РѕР±СЂР°Р±РѕС‚РєРё РїРµСЂРµР·Р°РїРёСЃС‹РІР°РµРј URL, С‡С‚РѕР±С‹ ticket РЅРµ РїРѕРїР°Р» РІ access-Р»РѕРіРё
 		if c.Request.URL.RawQuery != "" {
 			c.Request.URL.RawQuery = "ticket=[REDACTED]"
 		}
 	})
 
-	// WebSocket мониторинг (Admin only)
-	// Эндпоинты для мониторинга состояния WebSocket сервера
+	// WebSocket РјРѕРЅРёС‚РѕСЂРёРЅРі (Admin only)
+	// Р­РЅРґРїРѕРёРЅС‚С‹ РґР»СЏ РјРѕРЅРёС‚РѕСЂРёРЅРіР° СЃРѕСЃС‚РѕСЏРЅРёСЏ WebSocket СЃРµСЂРІРµСЂР°
 	adminWsMetrics := router.Group("/api/admin/ws")
 	adminWsMetrics.Use(authMiddleware.RequireAuth(), authMiddleware.AdminOnly())
 	{
@@ -467,8 +549,8 @@ func main() {
 		adminWsMetrics.GET("/alerts", gin.WrapF(ws.WebSocketSystemAlertsHandler(shardedHub)))
 	}
 
-	// Запланированные викторины
-	// После перезапуска сервера нужно заново запланировать активные викторины
+	// Р—Р°РїР»Р°РЅРёСЂРѕРІР°РЅРЅС‹Рµ РІРёРєС‚РѕСЂРёРЅС‹
+	// РџРѕСЃР»Рµ РїРµСЂРµР·Р°РїСѓСЃРєР° СЃРµСЂРІРµСЂР° РЅСѓР¶РЅРѕ Р·Р°РЅРѕРІРѕ Р·Р°РїР»Р°РЅРёСЂРѕРІР°С‚СЊ Р°РєС‚РёРІРЅС‹Рµ РІРёРєС‚РѕСЂРёРЅС‹
 	go func() {
 		scheduledQuizzes, err := quizService.GetScheduledQuizzes()
 		if err != nil {
@@ -483,7 +565,7 @@ func main() {
 		}
 	}()
 
-	// Настраиваем HTTP сервер с тайм-аутами для защиты от slow client attacks
+	// РќР°СЃС‚СЂР°РёРІР°РµРј HTTP СЃРµСЂРІРµСЂ СЃ С‚Р°Р№Рј-Р°СѓС‚Р°РјРё РґР»СЏ Р·Р°С‰РёС‚С‹ РѕС‚ slow client attacks
 	srv := &http.Server{
 		Addr:         ":" + cfg.Server.Port,
 		Handler:      router,
@@ -491,7 +573,7 @@ func main() {
 		WriteTimeout: time.Duration(cfg.Server.WriteTimeout) * time.Second,
 	}
 
-	// Запускаем сервер в горутине
+	// Р—Р°РїСѓСЃРєР°РµРј СЃРµСЂРІРµСЂ РІ РіРѕСЂСѓС‚РёРЅРµ
 	go func() {
 		log.Printf("Starting server on port %s", cfg.Server.Port)
 		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
@@ -501,24 +583,24 @@ func main() {
 
 	log.Printf("Server started on port %s", cfg.Server.Port)
 
-	// В обработчике сигналов остановки
-	// После получения сигнала SIGINT или SIGTERM вызываем cancel() для завершения горутин
+	// Р’ РѕР±СЂР°Р±РѕС‚С‡РёРєРµ СЃРёРіРЅР°Р»РѕРІ РѕСЃС‚Р°РЅРѕРІРєРё
+	// РџРѕСЃР»Рµ РїРѕР»СѓС‡РµРЅРёСЏ СЃРёРіРЅР°Р»Р° SIGINT РёР»Рё SIGTERM РІС‹Р·С‹РІР°РµРј cancel() РґР»СЏ Р·Р°РІРµСЂС€РµРЅРёСЏ РіРѕСЂСѓС‚РёРЅ
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
 	log.Println("Shutting down server...")
 
-	// Отправляем сигнал завершения для всех горутин
+	// РћС‚РїСЂР°РІР»СЏРµРј СЃРёРіРЅР°Р» Р·Р°РІРµСЂС€РµРЅРёСЏ РґР»СЏ РІСЃРµС… РіРѕСЂСѓС‚РёРЅ
 	cancel()
 
-	// Закрываем PubSubProvider, если он был создан
+	// Р—Р°РєСЂС‹РІР°РµРј PubSubProvider, РµСЃР»Рё РѕРЅ Р±С‹Р» СЃРѕР·РґР°РЅ
 	if pubSubProvider != nil {
 		if err := pubSubProvider.Close(); err != nil {
 			log.Printf("Error closing PubSub provider: %v", err)
 		}
 	}
 
-	// Создаем контекст с таймаутом для graceful shutdown сервера
+	// РЎРѕР·РґР°РµРј РєРѕРЅС‚РµРєСЃС‚ СЃ С‚Р°Р№РјР°СѓС‚РѕРј РґР»СЏ graceful shutdown СЃРµСЂРІРµСЂР°
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer shutdownCancel()
 

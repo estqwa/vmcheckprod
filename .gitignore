@@ -28,6 +28,7 @@ Thumbs.db
 # Temporary files from local tools/sessions
 _tmp_*
 .pnpm-store/
+.tmp
 
 # Local Go caches (created by local tests/builds)
 .gocache/

@@ -28,6 +28,13 @@ export const DEVICE_ID_KEY = 'trivia_device_id';
 export const ACCESS_TOKEN_KEY = 'trivia_access_token';
 export const REFRESH_TOKEN_KEY = 'trivia_refresh_token';
 
+export const GOOGLE_OAUTH_ENABLED = process.env.EXPO_PUBLIC_GOOGLE_OAUTH_ENABLED !== 'false';
+export const GOOGLE_ANDROID_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID || '';
+export const GOOGLE_IOS_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID || '';
+export const GOOGLE_WEB_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || '';
+export const LEGAL_TOS_VERSION = process.env.EXPO_PUBLIC_LEGAL_TOS_VERSION || '1.0';
+export const LEGAL_PRIVACY_VERSION = process.env.EXPO_PUBLIC_LEGAL_PRIVACY_VERSION || '1.0';
+
 export const WS_HEARTBEAT_INTERVAL = 30000;
 export const WS_MAX_RECONNECT_ATTEMPTS = 5;
 export const WS_INITIAL_RECONNECT_DELAY = 1000;

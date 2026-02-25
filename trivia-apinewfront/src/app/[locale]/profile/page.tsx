@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { useAuth } from '@/providers/AuthProvider';
+import { GoogleCodeAuthButton } from '@/components/auth/GoogleCodeAuthButton';
 import { getSessions, revokeSession, logoutAll, Session } from '@/lib/api';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { Button } from '@/components/ui/button';
@@ -23,10 +24,13 @@ import { PageHeader } from '@/components/PageHeader';
 
 function ProfileContent() {
     const router = useRouter();
-    const { user, logout, isAdmin } = useAuth();
+    const { user, logout, isAdmin, getEmailVerificationStatus, sendEmailVerificationCode, deleteAccount } = useAuth();
     const locale = useLocale();
     const [sessions, setSessions] = useState<Session[]>([]);
     const [isLoadingSessions, setIsLoadingSessions] = useState(true);
+    const [isEmailActionLoading, setIsEmailActionLoading] = useState(false);
+    const [verificationMeta, setVerificationMeta] = useState<{ canSend: boolean; cooldown: number } | null>(null);
+    const [isDeletingAccount, setIsDeletingAccount] = useState(false);
 
     const t = useTranslations('profile');
     const tNav = useTranslations('nav');
@@ -47,10 +51,27 @@ function ProfileContent() {
         fetchSessions();
     }, []);
 
+    useEffect(() => {
+        const loadVerificationStatus = async () => {
+            if (!user || user.email_verified) return;
+            try {
+                const status = await getEmailVerificationStatus();
+                setVerificationMeta({
+                    canSend: status.can_send_code,
+                    cooldown: status.cooldown_remaining_sec || 0,
+                });
+            } catch {
+                // Silent: banner still renders from user.email_verified
+            }
+        };
+
+        void loadVerificationStatus();
+    }, [user, getEmailVerificationStatus]);
+
     const handleLogout = async () => {
         try {
             await logout();
-            toast.success(t('logoutSuccess') || 'Logged out');
+            toast.success(t('logoutSuccess'));
             router.push('/');
         } catch {
             toast.error(tCommon('error'));
@@ -60,7 +81,7 @@ function ProfileContent() {
     const handleLogoutAll = async () => {
         try {
             await logoutAll();
-            toast.success(t('logoutAllSuccess') || 'Logged out from all devices');
+            toast.success(t('logoutAllSuccess'));
             router.push('/login');
         } catch {
             toast.error(tCommon('error'));
@@ -71,9 +92,50 @@ function ProfileContent() {
         try {
             await revokeSession(sessionId);
             setSessions(sessions.filter(s => s.id !== sessionId));
-            toast.success(t('sessionRevoked') || 'Session revoked');
+            toast.success(t('sessionRevoked'));
         } catch {
             toast.error(tCommon('error'));
+        }
+    };
+
+    const handleSendVerificationCode = async () => {
+        setIsEmailActionLoading(true);
+        try {
+            await sendEmailVerificationCode();
+            toast.success(t('verificationCodeSent'));
+            const status = await getEmailVerificationStatus();
+            setVerificationMeta({
+                canSend: status.can_send_code,
+                cooldown: status.cooldown_remaining_sec || 0,
+            });
+        } catch (error) {
+            const err = error as { error?: string };
+            toast.error(err.error || t('sendVerificationCodeError'));
+        } finally {
+            setIsEmailActionLoading(false);
+        }
+    };
+
+    const handleDeleteAccount = async () => {
+        if (!window.confirm(t('deleteAccountConfirm'))) {
+            return;
+        }
+
+        const password = window.prompt(
+            t('deleteAccountPromptPassword')
+        ) || '';
+        const reason = window.prompt(t('deleteAccountPromptReason')) || '';
+
+        setIsDeletingAccount(true);
+        try {
+            await deleteAccount({ password: password.trim() || undefined, reason: reason.trim() || undefined });
+            toast.success(t('deleteAccountSuccess'));
+            router.push('/login');
+        } catch (error) {
+            const err = error as { error?: string };
+            toast.error(err.error || t('deleteAccountError'));
+        } finally {
+            setIsDeletingAccount(false);
         }
     };
 
@@ -87,6 +149,34 @@ function ProfileContent() {
 
             <main className="container max-w-4xl mx-auto px-4 py-8">
                 <h1 className="text-3xl font-bold mb-8">{t('title')}</h1>
+
+                {!user.email_verified && (
+                    <Card className="mb-6 border-amber-200 bg-amber-50/60 rounded-2xl">
+                        <CardHeader>
+                            <CardTitle className="text-lg text-amber-900">
+                                {t('emailVerificationRequiredTitle')}
+                            </CardTitle>
+                            <CardDescription className="text-amber-800">
+                                {t('emailVerificationRequiredDescription')}
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent className="flex flex-col sm:flex-row gap-3">
+                            <Button asChild variant="outline" className="border-amber-300 bg-white">
+                                <Link href="/verify-email">{t('openVerification')}</Link>
+                            </Button>
+                            <Button
+                                type="button"
+                                variant="secondary"
+                                onClick={handleSendVerificationCode}
+                                disabled={isEmailActionLoading || (verificationMeta?.cooldown ?? 0) > 0}
+                            >
+                                {(verificationMeta?.cooldown ?? 0) > 0
+                                    ? t('resendIn', { seconds: verificationMeta?.cooldown ?? 0 })
+                                    : t('sendCode')}
+                            </Button>
+                        </CardContent>
+                    </Card>
+                )}
 
                 {/* User Info Card */}
                 <Card className="mb-6 card-elevated border-0 rounded-2xl">
@@ -131,7 +221,7 @@ function ProfileContent() {
                                 <Button asChild variant="outline" className="w-full">
                                     <Link href="/profile/history" className="flex items-center gap-2">
                                         <History className="w-4 h-4" />
-                                        {t('gameHistory') || 'Game history'}
+                                        {t('gameHistory')}
                                     </Link>
                                 </Button>
                             </div>
@@ -149,7 +239,7 @@ function ProfileContent() {
                     </CardHeader>
                     <CardContent>
                         <div className="flex items-center justify-between">
-                            <p className="text-muted-foreground">{t('selectLanguage') || 'Choose interface language'}</p>
+                            <p className="text-muted-foreground">{t('selectLanguage')}</p>
                             <LanguageSwitcher />
                         </div>
                     </CardContent>
@@ -160,9 +250,9 @@ function ProfileContent() {
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2">
                             <Shield className="w-5 h-5 text-primary" />
-                            {t('sessions') || 'Active sessions'}
+                            {t('sessions')}
                         </CardTitle>
-                        <CardDescription>{t('sessionsDescription') || 'Manage your devices'}</CardDescription>
+                        <CardDescription>{t('sessionsDescription')}</CardDescription>
                     </CardHeader>
                     <CardContent>
                         {isLoadingSessions ? (
@@ -171,13 +261,13 @@ function ProfileContent() {
                                 <Skeleton className="h-16 w-full rounded-xl" />
                             </div>
                         ) : sessions.length === 0 ? (
-                            <p className="text-muted-foreground text-center py-4">{t('noSessions') || 'No active sessions'}</p>
+                            <p className="text-muted-foreground text-center py-4">{t('noSessions')}</p>
                         ) : (
                             <div className="space-y-3">
                                 {sessions.map((session) => (
                                     <div key={session.id} className="flex items-center justify-between p-4 rounded-xl bg-secondary/30">
                                         <div>
-                                            <p className="font-medium">{session.device_id || 'Unknown'}</p>
+                                            <p className="font-medium">{session.device_id || t('unknownDevice')}</p>
                                             <p className="text-xs text-muted-foreground">
                                                 IP: {session.ip_address} • {formatDate(session.created_at)}
                                             </p>
@@ -188,7 +278,7 @@ function ProfileContent() {
                                             onClick={() => handleRevokeSession(session.id)}
                                             className="text-destructive hover:text-destructive"
                                         >
-                                            {t('endSession') || 'End session'}
+                                            {t('endSession')}
                                         </Button>
                                     </div>
                                 ))}
@@ -202,7 +292,7 @@ function ProfileContent() {
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2">
                             <Settings className="w-5 h-5 text-primary" />
-                            {t('actions') || 'Actions'}
+                            {t('actions')}
                         </CardTitle>
                     </CardHeader>
                     <CardContent className="flex flex-wrap gap-3">
@@ -217,7 +307,18 @@ function ProfileContent() {
                             {tNav('logout')}
                         </Button>
                         <Button variant="destructive" onClick={handleLogoutAll} className="h-11">
-                            {t('logoutAll') || 'Logout all'}
+                            {t('logoutAll')}
+                        </Button>
+                        <GoogleCodeAuthButton
+                            label={t('linkGoogle')}
+                            action="link"
+                            returnPath="/profile"
+                            className="h-11"
+                            disabled={isDeletingAccount}
+                            onError={(message) => toast.error(message)}
+                        />
+                        <Button variant="destructive" onClick={handleDeleteAccount} className="h-11" disabled={isDeletingAccount}>
+                            {isDeletingAccount ? t('deleting') : t('deleteAccount')}
                         </Button>
                     </CardContent>
                 </Card>

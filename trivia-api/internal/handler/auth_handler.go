@@ -35,9 +35,17 @@ func NewAuthHandler(authService *service.AuthService, tokenManager *manager.Toke
 
 // RegisterRequest представляет запрос на регистрацию
 type RegisterRequest struct {
-	Username string `json:"username" binding:"required,min=3,max=50"`
-	Email    string `json:"email" binding:"required,email"`
-	Password string `json:"password" binding:"required,min=6,max=50"`
+	Username  string `json:"username" binding:"required,min=3,max=50"`
+	Email     string `json:"email" binding:"required,email"`
+	Password  string `json:"password" binding:"required,min=6,max=50"`
+	FirstName string `json:"first_name" binding:"required,min=1,max=100"`
+	LastName  string `json:"last_name" binding:"required,min=1,max=100"`
+	BirthDate string `json:"birth_date" binding:"required"` // format: "2006-01-02"
+	Gender    string `json:"gender" binding:"required,oneof=male female other prefer_not_to_say"`
+
+	TOSAccepted     bool `json:"tos_accepted" binding:"required"`
+	PrivacyAccepted bool `json:"privacy_accepted" binding:"required"`
+	MarketingOptIn  bool `json:"marketing_opt_in"`
 }
 
 // LoginRequest представляет запрос на вход
@@ -82,21 +90,32 @@ func serializeUserForClient(user *entity.User) gin.H {
 		return nil
 	}
 
-	return gin.H{
-		"id":              user.ID,
-		"username":        user.Username,
-		"email":           user.Email,
-		"profile_picture": user.ProfilePicture,
-		"games_played":    user.GamesPlayed,
-		"total_score":     user.TotalScore,
-		"highest_score":   user.HighestScore,
-		"wins_count":      user.WinsCount,
-		"total_prize_won": user.TotalPrizeWon,
-		"language":        user.Language,
-		"role":            user.Role,
-		"created_at":      user.CreatedAt,
-		"updated_at":      user.UpdatedAt,
+	result := gin.H{
+		"id":               user.ID,
+		"username":         user.Username,
+		"email":            user.Email,
+		"profile_picture":  user.ProfilePicture,
+		"first_name":       user.FirstName,
+		"last_name":        user.LastName,
+		"gender":           user.Gender,
+		"games_played":     user.GamesPlayed,
+		"total_score":      user.TotalScore,
+		"highest_score":    user.HighestScore,
+		"wins_count":       user.WinsCount,
+		"total_prize_won":  user.TotalPrizeWon,
+		"language":         user.Language,
+		"role":             user.Role,
+		"profile_complete": user.IsProfileComplete(),
+		"email_verified":   user.EmailVerifiedAt != nil,
+		"created_at":       user.CreatedAt,
+		"updated_at":       user.UpdatedAt,
 	}
+
+	if user.BirthDate != nil {
+		result["birth_date"] = user.BirthDate.Format("2006-01-02")
+	}
+
+	return result
 }
 
 // SessionInfo представляет информацию о сессии
@@ -134,10 +153,32 @@ func (h *AuthHandler) Register(c *gin.Context) {
 		return
 	}
 
-	// Регистрируем пользователя
-	user, err := h.authService.RegisterUser(req.Username, req.Email, req.Password)
+	// Парсим birth_date
+	birthDate, parseErr := time.Parse("2006-01-02", req.BirthDate)
+	if parseErr != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid birth_date format, expected YYYY-MM-DD"})
+		return
+	}
+
+	// Собираем RegisterInput
+	input := service.RegisterInput{
+		Username:        req.Username,
+		Email:           req.Email,
+		Password:        req.Password,
+		FirstName:       req.FirstName,
+		LastName:        req.LastName,
+		BirthDate:       &birthDate,
+		Gender:          req.Gender,
+		TOSAccepted:     req.TOSAccepted,
+		PrivacyAccepted: req.PrivacyAccepted,
+		MarketingOptIn:  req.MarketingOptIn,
+		IP:              c.ClientIP(),
+		UserAgent:       c.Request.UserAgent(),
+	}
+
+	user, err := h.authService.RegisterUser(input)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		h.handleAuthError(c, err)
 		return
 	}
 
@@ -930,7 +971,23 @@ func (h *AuthHandler) handleAuthError(c *gin.Context, err error) {
 	var tokenErr *manager.TokenError
 	log.Printf("[AuthHandler] Auth Error: %v", err) // Логируем полную ошибку для отладки
 
-	if errors.As(err, &tokenErr) {
+	if errors.Is(err, service.ErrFeatureDisabled) {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Feature is disabled", "error_type": "feature_disabled"})
+	} else if errors.Is(err, service.ErrLinkRequired) {
+		c.JSON(http.StatusConflict, gin.H{"error": "Google account requires explicit linking", "error_type": "link_required"})
+	} else if errors.Is(err, service.ErrEmailNotVerified) {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Email is not verified", "error_type": "email_not_verified"})
+	} else if errors.Is(err, service.ErrInvalidVerificationCode) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid verification code", "error_type": "invalid_verification_code"})
+	} else if errors.Is(err, service.ErrVerificationExpired) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Verification code expired", "error_type": "verification_expired"})
+	} else if errors.Is(err, service.ErrVerificationAttemptsExceeded) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Verification attempts exceeded", "error_type": "verification_attempts_exceeded"})
+	} else if errors.Is(err, service.ErrVerificationResendCooldown) {
+		c.JSON(http.StatusTooManyRequests, gin.H{"error": "Too many requests", "error_type": "rate_limited"})
+	} else if errors.Is(err, service.ErrGoogleTokenVerificationFailed) {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Google token verification failed", "error_type": "token_invalid"})
+	} else if errors.As(err, &tokenErr) {
 		switch tokenErr.Type {
 		case manager.ExpiredRefreshToken, manager.ExpiredAccessToken:
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "Сессия истекла", "error_type": "token_expired"})

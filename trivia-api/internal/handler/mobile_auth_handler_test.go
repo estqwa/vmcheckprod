@@ -503,11 +503,18 @@ func TestMobileRefreshRequest_Binding(t *testing.T) {
 }
 
 func TestMobileRegisterRequest_Binding(t *testing.T) {
-	body := map[string]string{
-		"username":  "newuser",
-		"email":     "new@example.com",
-		"password":  "strong-pass-123",
-		"device_id": "expo-device",
+	body := map[string]interface{}{
+		"username":         "newuser",
+		"email":            "new@example.com",
+		"password":         "strong-pass-123",
+		"device_id":        "expo-device",
+		"first_name":       "Test",
+		"last_name":        "User",
+		"birth_date":       "2000-01-15",
+		"gender":           "male",
+		"tos_accepted":     true,
+		"privacy_accepted": true,
+		"marketing_opt_in": false,
 	}
 	c, _ := newTestGinContext("POST", "/api/mobile/auth/register", body)
 
@@ -519,4 +526,10 @@ func TestMobileRegisterRequest_Binding(t *testing.T) {
 	assert.Equal(t, "new@example.com", req.Email)
 	assert.Equal(t, "strong-pass-123", req.Password)
 	assert.Equal(t, "expo-device", req.DeviceID)
+	assert.Equal(t, "Test", req.FirstName)
+	assert.Equal(t, "User", req.LastName)
+	assert.Equal(t, "2000-01-15", req.BirthDate)
+	assert.Equal(t, "male", req.Gender)
+	assert.True(t, req.TOSAccepted)
+	assert.True(t, req.PrivacyAccepted)
 }

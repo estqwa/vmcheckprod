@@ -3,6 +3,7 @@ import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Stack, type ErrorBoundaryProps } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import * as Sentry from '@sentry/react-native';
+import * as WebBrowser from 'expo-web-browser';
 import { StatusBar } from 'expo-status-bar';
 import { QueryProvider } from '../src/providers/QueryProvider';
 import { AuthProvider } from '../src/providers/AuthProvider';
@@ -16,6 +17,7 @@ Sentry.init({
 });
 
 SplashScreen.preventAutoHideAsync();
+WebBrowser.maybeCompleteAuthSession();
 
 export function ErrorBoundary({ error, retry }: ErrorBoundaryProps) {
   return (
@@ -48,6 +50,10 @@ function RootLayout() {
             <Stack.Screen name="quiz/[id]/results" />
             <Stack.Screen name="profile/history" />
             <Stack.Screen name="profile/sessions" />
+            <Stack.Screen name="profile/delete-account" />
+            <Stack.Screen name="(auth)/verify-email" />
+            <Stack.Screen name="terms" />
+            <Stack.Screen name="privacy" />
           </Stack>
           <OfflineBanner />
           <StatusBar style="dark" />

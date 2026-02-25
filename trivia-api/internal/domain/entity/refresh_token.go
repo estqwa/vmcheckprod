@@ -1,14 +1,12 @@
-package entity
+﻿package entity
 
-import (
-	"time"
-)
+import "time"
 
-// RefreshToken представляет собой refresh токен пользователя
+// RefreshToken stores a refresh token session record (hash-only model).
 type RefreshToken struct {
 	ID        uint       `gorm:"primaryKey" json:"id"`
 	UserID    uint       `gorm:"not null;index" json:"user_id"`
-	Token     string     `gorm:"type:text;not null;uniqueIndex" json:"-"` // Скрыт из JSON для безопасности
+	TokenHash string     `gorm:"column:token_hash;type:text;not null;uniqueIndex" json:"-"`
 	DeviceID  string     `gorm:"size:255;not null" json:"device_id"`
 	IPAddress string     `gorm:"size:50;not null;default:''" json:"ip_address"`
 	UserAgent string     `gorm:"type:text;not null;default:''" json:"user_agent"`
@@ -19,11 +17,11 @@ type RefreshToken struct {
 	Reason    string     `gorm:"size:255" json:"reason,omitempty"`
 }
 
-// NewRefreshToken создает новый refresh токен
-func NewRefreshToken(userID uint, token, deviceID, ipAddress, userAgent string, expiresAt time.Time) *RefreshToken {
+// NewRefreshToken creates a refresh token entity using precomputed SHA-256 token hash.
+func NewRefreshToken(userID uint, tokenHash, deviceID, ipAddress, userAgent string, expiresAt time.Time) *RefreshToken {
 	return &RefreshToken{
 		UserID:    userID,
-		Token:     token,
+		TokenHash: tokenHash,
 		DeviceID:  deviceID,
 		IPAddress: ipAddress,
 		UserAgent: userAgent,
@@ -33,13 +31,12 @@ func NewRefreshToken(userID uint, token, deviceID, ipAddress, userAgent string, 
 	}
 }
 
-// IsValid проверяет действительность токена
-// Токен валиден если: не истёк, не отозван, и срок действия не прошёл
+// IsValid checks token validity.
 func (rt *RefreshToken) IsValid() bool {
 	return !rt.IsExpired && rt.RevokedAt == nil && rt.ExpiresAt.After(time.Now())
 }
 
-// Revoke отзывает токен с указанием причины
+// Revoke marks token as revoked with reason.
 func (rt *RefreshToken) Revoke(reason string) {
 	now := time.Now()
 	rt.RevokedAt = &now
@@ -47,7 +44,7 @@ func (rt *RefreshToken) Revoke(reason string) {
 	rt.Reason = reason
 }
 
-// SessionInfo возвращает информацию о сессии для отображения пользователю
+// SessionInfo returns safe session details for clients.
 func (rt *RefreshToken) SessionInfo() map[string]interface{} {
 	info := map[string]interface{}{
 		"id":         rt.ID,
@@ -62,7 +59,6 @@ func (rt *RefreshToken) SessionInfo() map[string]interface{} {
 	if rt.RevokedAt != nil {
 		info["revoked_at"] = rt.RevokedAt
 	}
-
 	if rt.Reason != "" {
 		info["reason"] = rt.Reason
 	}
@@ -70,7 +66,7 @@ func (rt *RefreshToken) SessionInfo() map[string]interface{} {
 	return info
 }
 
-// TableName определяет имя таблицы для GORM
 func (RefreshToken) TableName() string {
 	return "refresh_tokens"
 }
+

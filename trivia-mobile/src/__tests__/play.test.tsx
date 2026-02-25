@@ -1,12 +1,18 @@
 import React from 'react';
 import renderer, { act } from 'react-test-renderer';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import * as ExpoRouter from 'expo-router';
 import { WS_SERVER_EVENTS } from '@trivia/shared';
 import PlayScreen from '../../app/quiz/[id]/play';
+import { useAuth } from '../hooks/useAuth';
 import { useQuizWS } from '../hooks/useQuizWS';
 
 jest.mock('../hooks/useQuizWS', () => ({
   useQuizWS: jest.fn(),
+}));
+
+jest.mock('../hooks/useAuth', () => ({
+  useAuth: jest.fn(),
 }));
 
 jest.mock('../components/game/AdBreakOverlay', () => ({
@@ -16,6 +22,7 @@ jest.mock('../components/game/AdBreakOverlay', () => ({
 describe('PlayScreen realtime flow', () => {
   let onMessageHandler: ((msg: { type: string; data: Record<string, unknown> }) => void) | null = null;
   const sendAnswer = jest.fn();
+  let queryClient: QueryClient;
   const router = {
     push: jest.fn(),
     replace: jest.fn(),
@@ -25,6 +32,10 @@ describe('PlayScreen realtime flow', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     onMessageHandler = null;
+    queryClient = new QueryClient();
+    (useAuth as jest.Mock).mockReturnValue({
+      logout: jest.fn().mockResolvedValue(undefined),
+    });
 
     (ExpoRouter.useLocalSearchParams as jest.Mock).mockReturnValue({ id: '1' });
     (ExpoRouter.useRouter as jest.Mock).mockReturnValue(router);
@@ -40,6 +51,14 @@ describe('PlayScreen realtime flow', () => {
       },
     );
   });
+
+  function renderPlayScreen() {
+    return renderer.create(
+      <QueryClientProvider client={queryClient}>
+        <PlayScreen />
+      </QueryClientProvider>,
+    );
+  }
 
   function getTextNodes(root: any) {
     return root.findAll((node: any) => node.type === 'Text');
@@ -91,7 +110,7 @@ describe('PlayScreen realtime flow', () => {
   it('moves from waiting to question, sends answer, and shows positive feedback', async () => {
     let tree: ReturnType<typeof renderer.create> | undefined;
     await act(async () => {
-      tree = renderer.create(<PlayScreen />);
+      tree = renderPlayScreen();
     });
     const mountedTree = tree!;
     const root = mountedTree.root;
@@ -151,7 +170,7 @@ describe('PlayScreen realtime flow', () => {
   it('redirects to results on FINISH message', async () => {
     let tree: ReturnType<typeof renderer.create> | undefined;
     await act(async () => {
-      tree = renderer.create(<PlayScreen />);
+      tree = renderPlayScreen();
     });
     const mountedTree = tree!;
     const root = mountedTree.root;

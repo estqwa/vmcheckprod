@@ -56,8 +56,8 @@ export async function request<T, B = unknown>(
         headers,
     };
 
-    // Add body
-    if (body && ['POST', 'PUT', 'PATCH'].includes(method)) {
+    // Add body (DELETE is also used for account deletion with confirmation payload)
+    if (body && ['POST', 'PUT', 'PATCH', 'DELETE'].includes(method)) {
         config.body = JSON.stringify(body);
     }
 
@@ -140,8 +140,8 @@ export const api = {
     put: <T, B = unknown>(endpoint: string, body?: B, options?: RequestOptions) =>
         request<T, B>('PUT', endpoint, body, options),
 
-    delete: <T>(endpoint: string, options?: RequestOptions) =>
-        request<T>('DELETE', endpoint, undefined, options),
+    delete: <T, B = unknown>(endpoint: string, body?: B, options?: RequestOptions) =>
+        request<T, B>('DELETE', endpoint, body, options),
 
     patch: <T, B = unknown>(endpoint: string, body?: B, options?: RequestOptions) =>
         request<T, B>('PATCH', endpoint, body, options),

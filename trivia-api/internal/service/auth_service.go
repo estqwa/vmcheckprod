@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"strings"
 	"time"
 
 	"github.com/yourusername/trivia-api/internal/domain/entity"
@@ -14,43 +15,71 @@ import (
 	"github.com/yourusername/trivia-api/pkg/auth/manager"
 )
 
-// AuthService предоставляет методы для работы с аутентификацией и пользователями
+// AuthService РїСЂРµРґРѕСЃС‚Р°РІР»СЏРµС‚ РјРµС‚РѕРґС‹ РґР»СЏ СЂР°Р±РѕС‚С‹ СЃ Р°СѓС‚РµРЅС‚РёС„РёРєР°С†РёРµР№ Рё РїРѕР»СЊР·РѕРІР°С‚РµР»СЏРјРё
 type AuthService struct {
 	userRepo         repository.UserRepository
 	jwtService       *auth.JWTService
 	tokenManager     *manager.TokenManager
 	refreshTokenRepo repository.RefreshTokenRepository
 	invalidTokenRepo repository.InvalidTokenRepository
+	legalRepo        repository.UserLegalAcceptanceRepository
+
+	// Phase 2/3/4 optional dependencies configured from main.
+	emailVerificationService *EmailVerificationService
+	googleOAuthService       *GoogleOAuthService
+	emailVerificationRepo    repository.EmailVerificationRepository
+	identityRepo             repository.UserIdentityRepository
+	emailVerificationEnabled bool
+	googleOAuthEnabled       bool
+	tosVersion               string
+	privacyVersion           string
 }
 
-// NewAuthService создает новый сервис аутентификации и возвращает ошибку при проблемах
+// RegisterInput СЃРѕРґРµСЂР¶РёС‚ РІСЃРµ РґР°РЅРЅС‹Рµ РґР»СЏ СЂРµРіРёСЃС‚СЂР°С†РёРё
+type RegisterInput struct {
+	Username  string
+	Email     string
+	Password  string
+	FirstName string
+	LastName  string
+	BirthDate *time.Time
+	Gender    string // male, female, other, prefer_not_to_say
+
+	// Legal consent (required for new users)
+	TOSAccepted     bool
+	PrivacyAccepted bool
+	MarketingOptIn  bool
+
+	// РњРµС‚Р°РґР°РЅРЅС‹Рµ
+	IP        string
+	UserAgent string
+}
+
+// NewAuthService СЃРѕР·РґР°РµС‚ РЅРѕРІС‹Р№ СЃРµСЂРІРёСЃ Р°СѓС‚РµРЅС‚РёС„РёРєР°С†РёРё Рё РІРѕР·РІСЂР°С‰Р°РµС‚ РѕС€РёР±РєСѓ РїСЂРё РїСЂРѕР±Р»РµРјР°С…
 func NewAuthService(
 	userRepo repository.UserRepository,
 	jwtService *auth.JWTService,
 	tokenManager *manager.TokenManager,
 	refreshTokenRepo repository.RefreshTokenRepository,
 	invalidTokenRepo repository.InvalidTokenRepository,
+	legalRepo repository.UserLegalAcceptanceRepository,
 ) (*AuthService, error) {
 	if userRepo == nil {
-		// log.Fatal("UserRepository is required for AuthService")
-		return nil, fmt.Errorf("UserRepository is required for AuthService") // Возвращаем ошибку
+		return nil, fmt.Errorf("UserRepository is required for AuthService")
 	}
 	if jwtService == nil {
-		// log.Fatal("JWTService is required for AuthService")
-		return nil, fmt.Errorf("JWTService is required for AuthService") // Возвращаем ошибку
+		return nil, fmt.Errorf("JWTService is required for AuthService")
 	}
-	if tokenManager == nil { // ПРОВЕРЯЕМ TokenManager
-		// log.Fatal("TokenManager is required for AuthService")
-		return nil, fmt.Errorf("TokenManager is required for AuthService") // Возвращаем ошибку
+	if tokenManager == nil {
+		return nil, fmt.Errorf("TokenManager is required for AuthService")
 	}
 	if refreshTokenRepo == nil {
-		// log.Fatal("RefreshTokenRepository is required for AuthService")
-		return nil, fmt.Errorf("RefreshTokenRepository is required for AuthService") // Возвращаем ошибку
+		return nil, fmt.Errorf("RefreshTokenRepository is required for AuthService")
 	}
 	if invalidTokenRepo == nil {
-		// log.Fatal("InvalidTokenRepository is required for AuthService")
-		return nil, fmt.Errorf("InvalidTokenRepository is required for AuthService") // Возвращаем ошибку
+		return nil, fmt.Errorf("InvalidTokenRepository is required for AuthService")
 	}
+	// legalRepo РјРѕР¶РµС‚ Р±С‹С‚СЊ nil РґР»СЏ РѕР±СЂР°С‚РЅРѕР№ СЃРѕРІРјРµСЃС‚РёРјРѕСЃС‚Рё СЃ С‚РµСЃС‚Р°РјРё
 
 	return &AuthService{
 		userRepo:         userRepo,
@@ -58,119 +87,194 @@ func NewAuthService(
 		tokenManager:     tokenManager,
 		refreshTokenRepo: refreshTokenRepo,
 		invalidTokenRepo: invalidTokenRepo,
+		legalRepo:        legalRepo,
+		tosVersion:       "1.0",
+		privacyVersion:   "1.0",
 	}, nil
 }
 
-// RegisterUser регистрирует нового пользователя
-func (s *AuthService) RegisterUser(username, email, password string) (*entity.User, error) {
-	// Проверяем, существует ли пользователь с таким email
-	_, err := s.userRepo.GetByEmail(email)
+// RegisterUser СЂРµРіРёСЃС‚СЂРёСЂСѓРµС‚ РЅРѕРІРѕРіРѕ РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ СЃ РїСЂРѕС„РёР»РµРј Рё СЋСЂРёРґРёС‡РµСЃРєРёРј СЃРѕРіР»Р°СЃРёРµРј
+func (s *AuthService) RegisterUser(input RegisterInput) (*entity.User, error) {
+	// РќРѕСЂРјР°Р»РёР·СѓРµРј
+	input.Email = normalizeEmail(input.Email)
+	input.Username = strings.TrimSpace(input.Username)
+	input.FirstName = strings.TrimSpace(input.FirstName)
+	input.LastName = strings.TrimSpace(input.LastName)
+	input.Gender = strings.TrimSpace(input.Gender)
+
+	if input.FirstName == "" || input.LastName == "" {
+		return nil, fmt.Errorf("%w: first_name and last_name are required", apperrors.ErrValidation)
+	}
+	if input.BirthDate == nil {
+		return nil, fmt.Errorf("%w: birth_date is required", apperrors.ErrValidation)
+	}
+	if !isValidGender(input.Gender) {
+		return nil, fmt.Errorf("%w: invalid gender", apperrors.ErrValidation)
+	}
+
+	// РџСЂРѕРІРµСЂРєР° РІРѕР·СЂР°СЃС‚Р° (>= 13 Р»РµС‚)
+	age := calculateAge(*input.BirthDate)
+	if age < 13 {
+		return nil, fmt.Errorf("%w: user must be at least 13 years old", apperrors.ErrValidation)
+	}
+
+	// РџСЂРѕРІРµСЂРєР° СЋСЂРёРґРёС‡РµСЃРєРѕРіРѕ СЃРѕРіР»Р°СЃРёСЏ
+	if !input.TOSAccepted || !input.PrivacyAccepted {
+		return nil, fmt.Errorf("%w: terms of service and privacy policy must be accepted", apperrors.ErrValidation)
+	}
+
+	// РџСЂРѕРІРµСЂСЏРµРј, СЃСѓС‰РµСЃС‚РІСѓРµС‚ Р»Рё РїРѕР»СЊР·РѕРІР°С‚РµР»СЊ СЃ С‚Р°РєРёРј email
+	_, err := s.userRepo.GetByEmail(input.Email)
 	if err == nil {
-		// Используем стандартную ошибку конфликта
 		return nil, fmt.Errorf("%w: user with this email already exists", apperrors.ErrConflict)
 	}
 	if !errors.Is(err, apperrors.ErrNotFound) {
 		return nil, fmt.Errorf("failed to check email existence: %w", err)
 	}
 
-	// Проверяем, существует ли пользователь с таким username
-	_, err = s.userRepo.GetByUsername(username)
+	// РџСЂРѕРІРµСЂСЏРµРј, СЃСѓС‰РµСЃС‚РІСѓРµС‚ Р»Рё РїРѕР»СЊР·РѕРІР°С‚РµР»СЊ СЃ С‚Р°РєРёРј username
+	_, err = s.userRepo.GetByUsername(input.Username)
 	if err == nil {
-		// Используем стандартную ошибку конфликта
 		return nil, fmt.Errorf("%w: user with this username already exists", apperrors.ErrConflict)
 	}
 	if !errors.Is(err, apperrors.ErrNotFound) {
 		return nil, fmt.Errorf("failed to check username existence: %w", err)
 	}
 
-	// Хеширование пароля убрано отсюда.
-	// Пароль будет автоматически хеширован хуком BeforeSave в entity.User
-	// при вызове userRepo.Create.
+	// РћРїСЂРµРґРµР»СЏРµРј, Р·Р°РїРѕР»РЅРµРЅ Р»Рё РїСЂРѕС„РёР»СЊ
+	var profileCompletedAt *time.Time
+	if input.FirstName != "" && input.LastName != "" && input.BirthDate != nil && input.Gender != "" {
+		now := time.Now()
+		profileCompletedAt = &now
+	}
+
 	user := &entity.User{
-		Username: username,
-		Email:    email,
-		Password: password, // Передаем пароль как есть
+		Username:            input.Username,
+		Email:               input.Email,
+		Password:            input.Password,
+		PasswordAuthEnabled: true,
+		FirstName:           input.FirstName,
+		LastName:            input.LastName,
+		BirthDate:           input.BirthDate,
+		Gender:              input.Gender,
+		ProfileCompletedAt:  profileCompletedAt,
 	}
 
 	if err := s.userRepo.Create(user); err != nil {
 		return nil, fmt.Errorf("failed to create user: %w", err)
 	}
 
+	// РЎРѕС…СЂР°РЅСЏРµРј СЋСЂРёРґРёС‡РµСЃРєРѕРµ СЃРѕРіР»Р°СЃРёРµ
+	if s.legalRepo != nil {
+		acceptance := &entity.UserLegalAcceptance{
+			UserID:         user.ID,
+			TOSVersion:     s.tosVersion,
+			PrivacyVersion: s.privacyVersion,
+			MarketingOptIn: input.MarketingOptIn,
+			AcceptedAt:     time.Now(),
+			IP:             input.IP,
+			UserAgent:      input.UserAgent,
+		}
+		if err := s.legalRepo.Create(acceptance); err != nil {
+			log.Printf("[AuthService] РћС€РёР±РєР° СЃРѕС…СЂР°РЅРµРЅРёСЏ СЋСЂРёРґРёС‡РµСЃРєРѕРіРѕ СЃРѕРіР»Р°СЃРёСЏ РґР»СЏ РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ ID=%d: %v", user.ID, err)
+			// РќРµ РїСЂРµСЂС‹РІР°РµРј СЂРµРіРёСЃС‚СЂР°С†РёСЋ, РЅРѕ Р»РѕРіРёСЂСѓРµРј
+		}
+	}
+
 	return user, nil
 }
 
-// AuthResponse содержит данные для ответа на запрос авторизации
+// calculateAge РІС‹С‡РёСЃР»СЏРµС‚ РІРѕР·СЂР°СЃС‚ РїРѕ РґР°С‚Рµ СЂРѕР¶РґРµРЅРёСЏ
+func calculateAge(birthDate time.Time) int {
+	now := time.Now()
+	age := now.Year() - birthDate.Year()
+	if now.Month() < birthDate.Month() || (now.Month() == birthDate.Month() && now.Day() < birthDate.Day()) {
+		age--
+	}
+	return age
+}
+
+func isValidGender(gender string) bool {
+	switch gender {
+	case "male", "female", "other", "prefer_not_to_say":
+		return true
+	default:
+		return false
+	}
+}
+
+// AuthResponse СЃРѕРґРµСЂР¶РёС‚ РґР°РЅРЅС‹Рµ РґР»СЏ РѕС‚РІРµС‚Р° РЅР° Р·Р°РїСЂРѕСЃ Р°РІС‚РѕСЂРёР·Р°С†РёРё
 type AuthResponse struct {
 	User         *entity.User `json:"user"`
 	AccessToken  string       `json:"access_token"`
 	RefreshToken string       `json:"refresh_token"`
 }
 
-// LoginUser аутентифицирует пользователя и возвращает пару токенов
-// Обновлено для использования TokenManager
+// LoginUser Р°СѓС‚РµРЅС‚РёС„РёС†РёСЂСѓРµС‚ РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ Рё РІРѕР·РІСЂР°С‰Р°РµС‚ РїР°СЂСѓ С‚РѕРєРµРЅРѕРІ
+// РћР±РЅРѕРІР»РµРЅРѕ РґР»СЏ РёСЃРїРѕР»СЊР·РѕРІР°РЅРёСЏ TokenManager
 func (s *AuthService) LoginUser(email, password, deviceID, ipAddress, userAgent string) (*manager.TokenResponse, error) {
 	user, err := s.AuthenticateUser(email, password)
 	if err != nil {
-		// Ошибка уже залогирована в AuthenticateUser
-		// Пробрасываем ошибку (вероятно, apperrors.ErrUnauthorized)
+		// РћС€РёР±РєР° СѓР¶Рµ Р·Р°Р»РѕРіРёСЂРѕРІР°РЅР° РІ AuthenticateUser
+		// РџСЂРѕР±СЂР°СЃС‹РІР°РµРј РѕС€РёР±РєСѓ (РІРµСЂРѕСЏС‚РЅРѕ, apperrors.ErrUnauthorized)
 		return nil, err
 	}
 
-	// Используем TokenManager для генерации токенов
+	// РСЃРїРѕР»СЊР·СѓРµРј TokenManager РґР»СЏ РіРµРЅРµСЂР°С†РёРё С‚РѕРєРµРЅРѕРІ
 	tokenResp, err := s.tokenManager.GenerateTokenPair(user.ID, deviceID, ipAddress, userAgent)
 	if err != nil {
-		log.Printf("[AuthService] Ошибка генерации токенов для пользователя ID=%d: %v", user.ID, err)
-		return nil, fmt.Errorf("ошибка генерации токенов")
+		log.Printf("[AuthService] РћС€РёР±РєР° РіРµРЅРµСЂР°С†РёРё С‚РѕРєРµРЅРѕРІ РґР»СЏ РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ ID=%d: %v", user.ID, err)
+		return nil, fmt.Errorf("РѕС€РёР±РєР° РіРµРЅРµСЂР°С†РёРё С‚РѕРєРµРЅРѕРІ")
 	}
 
-	// Сброс инвалидации JWT для пользователя при успешном входе
-	// Создаем контекст для вызова
+	// РЎР±СЂРѕСЃ РёРЅРІР°Р»РёРґР°С†РёРё JWT РґР»СЏ РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ РїСЂРё СѓСЃРїРµС€РЅРѕРј РІС…РѕРґРµ
+	// РЎРѕР·РґР°РµРј РєРѕРЅС‚РµРєСЃС‚ РґР»СЏ РІС‹Р·РѕРІР°
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	s.jwtService.ResetInvalidationForUser(ctx, user.ID)
 
-	log.Printf("[AuthService] Пользователь ID=%d (%s) успешно вошел в систему", user.ID, user.Email)
+	log.Printf("[AuthService] РџРѕР»СЊР·РѕРІР°С‚РµР»СЊ ID=%d (%s) СѓСЃРїРµС€РЅРѕ РІРѕС€РµР» РІ СЃРёСЃС‚РµРјСѓ", user.ID, user.Email)
 	return tokenResp, nil
 }
 
-// RefreshTokens обновляет пару токенов, используя refresh токен
-// Обновлено для использования TokenManager
+// RefreshTokens РѕР±РЅРѕРІР»СЏРµС‚ РїР°СЂСѓ С‚РѕРєРµРЅРѕРІ, РёСЃРїРѕР»СЊР·СѓСЏ refresh С‚РѕРєРµРЅ
+// РћР±РЅРѕРІР»РµРЅРѕ РґР»СЏ РёСЃРїРѕР»СЊР·РѕРІР°РЅРёСЏ TokenManager
 func (s *AuthService) RefreshTokens(refreshToken, csrfToken, deviceID, ipAddress, userAgent string) (*manager.TokenResponse, error) {
-	// Используем TokenManager для обновления токенов
+	// РСЃРїРѕР»СЊР·СѓРµРј TokenManager РґР»СЏ РѕР±РЅРѕРІР»РµРЅРёСЏ С‚РѕРєРµРЅРѕРІ
 	tokenResp, err := s.tokenManager.RefreshTokens(refreshToken, csrfToken, deviceID, ipAddress, userAgent)
 	if err != nil {
 		var tokenErr *manager.TokenError
 		if errors.As(err, &tokenErr) {
-			log.Printf("[AuthService] Ошибка обновления токенов: %s - %s", tokenErr.Type, tokenErr.Message)
-			// Пробрасываем ошибку TokenManager
-			return nil, err // Возвращаем исходную ошибку TokenError
+			log.Printf("[AuthService] РћС€РёР±РєР° РѕР±РЅРѕРІР»РµРЅРёСЏ С‚РѕРєРµРЅРѕРІ: %s - %s", tokenErr.Type, tokenErr.Message)
+			// РџСЂРѕР±СЂР°СЃС‹РІР°РµРј РѕС€РёР±РєСѓ TokenManager
+			return nil, err // Р’РѕР·РІСЂР°С‰Р°РµРј РёСЃС…РѕРґРЅСѓСЋ РѕС€РёР±РєСѓ TokenError
 		} else {
-			log.Printf("[AuthService] Неизвестная ошибка обновления токенов: %v", err)
-			return nil, fmt.Errorf("внутренняя ошибка сервера при обновлении токенов: %w", err)
+			log.Printf("[AuthService] РќРµРёР·РІРµСЃС‚РЅР°СЏ РѕС€РёР±РєР° РѕР±РЅРѕРІР»РµРЅРёСЏ С‚РѕРєРµРЅРѕРІ: %v", err)
+			return nil, fmt.Errorf("РІРЅСѓС‚СЂРµРЅРЅСЏСЏ РѕС€РёР±РєР° СЃРµСЂРІРµСЂР° РїСЂРё РѕР±РЅРѕРІР»РµРЅРёРё С‚РѕРєРµРЅРѕРІ: %w", err)
 		}
 	}
 
-	log.Printf("[AuthService] Токены успешно обновлены для пользователя ID=%d", tokenResp.UserID)
+	log.Printf("[AuthService] РўРѕРєРµРЅС‹ СѓСЃРїРµС€РЅРѕ РѕР±РЅРѕРІР»РµРЅС‹ РґР»СЏ РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ ID=%d", tokenResp.UserID)
 	return tokenResp, nil
 }
 
-// GetUserByID возвращает пользователя по ID
+// GetUserByID РІРѕР·РІСЂР°С‰Р°РµС‚ РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ РїРѕ ID
 func (s *AuthService) GetUserByID(userID uint) (*entity.User, error) {
 	return s.userRepo.GetByID(userID)
 }
 
-// UpdateUserProfile обновляет профиль пользователя
+// UpdateUserProfile РѕР±РЅРѕРІР»СЏРµС‚ РїСЂРѕС„РёР»СЊ РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ
 func (s *AuthService) UpdateUserProfile(userID uint, username, profilePicture string) error {
 	user, err := s.userRepo.GetByID(userID)
 	if err != nil {
 		return err
 	}
 
-	// Если имя пользователя изменилось, проверяем, что оно уникально
+	// Р•СЃР»Рё РёРјСЏ РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ РёР·РјРµРЅРёР»РѕСЃСЊ, РїСЂРѕРІРµСЂСЏРµРј, С‡С‚Рѕ РѕРЅРѕ СѓРЅРёРєР°Р»СЊРЅРѕ
 	if username != user.Username {
 		existingUser, err := s.userRepo.GetByUsername(username)
 		if err != nil && !errors.Is(err, apperrors.ErrNotFound) {
-			// Реальная DB ошибка — возвращаем её
+			// Р РµР°Р»СЊРЅР°СЏ DB РѕС€РёР±РєР° вЂ” РІРѕР·РІСЂР°С‰Р°РµРј РµС‘
 			return fmt.Errorf("failed to check username availability: %w", err)
 		}
 		if existingUser != nil {
@@ -178,7 +282,7 @@ func (s *AuthService) UpdateUserProfile(userID uint, username, profilePicture st
 		}
 	}
 
-	// Используем безопасный метод обновления профиля без изменения пароля
+	// РСЃРїРѕР»СЊР·СѓРµРј Р±РµР·РѕРїР°СЃРЅС‹Р№ РјРµС‚РѕРґ РѕР±РЅРѕРІР»РµРЅРёСЏ РїСЂРѕС„РёР»СЏ Р±РµР· РёР·РјРµРЅРµРЅРёСЏ РїР°СЂРѕР»СЏ
 	updates := map[string]interface{}{
 		"username":        username,
 		"profile_picture": profilePicture,
@@ -187,9 +291,9 @@ func (s *AuthService) UpdateUserProfile(userID uint, username, profilePicture st
 	return s.userRepo.UpdateProfile(userID, updates)
 }
 
-// UpdateUserLanguage обновляет язык интерфейса пользователя
+// UpdateUserLanguage РѕР±РЅРѕРІР»СЏРµС‚ СЏР·С‹Рє РёРЅС‚РµСЂС„РµР№СЃР° РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ
 func (s *AuthService) UpdateUserLanguage(userID uint, language string) error {
-	// Валидация языка (ru или kk)
+	// Р’Р°Р»РёРґР°С†РёСЏ СЏР·С‹РєР° (ru РёР»Рё kk)
 	if language != "ru" && language != "kk" {
 		return fmt.Errorf("%w: invalid language '%s', allowed: ru, kk", apperrors.ErrValidation, language)
 	}
@@ -201,161 +305,162 @@ func (s *AuthService) UpdateUserLanguage(userID uint, language string) error {
 	return s.userRepo.UpdateProfile(userID, updates)
 }
 
-// ChangePassword изменяет пароль пользователя и инвалидирует все токены
+// ChangePassword РёР·РјРµРЅСЏРµС‚ РїР°СЂРѕР»СЊ РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ Рё РёРЅРІР°Р»РёРґРёСЂСѓРµС‚ РІСЃРµ С‚РѕРєРµРЅС‹
 func (s *AuthService) ChangePassword(userID uint, oldPassword, newPassword string) error {
-	// Получаем пользователя для проверки старого пароля
+	// РџРѕР»СѓС‡Р°РµРј РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ РґР»СЏ РїСЂРѕРІРµСЂРєРё СЃС‚Р°СЂРѕРіРѕ РїР°СЂРѕР»СЏ
 	user, err := s.userRepo.GetByID(userID)
 	if err != nil {
 		return err
 	}
 
-	// Проверяем, что старый пароль верный
+	// РџСЂРѕРІРµСЂСЏРµРј, С‡С‚Рѕ СЃС‚Р°СЂС‹Р№ РїР°СЂРѕР»СЊ РІРµСЂРЅС‹Р№
 	if !user.CheckPassword(oldPassword) {
 		return fmt.Errorf("%w: incorrect old password", apperrors.ErrUnauthorized)
 	}
 
-	// Обновляем пароль с использованием безопасного метода
-	// UserRepo.UpdatePassword выполняет хеширование и использует прямой SQL-запрос
-	// для обхода хука BeforeSave и предотвращения двойного хеширования
+	// РћР±РЅРѕРІР»СЏРµРј РїР°СЂРѕР»СЊ СЃ РёСЃРїРѕР»СЊР·РѕРІР°РЅРёРµРј Р±РµР·РѕРїР°СЃРЅРѕРіРѕ РјРµС‚РѕРґР°
+	// UserRepo.UpdatePassword РІС‹РїРѕР»РЅСЏРµС‚ С…РµС€РёСЂРѕРІР°РЅРёРµ Рё РёСЃРїРѕР»СЊР·СѓРµС‚ РїСЂСЏРјРѕР№ SQL-Р·Р°РїСЂРѕСЃ
+	// РґР»СЏ РѕР±С…РѕРґР° С…СѓРєР° BeforeSave Рё РїСЂРµРґРѕС‚РІСЂР°С‰РµРЅРёСЏ РґРІРѕР№РЅРѕРіРѕ С…РµС€РёСЂРѕРІР°РЅРёСЏ
 	if err := s.userRepo.UpdatePassword(userID, newPassword); err != nil {
 		return err
 	}
 
-	// Инвалидируем все токены пользователя
+	// РРЅРІР°Р»РёРґРёСЂСѓРµРј РІСЃРµ С‚РѕРєРµРЅС‹ РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ
 	return s.LogoutAllDevices(userID)
 }
 
-// LogoutUser отзывает указанный refresh токен
-// Обновлено для использования TokenManager
+// LogoutUser РѕС‚Р·С‹РІР°РµС‚ СѓРєР°Р·Р°РЅРЅС‹Р№ refresh С‚РѕРєРµРЅ
+// РћР±РЅРѕРІР»РµРЅРѕ РґР»СЏ РёСЃРїРѕР»СЊР·РѕРІР°РЅРёСЏ TokenManager
 func (s *AuthService) LogoutUser(refreshToken string) error {
-	// Используем TokenManager для отзыва refresh токена
+	// РСЃРїРѕР»СЊР·СѓРµРј TokenManager РґР»СЏ РѕС‚Р·С‹РІР° refresh С‚РѕРєРµРЅР°
 	err := s.tokenManager.RevokeRefreshToken(refreshToken)
 	if err != nil {
-		log.Printf("[AuthService] Ошибка отзыва refresh токена: %v", err)
-		// Можно не возвращать ошибку клиенту, если токен уже недействителен
+		log.Printf("[AuthService] РћС€РёР±РєР° РѕС‚Р·С‹РІР° refresh С‚РѕРєРµРЅР°: %v", err)
+		// РњРѕР¶РЅРѕ РЅРµ РІРѕР·РІСЂР°С‰Р°С‚СЊ РѕС€РёР±РєСѓ РєР»РёРµРЅС‚Сѓ, РµСЃР»Рё С‚РѕРєРµРЅ СѓР¶Рµ РЅРµРґРµР№СЃС‚РІРёС‚РµР»РµРЅ
 		var tokenErr *manager.TokenError
 		if errors.As(err, &tokenErr) && tokenErr.Type == manager.InvalidRefreshToken {
-			return nil // Токен уже недействителен, считаем логаут успешным
+			return nil // РўРѕРєРµРЅ СѓР¶Рµ РЅРµРґРµР№СЃС‚РІРёС‚РµР»РµРЅ, СЃС‡РёС‚Р°РµРј Р»РѕРіР°СѓС‚ СѓСЃРїРµС€РЅС‹Рј
 		}
-		return fmt.Errorf("ошибка при выходе из системы: %w", err)
+		return fmt.Errorf("РѕС€РёР±РєР° РїСЂРё РІС‹С…РѕРґРµ РёР· СЃРёСЃС‚РµРјС‹: %w", err)
 	}
 
-	log.Printf("[AuthService] Refresh токен успешно отозван")
+	log.Printf("[AuthService] Refresh С‚РѕРєРµРЅ СѓСЃРїРµС€РЅРѕ РѕС‚РѕР·РІР°РЅ")
 	return nil
 }
 
-// LogoutAllDevices отзывает все токены пользователя
-// Обновлено для использования TokenManager и jwtService напрямую
+// LogoutAllDevices РѕС‚Р·С‹РІР°РµС‚ РІСЃРµ С‚РѕРєРµРЅС‹ РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ
+// РћР±РЅРѕРІР»РµРЅРѕ РґР»СЏ РёСЃРїРѕР»СЊР·РѕРІР°РЅРёСЏ TokenManager Рё jwtService РЅР°РїСЂСЏРјСѓСЋ
 func (s *AuthService) LogoutAllDevices(userID uint) error {
-	// Используем TokenManager для отзыва всех refresh токенов
+	// РСЃРїРѕР»СЊР·СѓРµРј TokenManager РґР»СЏ РѕС‚Р·С‹РІР° РІСЃРµС… refresh С‚РѕРєРµРЅРѕРІ
 	err := s.tokenManager.RevokeAllUserTokens(userID)
 	if err != nil {
-		log.Printf("[AuthService] Ошибка при отзыве всех refresh токенов пользователя ID=%d: %v", userID, err)
-		// Продолжаем, чтобы попытаться инвалидировать JWT
+		log.Printf("[AuthService] РћС€РёР±РєР° РїСЂРё РѕС‚Р·С‹РІРµ РІСЃРµС… refresh С‚РѕРєРµРЅРѕРІ РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ ID=%d: %v", userID, err)
+		// РџСЂРѕРґРѕР»Р¶Р°РµРј, С‡С‚РѕР±С‹ РїРѕРїС‹С‚Р°С‚СЊСЃСЏ РёРЅРІР°Р»РёРґРёСЂРѕРІР°С‚СЊ JWT
 	}
 
-	// Дополнительно инвалидируем текущие JWT токены через jwtService
-	// Создаем контекст для вызова
+	// Р”РѕРїРѕР»РЅРёС‚РµР»СЊРЅРѕ РёРЅРІР°Р»РёРґРёСЂСѓРµРј С‚РµРєСѓС‰РёРµ JWT С‚РѕРєРµРЅС‹ С‡РµСЂРµР· jwtService
+	// РЎРѕР·РґР°РµРј РєРѕРЅС‚РµРєСЃС‚ РґР»СЏ РІС‹Р·РѕРІР°
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	if jwtErr := s.jwtService.InvalidateTokensForUser(ctx, userID); jwtErr != nil {
-		log.Printf("[AuthService] Ошибка при инвалидации JWT токенов пользователя ID=%d: %v", userID, jwtErr)
-		// Если ошибка была и с refresh токенами, возвращаем ее
+		log.Printf("[AuthService] РћС€РёР±РєР° РїСЂРё РёРЅРІР°Р»РёРґР°С†РёРё JWT С‚РѕРєРµРЅРѕРІ РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ ID=%d: %v", userID, jwtErr)
+		// Р•СЃР»Рё РѕС€РёР±РєР° Р±С‹Р»Р° Рё СЃ refresh С‚РѕРєРµРЅР°РјРё, РІРѕР·РІСЂР°С‰Р°РµРј РµРµ
 		if err != nil {
-			return fmt.Errorf("ошибка при выходе со всех устройств (refresh): %w", err)
+			return fmt.Errorf("РѕС€РёР±РєР° РїСЂРё РІС‹С…РѕРґРµ СЃРѕ РІСЃРµС… СѓСЃС‚СЂРѕР№СЃС‚РІ (refresh): %w", err)
 		}
-		return fmt.Errorf("ошибка при выходе со всех устройств (jwt): %w", jwtErr)
+		return fmt.Errorf("РѕС€РёР±РєР° РїСЂРё РІС‹С…РѕРґРµ СЃРѕ РІСЃРµС… СѓСЃС‚СЂРѕР№СЃС‚РІ (jwt): %w", jwtErr)
 	}
 
-	log.Printf("[AuthService] Все сессии для пользователя ID=%d завершены", userID)
+	log.Printf("[AuthService] Р’СЃРµ СЃРµСЃСЃРёРё РґР»СЏ РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ ID=%d Р·Р°РІРµСЂС€РµРЅС‹", userID)
 	return nil
 }
 
-// ResetUserTokenInvalidation сбрасывает флаг инвалидации для пользователя
-// Использует jwtService и InvalidTokenRepository напрямую
+// ResetUserTokenInvalidation СЃР±СЂР°СЃС‹РІР°РµС‚ С„Р»Р°Рі РёРЅРІР°Р»РёРґР°С†РёРё РґР»СЏ РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ
+// РСЃРїРѕР»СЊР·СѓРµС‚ jwtService Рё InvalidTokenRepository РЅР°РїСЂСЏРјСѓСЋ
 func (s *AuthService) ResetUserTokenInvalidation(userID uint) error {
-	// Создаем контекст для вызова
+	// РЎРѕР·РґР°РµРј РєРѕРЅС‚РµРєСЃС‚ РґР»СЏ РІС‹Р·РѕРІР°
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	// Сброс в jwtService (in-memory)
+	// РЎР±СЂРѕСЃ РІ jwtService (in-memory)
 	s.jwtService.ResetInvalidationForUser(ctx, userID)
 
-	// Удаление записи из БД
+	// РЈРґР°Р»РµРЅРёРµ Р·Р°РїРёСЃРё РёР· Р‘Р”
 	if err := s.invalidTokenRepo.RemoveInvalidToken(ctx, userID); err != nil {
-		log.Printf("[AuthService] Ошибка при удалении записи инвалидации из БД для пользователя ID=%d: %v", userID, err)
+		log.Printf("[AuthService] РћС€РёР±РєР° РїСЂРё СѓРґР°Р»РµРЅРёРё Р·Р°РїРёСЃРё РёРЅРІР°Р»РёРґР°С†РёРё РёР· Р‘Р” РґР»СЏ РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ ID=%d: %v", userID, err)
 		return fmt.Errorf("failed to reset token invalidation: %w", err)
 	}
-	log.Printf("[AuthService] Сброшена инвалидация токенов для пользователя ID=%d", userID)
+	log.Printf("[AuthService] РЎР±СЂРѕС€РµРЅР° РёРЅРІР°Р»РёРґР°С†РёСЏ С‚РѕРєРµРЅРѕРІ РґР»СЏ РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ ID=%d", userID)
 	return nil
 }
 
-// GetUserActiveSessions возвращает активные сессии пользователя
-// Обновлено для использования TokenManager
+// GetUserActiveSessions РІРѕР·РІСЂР°С‰Р°РµС‚ Р°РєС‚РёРІРЅС‹Рµ СЃРµСЃСЃРёРё РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ
+// РћР±РЅРѕРІР»РµРЅРѕ РґР»СЏ РёСЃРїРѕР»СЊР·РѕРІР°РЅРёСЏ TokenManager
 func (s *AuthService) GetUserActiveSessions(userID uint) ([]entity.RefreshToken, error) {
 	sessions, err := s.tokenManager.GetUserActiveSessions(userID)
 	if err != nil {
-		log.Printf("[AuthService] Ошибка получения активных сессий для пользователя ID=%d: %v", userID, err)
-		return nil, fmt.Errorf("не удалось получить список сессий")
+		log.Printf("[AuthService] РћС€РёР±РєР° РїРѕР»СѓС‡РµРЅРёСЏ Р°РєС‚РёРІРЅС‹С… СЃРµСЃСЃРёР№ РґР»СЏ РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ ID=%d: %v", userID, err)
+		return nil, fmt.Errorf("РЅРµ СѓРґР°Р»РѕСЃСЊ РїРѕР»СѓС‡РёС‚СЊ СЃРїРёСЃРѕРє СЃРµСЃСЃРёР№")
 	}
 	return sessions, nil
 }
 
-// CheckRefreshToken проверяет действительность refresh токена
-// Обновлено: Логика проверки теперь полностью в TokenManager, этот метод можно удалить или сделать прокси
+// CheckRefreshToken РїСЂРѕРІРµСЂСЏРµС‚ РґРµР№СЃС‚РІРёС‚РµР»СЊРЅРѕСЃС‚СЊ refresh С‚РѕРєРµРЅР°
+// РћР±РЅРѕРІР»РµРЅРѕ: Р›РѕРіРёРєР° РїСЂРѕРІРµСЂРєРё С‚РµРїРµСЂСЊ РїРѕР»РЅРѕСЃС‚СЊСЋ РІ TokenManager, СЌС‚РѕС‚ РјРµС‚РѕРґ РјРѕР¶РЅРѕ СѓРґР°Р»РёС‚СЊ РёР»Рё СЃРґРµР»Р°С‚СЊ РїСЂРѕРєСЃРё
 func (s *AuthService) CheckRefreshToken(refreshToken string) (bool, error) {
-	// Проксируем вызов к TokenManager
-	// return s.tokenManager.CheckRefreshToken(refreshToken) // У TokenManager нет такого публичного метода
-	// Вместо этого можно использовать GetTokenInfo или RefreshTokens с проверкой ошибки
+	// РџСЂРѕРєСЃРёСЂСѓРµРј РІС‹Р·РѕРІ Рє TokenManager
+	// return s.tokenManager.CheckRefreshToken(refreshToken) // РЈ TokenManager РЅРµС‚ С‚Р°РєРѕРіРѕ РїСѓР±Р»РёС‡РЅРѕРіРѕ РјРµС‚РѕРґР°
+	// Р’РјРµСЃС‚Рѕ СЌС‚РѕРіРѕ РјРѕР¶РЅРѕ РёСЃРїРѕР»СЊР·РѕРІР°С‚СЊ GetTokenInfo РёР»Рё RefreshTokens СЃ РїСЂРѕРІРµСЂРєРѕР№ РѕС€РёР±РєРё
 	_, err := s.tokenManager.GetTokenInfo(refreshToken)
 	if err != nil {
 		var tokenErr *manager.TokenError
 		if errors.As(err, &tokenErr) && (tokenErr.Type == manager.InvalidRefreshToken || tokenErr.Type == manager.ExpiredRefreshToken) {
-			return false, nil // Токен недействителен или истек
+			return false, nil // РўРѕРєРµРЅ РЅРµРґРµР№СЃС‚РІРёС‚РµР»РµРЅ РёР»Рё РёСЃС‚РµРє
 		}
-		return false, err // Другая ошибка
+		return false, err // Р”СЂСѓРіР°СЏ РѕС€РёР±РєР°
 	}
-	return true, nil // Токен действителен
+	return true, nil // РўРѕРєРµРЅ РґРµР№СЃС‚РІРёС‚РµР»РµРЅ
 }
 
-// GetTokenInfo возвращает информацию о сроках действия токенов
-// Обновлено для использования TokenManager
+// GetTokenInfo РІРѕР·РІСЂР°С‰Р°РµС‚ РёРЅС„РѕСЂРјР°С†РёСЋ Рѕ СЃСЂРѕРєР°С… РґРµР№СЃС‚РІРёСЏ С‚РѕРєРµРЅРѕРІ
+// РћР±РЅРѕРІР»РµРЅРѕ РґР»СЏ РёСЃРїРѕР»СЊР·РѕРІР°РЅРёСЏ TokenManager
 func (s *AuthService) GetTokenInfo(refreshToken string) (*manager.TokenInfo, error) {
 	info, err := s.tokenManager.GetTokenInfo(refreshToken)
 	if err != nil {
-		log.Printf("[AuthService] Ошибка получения информации о токене: %v", err)
-		// Пробрасываем ошибку TokenManager или другую
+		log.Printf("[AuthService] РћС€РёР±РєР° РїРѕР»СѓС‡РµРЅРёСЏ РёРЅС„РѕСЂРјР°С†РёРё Рѕ С‚РѕРєРµРЅРµ: %v", err)
+		// РџСЂРѕР±СЂР°СЃС‹РІР°РµРј РѕС€РёР±РєСѓ TokenManager РёР»Рё РґСЂСѓРіСѓСЋ
 		return nil, err
 	}
 	return info, nil
 }
 
-// DebugToken декодирует токен для отладки
-// Использует jwtService напрямую
+// DebugToken РґРµРєРѕРґРёСЂСѓРµС‚ С‚РѕРєРµРЅ РґР»СЏ РѕС‚Р»Р°РґРєРё
+// РСЃРїРѕР»СЊР·СѓРµС‚ jwtService РЅР°РїСЂСЏРјСѓСЋ
 func (s *AuthService) DebugToken(tokenString string) map[string]interface{} {
 	return s.jwtService.DebugToken(tokenString)
 }
 
-// GetUserByEmail возвращает пользователя по Email
+// GetUserByEmail РІРѕР·РІСЂР°С‰Р°РµС‚ РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ РїРѕ Email
 func (s *AuthService) GetUserByEmail(email string) (*entity.User, error) {
+	email = normalizeEmail(email)
 	return s.userRepo.GetByEmail(email)
 }
 
-// AdminResetPassword сбрасывает пароль пользователя администратором
-// Не требует проверки старого пароля и инвалидирует все токены пользователя
+// AdminResetPassword СЃР±СЂР°СЃС‹РІР°РµС‚ РїР°СЂРѕР»СЊ РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ Р°РґРјРёРЅРёСЃС‚СЂР°С‚РѕСЂРѕРј
+// РќРµ С‚СЂРµР±СѓРµС‚ РїСЂРѕРІРµСЂРєРё СЃС‚Р°СЂРѕРіРѕ РїР°СЂРѕР»СЏ Рё РёРЅРІР°Р»РёРґРёСЂСѓРµС‚ РІСЃРµ С‚РѕРєРµРЅС‹ РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ
 func (s *AuthService) AdminResetPassword(userID uint, newPassword string) error {
-	// Обновляем пароль с использованием безопасного метода
-	// UserRepo.UpdatePassword выполняет хеширование и использует прямой SQL-запрос
-	// для обхода хука BeforeSave и предотвращения двойного хеширования
+	// РћР±РЅРѕРІР»СЏРµРј РїР°СЂРѕР»СЊ СЃ РёСЃРїРѕР»СЊР·РѕРІР°РЅРёРµРј Р±РµР·РѕРїР°СЃРЅРѕРіРѕ РјРµС‚РѕРґР°
+	// UserRepo.UpdatePassword РІС‹РїРѕР»РЅСЏРµС‚ С…РµС€РёСЂРѕРІР°РЅРёРµ Рё РёСЃРїРѕР»СЊР·СѓРµС‚ РїСЂСЏРјРѕР№ SQL-Р·Р°РїСЂРѕСЃ
+	// РґР»СЏ РѕР±С…РѕРґР° С…СѓРєР° BeforeSave Рё РїСЂРµРґРѕС‚РІСЂР°С‰РµРЅРёСЏ РґРІРѕР№РЅРѕРіРѕ С…РµС€РёСЂРѕРІР°РЅРёСЏ
 	if err := s.userRepo.UpdatePassword(userID, newPassword); err != nil {
 		return err
 	}
 
-	// Инвалидируем все токены пользователя
+	// РРЅРІР°Р»РёРґРёСЂСѓРµРј РІСЃРµ С‚РѕРєРµРЅС‹ РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ
 	return s.LogoutAllDevices(userID)
 }
 
-// GetRefreshTokenByUserID получает активный refresh токен пользователя
+// GetRefreshTokenByUserID РїРѕР»СѓС‡Р°РµС‚ Р°РєС‚РёРІРЅС‹Р№ refresh С‚РѕРєРµРЅ РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ
 func (s *AuthService) GetRefreshTokenByUserID(userID uint) (*entity.RefreshToken, error) {
 	tokens, err := s.refreshTokenRepo.GetActiveTokensForUser(userID)
 	if err != nil {
@@ -366,37 +471,40 @@ func (s *AuthService) GetRefreshTokenByUserID(userID uint) (*entity.RefreshToken
 		return nil, errors.New("no active refresh tokens found")
 	}
 
-	// Возвращаем первый активный токен
+	// Р’РѕР·РІСЂР°С‰Р°РµРј РїРµСЂРІС‹Р№ Р°РєС‚РёРІРЅС‹Р№ С‚РѕРєРµРЅ
 	return tokens[0], nil
 }
 
-// AuthenticateUser проверяет учетные данные пользователя без создания токенов
+// AuthenticateUser РїСЂРѕРІРµСЂСЏРµС‚ СѓС‡РµС‚РЅС‹Рµ РґР°РЅРЅС‹Рµ РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ Р±РµР· СЃРѕР·РґР°РЅРёСЏ С‚РѕРєРµРЅРѕРІ
 func (s *AuthService) AuthenticateUser(email, password string) (*entity.User, error) {
-	// Получаем пользователя по email
+	// РќРѕСЂРјР°Р»РёР·СѓРµРј email
+	email = normalizeEmail(email)
+
+	// РџРѕР»СѓС‡Р°РµРј РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ РїРѕ email
 	user, err := s.userRepo.GetByEmail(email)
 	if err != nil {
-		log.Printf("[AuthService] Пользователь с email %s не найден: %v", email, err)
-		// Возвращаем стандартную ошибку
+		log.Printf("[AuthService] РџРѕР»СЊР·РѕРІР°С‚РµР»СЊ СЃ email %s РЅРµ РЅР°Р№РґРµРЅ: %v", email, err)
+		// Р’РѕР·РІСЂР°С‰Р°РµРј СЃС‚Р°РЅРґР°СЂС‚РЅСѓСЋ РѕС€РёР±РєСѓ
 		return nil, fmt.Errorf("%w: invalid credentials", apperrors.ErrUnauthorized)
 	}
 
-	// Проверяем пароль
+	// РџСЂРѕРІРµСЂСЏРµРј РїР°СЂРѕР»СЊ
 	if !user.CheckPassword(password) {
-		log.Printf("[AuthService] Неверный пароль для пользователя с email %s", email)
-		// Возвращаем стандартную ошибку
+		log.Printf("[AuthService] РќРµРІРµСЂРЅС‹Р№ РїР°СЂРѕР»СЊ РґР»СЏ РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ СЃ email %s", email)
+		// Р’РѕР·РІСЂР°С‰Р°РµРј СЃС‚Р°РЅРґР°СЂС‚РЅСѓСЋ РѕС€РёР±РєСѓ
 		return nil, fmt.Errorf("%w: invalid credentials", apperrors.ErrUnauthorized)
 	}
 
 	return user, nil
 }
 
-// IsSessionOwnedByUser проверяет, принадлежит ли сессия пользователю
+// IsSessionOwnedByUser РїСЂРѕРІРµСЂСЏРµС‚, РїСЂРёРЅР°РґР»РµР¶РёС‚ Р»Рё СЃРµСЃСЃРёСЏ РїРѕР»СЊР·РѕРІР°С‚РµР»СЋ
 func (s *AuthService) IsSessionOwnedByUser(userID, sessionID uint) (bool, error) {
 	if s.refreshTokenRepo == nil {
 		return false, errors.New("refresh token repository not available")
 	}
 
-	// Получаем токен по ID
+	// РџРѕР»СѓС‡Р°РµРј С‚РѕРєРµРЅ РїРѕ ID
 	token, err := s.refreshTokenRepo.GetTokenByID(sessionID)
 	if err != nil {
 		if errors.Is(err, apperrors.ErrNotFound) {
@@ -405,11 +513,11 @@ func (s *AuthService) IsSessionOwnedByUser(userID, sessionID uint) (bool, error)
 		return false, err
 	}
 
-	// Проверяем, что токен принадлежит пользователю
+	// РџСЂРѕРІРµСЂСЏРµРј, С‡С‚Рѕ С‚РѕРєРµРЅ РїСЂРёРЅР°РґР»РµР¶РёС‚ РїРѕР»СЊР·РѕРІР°С‚РµР»СЋ
 	return token.UserID == userID, nil
 }
 
-// RevokeSession отзывает отдельную сессию по ID
+// RevokeSession РѕС‚Р·С‹РІР°РµС‚ РѕС‚РґРµР»СЊРЅСѓСЋ СЃРµСЃСЃРёСЋ РїРѕ ID
 func (s *AuthService) RevokeSession(sessionID uint) error {
 	if s.refreshTokenRepo == nil {
 		return errors.New("refresh token repository not available")
@@ -418,48 +526,32 @@ func (s *AuthService) RevokeSession(sessionID uint) error {
 	return s.refreshTokenRepo.MarkTokenAsExpiredByID(sessionID)
 }
 
-// GetRefreshTokenByID получает refresh-токен по его ID
+// GetRefreshTokenByID РїРѕР»СѓС‡Р°РµС‚ refresh-С‚РѕРєРµРЅ РїРѕ РµРіРѕ ID
 func (s *AuthService) GetRefreshTokenByID(tokenID uint) (*entity.RefreshToken, error) {
 	return s.refreshTokenRepo.GetTokenByID(tokenID)
 }
 
-// RevokeSessionByID отзывает конкретную сессию по ее ID
-// Обновлено для использования TokenManager
+// RevokeSessionByID РѕС‚Р·С‹РІР°РµС‚ РєРѕРЅРєСЂРµС‚РЅСѓСЋ СЃРµСЃСЃРёСЋ РїРѕ РµРµ ID
+// РћР±РЅРѕРІР»РµРЅРѕ РґР»СЏ РёСЃРїРѕР»СЊР·РѕРІР°РЅРёСЏ TokenManager
 func (s *AuthService) RevokeSessionByID(sessionID uint, reason string) error {
-	// Получаем токен по ID, чтобы убедиться, что он существует
-	token, err := s.refreshTokenRepo.GetTokenByID(sessionID)
-	if err != nil {
-		log.Printf("[AuthService] Ошибка получения сессии ID=%d для отзыва: %v", sessionID, err)
-		return fmt.Errorf("ошибка получения сессии")
-	}
-	if token == nil {
-		return fmt.Errorf("сессия с ID %d не найдена", sessionID)
-	}
-
-	// Используем TokenManager для отзыва
-	err = s.tokenManager.RevokeRefreshToken(token.Token) // TokenManager отзывает по значению токена
-	if err != nil {
-		log.Printf("[AuthService] Ошибка отзыва сессии ID=%d через TokenManager: %v", sessionID, err)
-		// Попытаемся пометить как истекший напрямую через репозиторий с причиной
-		if repoErr := s.refreshTokenRepo.MarkTokenAsExpiredByID(sessionID); repoErr != nil {
-			log.Printf("[AuthService] Ошибка прямой маркировки сессии ID=%d как истекшей: %v", sessionID, repoErr)
-			return fmt.Errorf("ошибка отзыва сессии")
-		}
+	if err := s.refreshTokenRepo.MarkTokenAsExpiredByID(sessionID); err != nil {
+		log.Printf("[AuthService] Ошибка отзыва сессии ID=%d: %v", sessionID, err)
+		return fmt.Errorf("ошибка отзыва сессии")
 	}
 
 	log.Printf("[AuthService] Сессия ID=%d успешно отозвана. Причина: %s", sessionID, reason)
 	return nil
 }
 
-// RevokeAllUserSessions отзывает все сессии пользователя с указанием причины
+// RevokeAllUserSessions РѕС‚Р·С‹РІР°РµС‚ РІСЃРµ СЃРµСЃСЃРёРё РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ СЃ СѓРєР°Р·Р°РЅРёРµРј РїСЂРёС‡РёРЅС‹
 func (s *AuthService) RevokeAllUserSessions(userID uint, reason string) error {
-	// Получаем все активные сессии пользователя
+	// РџРѕР»СѓС‡Р°РµРј РІСЃРµ Р°РєС‚РёРІРЅС‹Рµ СЃРµСЃСЃРёРё РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ
 	tokens, err := s.refreshTokenRepo.GetActiveTokensForUser(userID)
 	if err != nil {
-		return fmt.Errorf("не удалось получить активные сессии: %w", err)
+		return fmt.Errorf("РЅРµ СѓРґР°Р»РѕСЃСЊ РїРѕР»СѓС‡РёС‚СЊ Р°РєС‚РёРІРЅС‹Рµ СЃРµСЃСЃРёРё: %w", err)
 	}
 
-	// Отзываем каждую сессию с указанием причины
+	// РћС‚Р·С‹РІР°РµРј РєР°Р¶РґСѓСЋ СЃРµСЃСЃРёСЋ СЃ СѓРєР°Р·Р°РЅРёРµРј РїСЂРёС‡РёРЅС‹
 	for _, token := range tokens {
 		now := time.Now()
 		token.RevokedAt = &now
@@ -468,26 +560,26 @@ func (s *AuthService) RevokeAllUserSessions(userID uint, reason string) error {
 
 		err = s.refreshTokenRepo.MarkTokenAsExpiredByID(token.ID)
 		if err != nil {
-			log.Printf("Ошибка при отзыве сессии ID=%d: %v", token.ID, err)
-			// Продолжаем отзыв других сессий
+			log.Printf("РћС€РёР±РєР° РїСЂРё РѕС‚Р·С‹РІРµ СЃРµСЃСЃРёРё ID=%d: %v", token.ID, err)
+			// РџСЂРѕРґРѕР»Р¶Р°РµРј РѕС‚Р·С‹РІ РґСЂСѓРіРёС… СЃРµСЃСЃРёР№
 		}
 	}
 
 	return nil
 }
 
-// GetActiveSessionsWithDetails возвращает детализированную информацию об активных сессиях пользователя
-// Обновлено для использования TokenManager
+// GetActiveSessionsWithDetails РІРѕР·РІСЂР°С‰Р°РµС‚ РґРµС‚Р°Р»РёР·РёСЂРѕРІР°РЅРЅСѓСЋ РёРЅС„РѕСЂРјР°С†РёСЋ РѕР± Р°РєС‚РёРІРЅС‹С… СЃРµСЃСЃРёСЏС… РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ
+// РћР±РЅРѕРІР»РµРЅРѕ РґР»СЏ РёСЃРїРѕР»СЊР·РѕРІР°РЅРёСЏ TokenManager
 func (s *AuthService) GetActiveSessionsWithDetails(userID uint) ([]map[string]interface{}, error) {
 	sessions, err := s.tokenManager.GetUserActiveSessions(userID)
 	if err != nil {
-		log.Printf("[AuthService] Ошибка получения активных сессий (детали) для пользователя ID=%d: %v", userID, err)
-		return nil, fmt.Errorf("не удалось получить список сессий")
+		log.Printf("[AuthService] РћС€РёР±РєР° РїРѕР»СѓС‡РµРЅРёСЏ Р°РєС‚РёРІРЅС‹С… СЃРµСЃСЃРёР№ (РґРµС‚Р°Р»Рё) РґР»СЏ РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ ID=%d: %v", userID, err)
+		return nil, fmt.Errorf("РЅРµ СѓРґР°Р»РѕСЃСЊ РїРѕР»СѓС‡РёС‚СЊ СЃРїРёСЃРѕРє СЃРµСЃСЃРёР№")
 	}
 
 	var sessionDetails []map[string]interface{}
 	for _, session := range sessions {
-		// Используем метод SessionInfo() из entity.RefreshToken
+		// РСЃРїРѕР»СЊР·СѓРµРј РјРµС‚РѕРґ SessionInfo() РёР· entity.RefreshToken
 		details := session.SessionInfo()
 		sessionDetails = append(sessionDetails, details)
 	}
@@ -495,22 +587,27 @@ func (s *AuthService) GetActiveSessionsWithDetails(userID uint) ([]map[string]in
 	return sessionDetails, nil
 }
 
-// GenerateWsTicket генерирует короткоживущий тикет для аутентификации WebSocket
-// Использует jwtService напрямую
+// GenerateWsTicket РіРµРЅРµСЂРёСЂСѓРµС‚ РєРѕСЂРѕС‚РєРѕР¶РёРІСѓС‰РёР№ С‚РёРєРµС‚ РґР»СЏ Р°СѓС‚РµРЅС‚РёС„РёРєР°С†РёРё WebSocket
+// РСЃРїРѕР»СЊР·СѓРµС‚ jwtService РЅР°РїСЂСЏРјСѓСЋ
 func (s *AuthService) GenerateWsTicket(ctx context.Context, userID uint, email string) (string, error) {
 	ticket, err := s.jwtService.GenerateWSTicket(ctx, userID, email)
 	if err != nil {
-		log.Printf("[AuthService] Ошибка генерации WebSocket тикета для пользователя ID=%d: %v", userID, err)
-		return "", fmt.Errorf("ошибка генерации тикета")
+		log.Printf("[AuthService] РћС€РёР±РєР° РіРµРЅРµСЂР°С†РёРё WebSocket С‚РёРєРµС‚Р° РґР»СЏ РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ ID=%d: %v", userID, err)
+		return "", fmt.Errorf("РѕС€РёР±РєР° РіРµРЅРµСЂР°С†РёРё С‚РёРєРµС‚Р°")
 	}
 	return ticket, nil
 }
 
-// InvalidateUserTokens выполняет инвалидацию JWT токенов для пользователя
-// Это публичный метод, чтобы его можно было вызвать из handler
+// InvalidateUserTokens РІС‹РїРѕР»РЅСЏРµС‚ РёРЅРІР°Р»РёРґР°С†РёСЋ JWT С‚РѕРєРµРЅРѕРІ РґР»СЏ РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ
+// Р­С‚Рѕ РїСѓР±Р»РёС‡РЅС‹Р№ РјРµС‚РѕРґ, С‡С‚РѕР±С‹ РµРіРѕ РјРѕР¶РЅРѕ Р±С‹Р»Рѕ РІС‹Р·РІР°С‚СЊ РёР· handler
 func (s *AuthService) InvalidateUserTokens(userID uint) error {
-	// Создаем контекст для вызова
+	// РЎРѕР·РґР°РµРј РєРѕРЅС‚РµРєСЃС‚ РґР»СЏ РІС‹Р·РѕРІР°
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	return s.jwtService.InvalidateTokensForUser(ctx, userID)
+}
+
+// normalizeEmail РїСЂРёРІРѕРґРёС‚ email Рє СЃС‚Р°РЅРґР°СЂС‚РЅРѕРјСѓ РІРёРґСѓ: trim РїСЂРѕР±РµР»РѕРІ + lowercase
+func normalizeEmail(email string) string {
+	return strings.ToLower(strings.TrimSpace(email))
 }

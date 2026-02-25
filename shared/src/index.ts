@@ -5,6 +5,7 @@
 // API types
 export type {
     User,
+    RegisterData,
     Quiz,
     QuizStatus,
     QuizQuestionSourceMode,
@@ -21,6 +22,14 @@ export type {
     LeaderboardEntry,
     LeaderboardResponse,
     ApiError,
+    AuthErrorType,
+    MessageResponse,
+    EmailVerificationStatus,
+    EmailVerificationConfirmData,
+    GoogleExchangeRequestData,
+    GoogleLinkRequestData,
+    GoogleLinkResponse,
+    DeleteAccountRequestData,
     EliminationReason,
 } from './types';
 

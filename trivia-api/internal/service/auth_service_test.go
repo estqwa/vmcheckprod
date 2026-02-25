@@ -102,8 +102,8 @@ func (m *MockRefreshTokenRepository) CreateToken(token *entity.RefreshToken) (ui
 	return args.Get(0).(uint), args.Error(1)
 }
 
-func (m *MockRefreshTokenRepository) GetTokenByValue(token string) (*entity.RefreshToken, error) {
-	args := m.Called(token)
+func (m *MockRefreshTokenRepository) GetTokenByHash(tokenHash string) (*entity.RefreshToken, error) {
+	args := m.Called(tokenHash)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
@@ -118,13 +118,13 @@ func (m *MockRefreshTokenRepository) GetTokenByID(id uint) (*entity.RefreshToken
 	return args.Get(0).(*entity.RefreshToken), args.Error(1)
 }
 
-func (m *MockRefreshTokenRepository) CheckToken(token string) (bool, error) {
-	args := m.Called(token)
+func (m *MockRefreshTokenRepository) CheckTokenByHash(tokenHash string) (bool, error) {
+	args := m.Called(tokenHash)
 	return args.Bool(0), args.Error(1)
 }
 
-func (m *MockRefreshTokenRepository) MarkTokenAsExpired(token string) error {
-	args := m.Called(token)
+func (m *MockRefreshTokenRepository) MarkTokenAsExpiredByHash(tokenHash string) error {
+	args := m.Called(tokenHash)
 	return args.Error(0)
 }
 
@@ -133,8 +133,8 @@ func (m *MockRefreshTokenRepository) MarkTokenAsExpiredByID(id uint) error {
 	return args.Error(0)
 }
 
-func (m *MockRefreshTokenRepository) DeleteToken(token string) error {
-	args := m.Called(token)
+func (m *MockRefreshTokenRepository) DeleteTokenByHash(tokenHash string) error {
+	args := m.Called(tokenHash)
 	return args.Error(0)
 }
 
@@ -232,8 +232,19 @@ func TestAuthService_RegisterUser_Success(t *testing.T) {
 
 	authService := createTestAuthService(mockUserRepo, nil, nil)
 
+	birthDate := time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)
 	// Act
-	user, err := authService.RegisterUser("newuser", "new@example.com", "password123")
+	user, err := authService.RegisterUser(RegisterInput{
+		Username:        "newuser",
+		Email:           "new@example.com",
+		Password:        "password123",
+		FirstName:       "Test",
+		LastName:        "User",
+		BirthDate:       &birthDate,
+		Gender:          "male",
+		TOSAccepted:     true,
+		PrivacyAccepted: true,
+	})
 
 	// Assert
 	require.NoError(t, err, "Регистрация должна быть успешной")
@@ -257,8 +268,19 @@ func TestAuthService_RegisterUser_DuplicateEmail(t *testing.T) {
 
 	authService := createTestAuthService(mockUserRepo, nil, nil)
 
+	birthDate := time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)
 	// Act
-	user, err := authService.RegisterUser("newuser", "existing@example.com", "password123")
+	user, err := authService.RegisterUser(RegisterInput{
+		Username:        "newuser",
+		Email:           "existing@example.com",
+		Password:        "password123",
+		FirstName:       "Test",
+		LastName:        "User",
+		BirthDate:       &birthDate,
+		Gender:          "male",
+		TOSAccepted:     true,
+		PrivacyAccepted: true,
+	})
 
 	// Assert
 	assert.Error(t, err, "Должна быть ошибка при дублировании email")
@@ -282,8 +304,19 @@ func TestAuthService_RegisterUser_DuplicateUsername(t *testing.T) {
 
 	authService := createTestAuthService(mockUserRepo, nil, nil)
 
+	birthDate := time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)
 	// Act
-	user, err := authService.RegisterUser("existinguser", "new@example.com", "password123")
+	user, err := authService.RegisterUser(RegisterInput{
+		Username:        "existinguser",
+		Email:           "new@example.com",
+		Password:        "password123",
+		FirstName:       "Test",
+		LastName:        "User",
+		BirthDate:       &birthDate,
+		Gender:          "male",
+		TOSAccepted:     true,
+		PrivacyAccepted: true,
+	})
 
 	// Assert
 	assert.Error(t, err, "Должна быть ошибка при дублировании username")

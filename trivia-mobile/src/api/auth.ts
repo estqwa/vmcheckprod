@@ -4,6 +4,7 @@
 // =============================================================================
 
 import { api } from './client';
+import { Platform } from 'react-native';
 import {
     saveTokens,
     clearTokens,
@@ -12,7 +13,19 @@ import {
     getAccessToken,
     refreshTokens,
 } from '../services/tokenService';
-import type { User, Session, MobileAuthResponse } from '@trivia/shared';
+import type {
+    User,
+    Session,
+    MobileAuthResponse,
+    RegisterData,
+    MessageResponse,
+    EmailVerificationStatus,
+    EmailVerificationConfirmData,
+    GoogleExchangeRequestData,
+    GoogleLinkRequestData,
+    GoogleLinkResponse,
+    DeleteAccountRequestData,
+} from '@trivia/shared';
 import { getCurrentUser } from './user';
 
 interface LoginData {
@@ -20,11 +33,7 @@ interface LoginData {
     password: string;
 }
 
-interface RegisterData {
-    username: string;
-    email: string;
-    password: string;
-}
+
 
 interface SessionsResponse {
     sessions: Session[];
@@ -73,6 +82,39 @@ export async function register(data: RegisterData): Promise<User> {
 }
 
 /**
+ * Google sign-in via mobile backend exchange endpoint.
+ * Accepts either id_token or authorization code payload; device_id/platform are added automatically.
+ */
+export async function googleExchange(data: GoogleExchangeRequestData): Promise<User> {
+    const deviceId = await getDeviceId();
+    const platform = Platform.OS === 'ios' ? 'ios' : 'android';
+
+    const response = await api.post<MobileAuthResponse, GoogleExchangeRequestData>(
+        '/api/mobile/auth/google/exchange',
+        { ...data, device_id: deviceId, platform }
+    );
+
+    await saveTokens({
+        accessToken: response.accessToken,
+        refreshToken: response.refreshToken,
+    });
+
+    return response.user;
+}
+
+/**
+ * Link Google identity to current authenticated user.
+ */
+export async function googleLink(data: GoogleLinkRequestData): Promise<User> {
+    const platform = Platform.OS === 'ios' ? 'ios' : 'android';
+    const response = await api.post<GoogleLinkResponse, GoogleLinkRequestData>(
+        '/api/mobile/auth/google/link',
+        { ...data, platform }
+    );
+    return response.user;
+}
+
+/**
  * Логаут — отзывает refresh token на сервере, очищает локальные токены.
  */
 export async function logout(): Promise<void> {
@@ -110,6 +152,22 @@ export async function getWsTicket(): Promise<string> {
  */
 export async function updateProfile(data: { username?: string; profile_picture?: string }): Promise<void> {
     await api.put('/api/mobile/auth/profile', data);
+}
+
+export async function getEmailVerificationStatus(): Promise<EmailVerificationStatus> {
+    return api.get<EmailVerificationStatus>('/api/mobile/auth/verify-email/status');
+}
+
+export async function sendEmailVerificationCode(): Promise<MessageResponse> {
+    return api.post<MessageResponse>('/api/mobile/auth/verify-email/send', {});
+}
+
+export async function confirmEmailVerificationCode(data: EmailVerificationConfirmData): Promise<MessageResponse> {
+    return api.post<MessageResponse, EmailVerificationConfirmData>('/api/mobile/auth/verify-email/confirm', data);
+}
+
+export async function deleteAccount(data?: DeleteAccountRequestData): Promise<void> {
+    await api.delete<MessageResponse, DeleteAccountRequestData>('/api/mobile/users/me', data ?? {});
 }
 
 /**

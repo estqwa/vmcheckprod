@@ -11,20 +11,43 @@ import (
 
 // User представляет пользователя в системе
 type User struct {
-	ID             uint      `gorm:"primaryKey" json:"id"`
-	Username       string    `gorm:"size:50;not null;uniqueIndex" json:"username"`
-	Email          string    `gorm:"size:100;not null;uniqueIndex" json:"email"`
-	Password       string    `gorm:"size:100;not null" json:"-"`
-	ProfilePicture string    `gorm:"size:255;not null;default:''" json:"profile_picture"`
-	GamesPlayed    int64     `gorm:"not null;default:0" json:"games_played"`
-	TotalScore     int64     `gorm:"not null;default:0" json:"total_score"`
-	HighestScore   int64     `gorm:"not null;default:0" json:"highest_score"`
-	WinsCount      int64     `gorm:"not null;default:0;index:idx_users_leaderboard" json:"wins_count"`
-	TotalPrizeWon  int64     `gorm:"not null;default:0;index:idx_users_leaderboard" json:"total_prize_won"`
-	Language       string    `gorm:"size:5;not null;default:'ru'" json:"language"` // "ru" или "kk"
-	Role           string    `gorm:"size:20;not null;default:'user'" json:"-"`     // "user" или "admin"
-	CreatedAt      time.Time `json:"created_at"`
-	UpdatedAt      time.Time `json:"updated_at"`
+	ID                  uint       `gorm:"primaryKey" json:"id"`
+	Username            string     `gorm:"size:50;not null;uniqueIndex" json:"username"`
+	Email               string     `gorm:"size:100;not null;uniqueIndex" json:"email"`
+	Password            string     `gorm:"size:100;not null" json:"-"`
+	PasswordAuthEnabled bool       `gorm:"not null;default:true" json:"-"`
+	ProfilePicture      string     `gorm:"size:255;not null;default:''" json:"profile_picture"`
+	FirstName           string     `gorm:"size:100;not null;default:''" json:"first_name"`
+	LastName            string     `gorm:"size:100;not null;default:''" json:"last_name"`
+	BirthDate           *time.Time `gorm:"type:date" json:"birth_date,omitempty"`
+	Gender              string     `gorm:"size:20;not null;default:''" json:"gender"` // male, female, other, prefer_not_to_say
+	GamesPlayed         int64      `gorm:"not null;default:0" json:"games_played"`
+	TotalScore          int64      `gorm:"not null;default:0" json:"total_score"`
+	HighestScore        int64      `gorm:"not null;default:0" json:"highest_score"`
+	WinsCount           int64      `gorm:"not null;default:0;index:idx_users_leaderboard" json:"wins_count"`
+	TotalPrizeWon       int64      `gorm:"not null;default:0;index:idx_users_leaderboard" json:"total_prize_won"`
+	Language            string     `gorm:"size:5;not null;default:'ru'" json:"language"` // "ru" или "kk"
+	Role                string     `gorm:"size:20;not null;default:'user'" json:"-"`     // "user" или "admin"
+
+	EmailVerifiedAt    *time.Time `gorm:"type:timestamp" json:"email_verified_at,omitempty"`
+	ProfileCompletedAt *time.Time `gorm:"type:timestamp" json:"profile_completed_at,omitempty"`
+	DeletedAt          *time.Time `gorm:"type:timestamp" json:"deleted_at,omitempty"`
+	DeletionReason     string     `gorm:"size:100;default:''" json:"deletion_reason,omitempty"`
+
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
+// IsProfileComplete возвращает true если профиль пользователя заполнен (не legacy)
+func (u *User) IsProfileComplete() bool {
+	if u.ProfileCompletedAt != nil {
+		return true
+	}
+
+	return strings.TrimSpace(u.FirstName) != "" &&
+		strings.TrimSpace(u.LastName) != "" &&
+		u.BirthDate != nil &&
+		strings.TrimSpace(u.Gender) != ""
 }
 
 // TableName определяет имя таблицы для GORM

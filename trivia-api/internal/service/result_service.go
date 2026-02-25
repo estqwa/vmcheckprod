@@ -1,4 +1,4 @@
-package service
+﻿package service
 
 import (
 	"context"
@@ -14,7 +14,7 @@ import (
 	"github.com/yourusername/trivia-api/internal/websocket"
 )
 
-// ResultService предоставляет методы для работы с результатами
+// ResultService РїСЂРµРґРѕСЃС‚Р°РІР»СЏРµС‚ РјРµС‚РѕРґС‹ РґР»СЏ СЂР°Р±РѕС‚С‹ СЃ СЂРµР·СѓР»СЊС‚Р°С‚Р°РјРё
 type ResultService struct {
 	resultRepo   repository.ResultRepository
 	userRepo     repository.UserRepository
@@ -24,9 +24,10 @@ type ResultService struct {
 	db           *gorm.DB
 	wsManager    *websocket.Manager
 	config       *quizmanager.Config
+	requireVerifiedForPrizes bool
 }
 
-// NewResultService создает новый сервис результатов
+// NewResultService СЃРѕР·РґР°РµС‚ РЅРѕРІС‹Р№ СЃРµСЂРІРёСЃ СЂРµР·СѓР»СЊС‚Р°С‚РѕРІ
 func NewResultService(
 	resultRepo repository.ResultRepository,
 	userRepo repository.UserRepository,
@@ -49,32 +50,36 @@ func NewResultService(
 	}
 }
 
-// CalculateQuizResult подсчитывает итоговый результат пользователя в викторине
+func (s *ResultService) SetEmailVerificationGate(enabled bool) {
+	s.requireVerifiedForPrizes = enabled
+}
+
+// CalculateQuizResult РїРѕРґСЃС‡РёС‚С‹РІР°РµС‚ РёС‚РѕРіРѕРІС‹Р№ СЂРµР·СѓР»СЊС‚Р°С‚ РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ РІ РІРёРєС‚РѕСЂРёРЅРµ
 func (s *ResultService) CalculateQuizResult(userID, quizID uint) (*entity.Result, error) {
-	// Получаем информацию о пользователе
+	// РџРѕР»СѓС‡Р°РµРј РёРЅС„РѕСЂРјР°С†РёСЋ Рѕ РїРѕР»СЊР·РѕРІР°С‚РµР»Рµ
 	user, err := s.userRepo.GetByID(userID)
 	if err != nil {
 		return nil, err
 	}
 
-	// Получаем информацию о викторине
+	// РџРѕР»СѓС‡Р°РµРј РёРЅС„РѕСЂРјР°С†РёСЋ Рѕ РІРёРєС‚РѕСЂРёРЅРµ
 	quiz, err := s.quizRepo.GetWithQuestions(quizID)
 	if err != nil {
 		return nil, err
 	}
 
-	// Получаем все ответы пользователя
+	// РџРѕР»СѓС‡Р°РµРј РІСЃРµ РѕС‚РІРµС‚С‹ РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ
 	userAnswers, err := s.resultRepo.GetUserAnswers(userID, quizID)
 	if err != nil {
 		return nil, err
 	}
 
-	// Проверяем статус выбывания из Redis
+	// РџСЂРѕРІРµСЂСЏРµРј СЃС‚Р°С‚СѓСЃ РІС‹Р±С‹РІР°РЅРёСЏ РёР· Redis
 	eliminationKey := fmt.Sprintf("quiz:%d:eliminated:%d", quizID, userID)
 	isEliminated, _ := s.cacheRepo.Exists(eliminationKey)
 
-	// Подсчитываем общий счет и количество правильных ответов
-	// Также определяем детали выбытия (на каком вопросе и почему)
+	// РџРѕРґСЃС‡РёС‚С‹РІР°РµРј РѕР±С‰РёР№ СЃС‡РµС‚ Рё РєРѕР»РёС‡РµСЃС‚РІРѕ РїСЂР°РІРёР»СЊРЅС‹С… РѕС‚РІРµС‚РѕРІ
+	// РўР°РєР¶Рµ РѕРїСЂРµРґРµР»СЏРµРј РґРµС‚Р°Р»Рё РІС‹Р±С‹С‚РёСЏ (РЅР° РєР°РєРѕРј РІРѕРїСЂРѕСЃРµ Рё РїРѕС‡РµРјСѓ)
 	totalScore := 0
 	correctAnswers := 0
 	var eliminatedOnQuestion *int
@@ -84,7 +89,7 @@ func (s *ResultService) CalculateQuizResult(userID, quizID uint) (*entity.Result
 		if answer.IsCorrect {
 			correctAnswers++
 		}
-		// Ищем первый ответ с выбытием
+		// РС‰РµРј РїРµСЂРІС‹Р№ РѕС‚РІРµС‚ СЃ РІС‹Р±С‹С‚РёРµРј
 		if answer.IsEliminated && eliminatedOnQuestion == nil {
 			questionNum := i + 1 // 1-indexed
 			eliminatedOnQuestion = &questionNum
@@ -95,7 +100,7 @@ func (s *ResultService) CalculateQuizResult(userID, quizID uint) (*entity.Result
 		}
 	}
 
-	// Создаем запись о результате
+	// РЎРѕР·РґР°РµРј Р·Р°РїРёСЃСЊ Рѕ СЂРµР·СѓР»СЊС‚Р°С‚Рµ
 	result := &entity.Result{
 		UserID:               userID,
 		QuizID:               quizID,
@@ -110,7 +115,7 @@ func (s *ResultService) CalculateQuizResult(userID, quizID uint) (*entity.Result
 		CompletedAt:          time.Now(),
 	}
 
-	// --- Начало транзакции ---
+	// --- РќР°С‡Р°Р»Рѕ С‚СЂР°РЅР·Р°РєС†РёРё ---
 	tx := s.db.Begin()
 	defer func() {
 		if r := recover(); r != nil {
@@ -124,116 +129,116 @@ func (s *ResultService) CalculateQuizResult(userID, quizID uint) (*entity.Result
 		return nil, tx.Error
 	}
 
-	// Сохраняем результат в БД (внутри транзакции)
+	// РЎРѕС…СЂР°РЅСЏРµРј СЂРµР·СѓР»СЊС‚Р°С‚ РІ Р‘Р” (РІРЅСѓС‚СЂРё С‚СЂР°РЅР·Р°РєС†РёРё)
 	if err := tx.Create(result).Error; err != nil {
 		tx.Rollback()
 		log.Printf("Error saving result in transaction: %v", err)
 		return nil, fmt.Errorf("failed to save result: %w", err)
 	}
 
-	// Обновляем общий счет пользователя (внутри транзакции)
+	// РћР±РЅРѕРІР»СЏРµРј РѕР±С‰РёР№ СЃС‡РµС‚ РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ (РІРЅСѓС‚СЂРё С‚СЂР°РЅР·Р°РєС†РёРё)
 	if err := tx.Model(&entity.User{}).Where("id = ?", userID).Update("total_score", gorm.Expr("total_score + ?", totalScore)).Error; err != nil {
 		tx.Rollback()
 		log.Printf("Error updating user score in transaction: %v", err)
 		return nil, fmt.Errorf("failed to update user score: %w", err)
 	}
 
-	// Обновляем высший счет, если необходимо (внутри транзакции)
+	// РћР±РЅРѕРІР»СЏРµРј РІС‹СЃС€РёР№ СЃС‡РµС‚, РµСЃР»Рё РЅРµРѕР±С…РѕРґРёРјРѕ (РІРЅСѓС‚СЂРё С‚СЂР°РЅР·Р°РєС†РёРё)
 	if err := tx.Model(&entity.User{}).Where("id = ? AND highest_score < ?", userID, totalScore).Update("highest_score", totalScore).Error; err != nil {
-		// Не откатываем транзакцию из-за этой ошибки, она не критична
+		// РќРµ РѕС‚РєР°С‚С‹РІР°РµРј С‚СЂР°РЅР·Р°РєС†РёСЋ РёР·-Р·Р° СЌС‚РѕР№ РѕС€РёР±РєРё, РѕРЅР° РЅРµ РєСЂРёС‚РёС‡РЅР°
 		log.Printf("Warning: Error updating user highest score: %v", err)
 	}
 
-	// Увеличиваем счетчик сыгранных игр (внутри транзакции)
+	// РЈРІРµР»РёС‡РёРІР°РµРј СЃС‡РµС‚С‡РёРє СЃС‹РіСЂР°РЅРЅС‹С… РёРіСЂ (РІРЅСѓС‚СЂРё С‚СЂР°РЅР·Р°РєС†РёРё)
 	if err := tx.Model(&entity.User{}).Where("id = ?", userID).UpdateColumn("games_played", gorm.Expr("games_played + ?", 1)).Error; err != nil {
 		tx.Rollback()
 		log.Printf("Error incrementing games played in transaction: %v", err)
 		return nil, fmt.Errorf("failed to increment games played: %w", err)
 	}
 
-	// --- Коммит транзакции ---
+	// --- РљРѕРјРјРёС‚ С‚СЂР°РЅР·Р°РєС†РёРё ---
 	if err := tx.Commit().Error; err != nil {
 		log.Printf("Error committing transaction in CalculateQuizResult: %v", err)
 		return nil, err
 	}
 
-	log.Printf("[ResultService] Успешно рассчитан и сохранен результат для пользователя #%d в викторине #%d", userID, quizID)
+	log.Printf("[ResultService] РЈСЃРїРµС€РЅРѕ СЂР°СЃСЃС‡РёС‚Р°РЅ Рё СЃРѕС…СЂР°РЅРµРЅ СЂРµР·СѓР»СЊС‚Р°С‚ РґР»СЏ РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ #%d РІ РІРёРєС‚РѕСЂРёРЅРµ #%d", userID, quizID)
 	return result, nil
 }
 
-// GetQuizResults возвращает пагинированный список результатов для викторины
-// ВНИМАНИЕ: Эта функция больше НЕ вызывает CalculateRanks напрямую.
-// CalculateRanks теперь вызывается в DetermineWinnersAndAllocatePrizes.
+// GetQuizResults РІРѕР·РІСЂР°С‰Р°РµС‚ РїР°РіРёРЅРёСЂРѕРІР°РЅРЅС‹Р№ СЃРїРёСЃРѕРє СЂРµР·СѓР»СЊС‚Р°С‚РѕРІ РґР»СЏ РІРёРєС‚РѕСЂРёРЅС‹
+// Р’РќРРњРђРќРР•: Р­С‚Р° С„СѓРЅРєС†РёСЏ Р±РѕР»СЊС€Рµ РќР• РІС‹Р·С‹РІР°РµС‚ CalculateRanks РЅР°РїСЂСЏРјСѓСЋ.
+// CalculateRanks С‚РµРїРµСЂСЊ РІС‹Р·С‹РІР°РµС‚СЃСЏ РІ DetermineWinnersAndAllocatePrizes.
 func (s *ResultService) GetQuizResults(quizID uint, page, pageSize int) ([]entity.Result, int64, error) {
-	// Валидация параметров пагинации (опционально, но рекомендуется)
+	// Р’Р°Р»РёРґР°С†РёСЏ РїР°СЂР°РјРµС‚СЂРѕРІ РїР°РіРёРЅР°С†РёРё (РѕРїС†РёРѕРЅР°Р»СЊРЅРѕ, РЅРѕ СЂРµРєРѕРјРµРЅРґСѓРµС‚СЃСЏ)
 	if page < 1 {
 		page = 1
 	}
 	if pageSize < 1 {
-		pageSize = 10 // Значение по умолчанию или из конфига
+		pageSize = 10 // Р—РЅР°С‡РµРЅРёРµ РїРѕ СѓРјРѕР»С‡Р°РЅРёСЋ РёР»Рё РёР· РєРѕРЅС„РёРіР°
 	} else if pageSize > 100 {
-		pageSize = 100 // Максимальный лимит
+		pageSize = 100 // РњР°РєСЃРёРјР°Р»СЊРЅС‹Р№ Р»РёРјРёС‚
 	}
 
 	offset := (page - 1) * pageSize
 
-	// Вызываем обновленный метод репозитория
+	// Р’С‹Р·С‹РІР°РµРј РѕР±РЅРѕРІР»РµРЅРЅС‹Р№ РјРµС‚РѕРґ СЂРµРїРѕР·РёС‚РѕСЂРёСЏ
 	results, total, err := s.resultRepo.GetQuizResults(quizID, pageSize, offset)
 	if err != nil {
-		// Логируем ошибку репозитория
-		log.Printf("[ResultService] Ошибка при получении результатов викторины %d (page %d, size %d): %v", quizID, page, pageSize, err)
-		return nil, 0, err // Просто пробрасываем ошибку выше
+		// Р›РѕРіРёСЂСѓРµРј РѕС€РёР±РєСѓ СЂРµРїРѕР·РёС‚РѕСЂРёСЏ
+		log.Printf("[ResultService] РћС€РёР±РєР° РїСЂРё РїРѕР»СѓС‡РµРЅРёРё СЂРµР·СѓР»СЊС‚Р°С‚РѕРІ РІРёРєС‚РѕСЂРёРЅС‹ %d (page %d, size %d): %v", quizID, page, pageSize, err)
+		return nil, 0, err // РџСЂРѕСЃС‚Рѕ РїСЂРѕР±СЂР°СЃС‹РІР°РµРј РѕС€РёР±РєСѓ РІС‹С€Рµ
 	}
 
 	return results, total, nil
 }
 
-// GetUserResult возвращает результат пользователя для конкретной викторины
+// GetUserResult РІРѕР·РІСЂР°С‰Р°РµС‚ СЂРµР·СѓР»СЊС‚Р°С‚ РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ РґР»СЏ РєРѕРЅРєСЂРµС‚РЅРѕР№ РІРёРєС‚РѕСЂРёРЅС‹
 func (s *ResultService) GetUserResult(userID, quizID uint) (*entity.Result, error) {
 	return s.resultRepo.GetUserResult(userID, quizID)
 }
 
-// GetUserResults возвращает все результаты пользователя с пагинацией
+// GetUserResults РІРѕР·РІСЂР°С‰Р°РµС‚ РІСЃРµ СЂРµР·СѓР»СЊС‚Р°С‚С‹ РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ СЃ РїР°РіРёРЅР°С†РёРµР№
 func (s *ResultService) GetUserResults(userID uint, page, pageSize int) ([]entity.Result, int64, error) {
 	offset := (page - 1) * pageSize
 	return s.resultRepo.GetUserResults(userID, pageSize, offset)
 }
 
-// GetQuizResultsAll возвращает ВСЕ результаты викторины без пагинации.
-// Используется для экспорта, где нужна полная выборка.
+// GetQuizResultsAll РІРѕР·РІСЂР°С‰Р°РµС‚ Р’РЎР• СЂРµР·СѓР»СЊС‚Р°С‚С‹ РІРёРєС‚РѕСЂРёРЅС‹ Р±РµР· РїР°РіРёРЅР°С†РёРё.
+// РСЃРїРѕР»СЊР·СѓРµС‚СЃСЏ РґР»СЏ СЌРєСЃРїРѕСЂС‚Р°, РіРґРµ РЅСѓР¶РЅР° РїРѕР»РЅР°СЏ РІС‹Р±РѕСЂРєР°.
 func (s *ResultService) GetQuizResultsAll(quizID uint) ([]entity.Result, error) {
 	return s.resultRepo.GetAllQuizResults(quizID)
 }
 
-// DetermineWinnersAndAllocatePrizes финализирует результаты викторины.
-//  1. В ТРАНЗАКЦИИ:
-//     а. Вызывает ResultRepo.CalculateRanks для расчета и сохранения рангов.
-//     б. Вызывает ResultRepo.FindAndUpdateWinners для определения победителей, расчета призов и обновления их статуса в БД.
-//     в. Обновляет статистику (wins_count, total_prize_won) в таблице users для победителей.
-//  2. Отправляет WebSocket-сообщение о доступности результатов.
+// DetermineWinnersAndAllocatePrizes С„РёРЅР°Р»РёР·РёСЂСѓРµС‚ СЂРµР·СѓР»СЊС‚Р°С‚С‹ РІРёРєС‚РѕСЂРёРЅС‹.
+//  1. Р’ РўР РђРќР—РђРљР¦РР:
+//     Р°. Р’С‹Р·С‹РІР°РµС‚ ResultRepo.CalculateRanks РґР»СЏ СЂР°СЃС‡РµС‚Р° Рё СЃРѕС…СЂР°РЅРµРЅРёСЏ СЂР°РЅРіРѕРІ.
+//     Р±. Р’С‹Р·С‹РІР°РµС‚ ResultRepo.FindAndUpdateWinners РґР»СЏ РѕРїСЂРµРґРµР»РµРЅРёСЏ РїРѕР±РµРґРёС‚РµР»РµР№, СЂР°СЃС‡РµС‚Р° РїСЂРёР·РѕРІ Рё РѕР±РЅРѕРІР»РµРЅРёСЏ РёС… СЃС‚Р°С‚СѓСЃР° РІ Р‘Р”.
+//     РІ. РћР±РЅРѕРІР»СЏРµС‚ СЃС‚Р°С‚РёСЃС‚РёРєСѓ (wins_count, total_prize_won) РІ С‚Р°Р±Р»РёС†Рµ users РґР»СЏ РїРѕР±РµРґРёС‚РµР»РµР№.
+//  2. РћС‚РїСЂР°РІР»СЏРµС‚ WebSocket-СЃРѕРѕР±С‰РµРЅРёРµ Рѕ РґРѕСЃС‚СѓРїРЅРѕСЃС‚Рё СЂРµР·СѓР»СЊС‚Р°С‚РѕРІ.
 func (s *ResultService) DetermineWinnersAndAllocatePrizes(ctx context.Context, quizID uint) error {
-	log.Printf("[ResultService] Финализация результатов для викторины #%d", quizID)
+	log.Printf("[ResultService] Р¤РёРЅР°Р»РёР·Р°С†РёСЏ СЂРµР·СѓР»СЊС‚Р°С‚РѕРІ РґР»СЏ РІРёРєС‚РѕСЂРёРЅС‹ #%d", quizID)
 
-	// FIX: Используем GetWithQuestions для получения реального количества вопросов.
-	// Поле quiz.QuestionCount может быть не синхронизировано с реальным количеством
-	// вопросов в таблице questions (например, после автозаполнения).
+	// FIX: РСЃРїРѕР»СЊР·СѓРµРј GetWithQuestions РґР»СЏ РїРѕР»СѓС‡РµРЅРёСЏ СЂРµР°Р»СЊРЅРѕРіРѕ РєРѕР»РёС‡РµСЃС‚РІР° РІРѕРїСЂРѕСЃРѕРІ.
+	// РџРѕР»Рµ quiz.QuestionCount РјРѕР¶РµС‚ Р±С‹С‚СЊ РЅРµ СЃРёРЅС…СЂРѕРЅРёР·РёСЂРѕРІР°РЅРѕ СЃ СЂРµР°Р»СЊРЅС‹Рј РєРѕР»РёС‡РµСЃС‚РІРѕРј
+	// РІРѕРїСЂРѕСЃРѕРІ РІ С‚Р°Р±Р»РёС†Рµ questions (РЅР°РїСЂРёРјРµСЂ, РїРѕСЃР»Рµ Р°РІС‚РѕР·Р°РїРѕР»РЅРµРЅРёСЏ).
 	quiz, err := s.quizRepo.GetWithQuestions(quizID)
 	if err != nil {
-		log.Printf("[ResultService] Ошибка при получении викторины #%d с вопросами: %v", quizID, err)
-		return fmt.Errorf("ошибка получения викторины: %w", err)
+		log.Printf("[ResultService] РћС€РёР±РєР° РїСЂРё РїРѕР»СѓС‡РµРЅРёРё РІРёРєС‚РѕСЂРёРЅС‹ #%d СЃ РІРѕРїСЂРѕСЃР°РјРё: %v", quizID, err)
+		return fmt.Errorf("РѕС€РёР±РєР° РїРѕР»СѓС‡РµРЅРёСЏ РІРёРєС‚РѕСЂРёРЅС‹: %w", err)
 	}
 
-	// Единый источник истины для totalQuestions
+	// Р•РґРёРЅС‹Р№ РёСЃС‚РѕС‡РЅРёРє РёСЃС‚РёРЅС‹ РґР»СЏ totalQuestions
 	totalQuestions := s.getTotalQuestions(quiz)
 
 	if totalQuestions <= 0 {
-		log.Printf("[ResultService] Викторина #%d не имеет вопросов, пропуск определения победителей и обновления рангов.", quizID)
+		log.Printf("[ResultService] Р’РёРєС‚РѕСЂРёРЅР° #%d РЅРµ РёРјРµРµС‚ РІРѕРїСЂРѕСЃРѕРІ, РїСЂРѕРїСѓСЃРє РѕРїСЂРµРґРµР»РµРЅРёСЏ РїРѕР±РµРґРёС‚РµР»РµР№ Рё РѕР±РЅРѕРІР»РµРЅРёСЏ СЂР°РЅРіРѕРІ.", quizID)
 		s.sendResultsAvailableNotification(quizID)
 		return nil
 	}
-	log.Printf("[ResultService] Викторина #%d: определение победителей на основе %d вопросов", quizID, totalQuestions)
+	log.Printf("[ResultService] Р’РёРєС‚РѕСЂРёРЅР° #%d: РѕРїСЂРµРґРµР»РµРЅРёРµ РїРѕР±РµРґРёС‚РµР»РµР№ РЅР° РѕСЃРЅРѕРІРµ %d РІРѕРїСЂРѕСЃРѕРІ", quizID, totalQuestions)
 
-	// Используем призовой фонд конкретной викторины, fallback на дефолт из конфига
+	// РСЃРїРѕР»СЊР·СѓРµРј РїСЂРёР·РѕРІРѕР№ С„РѕРЅРґ РєРѕРЅРєСЂРµС‚РЅРѕР№ РІРёРєС‚РѕСЂРёРЅС‹, fallback РЅР° РґРµС„РѕР»С‚ РёР· РєРѕРЅС„РёРіР°
 	totalPrizeFund := quiz.PrizeFund
 	if totalPrizeFund <= 0 {
 		totalPrizeFund = s.config.TotalPrizeFund
@@ -241,7 +246,7 @@ func (s *ResultService) DetermineWinnersAndAllocatePrizes(ctx context.Context, q
 	var winnerIDs []uint
 	var prizePerWinner int
 
-	// === Начало транзакции ===
+	// === РќР°С‡Р°Р»Рѕ С‚СЂР°РЅР·Р°РєС†РёРё ===
 	tx := s.db.Begin()
 	defer func() {
 		if r := recover(); r != nil {
@@ -250,81 +255,132 @@ func (s *ResultService) DetermineWinnersAndAllocatePrizes(ctx context.Context, q
 		}
 	}()
 	if tx.Error != nil {
-		log.Printf("[ResultService] Ошибка старта транзакции для викторины #%d: %v", quizID, tx.Error)
+		log.Printf("[ResultService] РћС€РёР±РєР° СЃС‚Р°СЂС‚Р° С‚СЂР°РЅР·Р°РєС†РёРё РґР»СЏ РІРёРєС‚РѕСЂРёРЅС‹ #%d: %v", quizID, tx.Error)
 		return tx.Error
 	}
 
-	// 1а. Рассчитываем и сохраняем ранги ВНУТРИ транзакции
+	// 1Р°. Р Р°СЃСЃС‡РёС‚С‹РІР°РµРј Рё СЃРѕС…СЂР°РЅСЏРµРј СЂР°РЅРіРё Р’РќРЈРўР Р С‚СЂР°РЅР·Р°РєС†РёРё
 	if err = s.resultRepo.CalculateRanks(tx, quizID); err != nil {
-		log.Printf("[ResultService] Ошибка при расчете рангов для викторины #%d в транзакции: %v", quizID, err)
+		log.Printf("[ResultService] РћС€РёР±РєР° РїСЂРё СЂР°СЃС‡РµС‚Рµ СЂР°РЅРіРѕРІ РґР»СЏ РІРёРєС‚РѕСЂРёРЅС‹ #%d РІ С‚СЂР°РЅР·Р°РєС†РёРё: %v", quizID, err)
 		tx.Rollback()
-		return fmt.Errorf("ошибка расчета рангов: %w", err)
+		return fmt.Errorf("РѕС€РёР±РєР° СЂР°СЃС‡РµС‚Р° СЂР°РЅРіРѕРІ: %w", err)
 	}
-	log.Printf("[ResultService] Ранги для викторины #%d успешно рассчитаны и сохранены в транзакции.", quizID)
+	log.Printf("[ResultService] Р Р°РЅРіРё РґР»СЏ РІРёРєС‚РѕСЂРёРЅС‹ #%d СѓСЃРїРµС€РЅРѕ СЂР°СЃСЃС‡РёС‚Р°РЅС‹ Рё СЃРѕС…СЂР°РЅРµРЅС‹ РІ С‚СЂР°РЅР·Р°РєС†РёРё.", quizID)
 
-	// 1б. Определяем победителей, рассчитываем призы и обновляем статус в БД ВНУТРИ транзакции
+	// 1Р±. РћРїСЂРµРґРµР»СЏРµРј РїРѕР±РµРґРёС‚РµР»РµР№, СЂР°СЃСЃС‡РёС‚С‹РІР°РµРј РїСЂРёР·С‹ Рё РѕР±РЅРѕРІР»СЏРµРј СЃС‚Р°С‚СѓСЃ РІ Р‘Р” Р’РќРЈРўР Р С‚СЂР°РЅР·Р°РєС†РёРё
 	winnerIDs, prizePerWinner, err = s.resultRepo.FindAndUpdateWinners(tx, quizID, totalQuestions, totalPrizeFund)
 	if err != nil {
-		log.Printf("[ResultService] Ошибка при определении/обновлении победителей для викторины #%d в транзакции: %v", quizID, err)
+		log.Printf("[ResultService] РћС€РёР±РєР° РїСЂРё РѕРїСЂРµРґРµР»РµРЅРёРё/РѕР±РЅРѕРІР»РµРЅРёРё РїРѕР±РµРґРёС‚РµР»РµР№ РґР»СЏ РІРёРєС‚РѕСЂРёРЅС‹ #%d РІ С‚СЂР°РЅР·Р°РєС†РёРё: %v", quizID, err)
 		tx.Rollback()
-		return fmt.Errorf("ошибка определения победителей: %w", err)
+		return fmt.Errorf("РѕС€РёР±РєР° РѕРїСЂРµРґРµР»РµРЅРёСЏ РїРѕР±РµРґРёС‚РµР»РµР№: %w", err)
 	}
 	winnersCount := len(winnerIDs)
-	log.Printf("[ResultService] Найдено и обновлено %d победителей для викторины #%d в транзакции. Приз на победителя: %d.", winnersCount, quizID, prizePerWinner)
+	log.Printf("[ResultService] РќР°Р№РґРµРЅРѕ Рё РѕР±РЅРѕРІР»РµРЅРѕ %d РїРѕР±РµРґРёС‚РµР»РµР№ РґР»СЏ РІРёРєС‚РѕСЂРёРЅС‹ #%d РІ С‚СЂР°РЅР·Р°РєС†РёРё. РџСЂРёР· РЅР° РїРѕР±РµРґРёС‚РµР»СЏ: %d.", winnersCount, quizID, prizePerWinner)
+	if s.requireVerifiedForPrizes && winnersCount > 0 {
+		var verifiedWinnerIDs []uint
+		if err = tx.Model(&entity.User{}).
+			Where("id IN ? AND email_verified_at IS NOT NULL", winnerIDs).
+			Pluck("id", &verifiedWinnerIDs).Error; err != nil {
+			tx.Rollback()
+			return fmt.Errorf("failed to apply verified-email gate to winners: %w", err)
+		}
 
-	// 1в. Обновляем статистику пользователей-победителей ВНУТРИ транзакции (если есть победители)
-	if winnersCount > 0 && prizePerWinner >= 0 { // Добавим проверку на неотрицательный приз
+		verifiedSet := make(map[uint]struct{}, len(verifiedWinnerIDs))
+		for _, id := range verifiedWinnerIDs {
+			verifiedSet[id] = struct{}{}
+		}
+		ineligibleIDs := make([]uint, 0)
+		for _, id := range winnerIDs {
+			if _, ok := verifiedSet[id]; !ok {
+				ineligibleIDs = append(ineligibleIDs, id)
+			}
+		}
+
+		if len(ineligibleIDs) > 0 {
+			if err = tx.Model(&entity.Result{}).
+				Where("quiz_id = ? AND user_id IN ?", quizID, ineligibleIDs).
+				Updates(map[string]interface{}{"is_winner": false, "prize_fund": 0}).Error; err != nil {
+				tx.Rollback()
+				return fmt.Errorf("failed to exclude unverified winners: %w", err)
+			}
+		}
+
+		if len(verifiedWinnerIDs) == 0 {
+			winnerIDs = []uint{}
+			prizePerWinner = 0
+			winnersCount = 0
+		} else {
+			recalculatedPrize := 0
+			if totalPrizeFund > 0 {
+				recalculatedPrize = totalPrizeFund / len(verifiedWinnerIDs)
+			}
+			if err = tx.Model(&entity.Result{}).
+				Where("quiz_id = ? AND user_id IN ?", quizID, verifiedWinnerIDs).
+				Updates(map[string]interface{}{"is_winner": true, "prize_fund": recalculatedPrize}).Error; err != nil {
+				tx.Rollback()
+				return fmt.Errorf("failed to update verified winners prize: %w", err)
+			}
+
+			winnerIDs = verifiedWinnerIDs
+			prizePerWinner = recalculatedPrize
+			winnersCount = len(winnerIDs)
+		}
+
+		log.Printf("[ResultService] Email verification gate applied for quiz #%d. Eligible winners: %d, prize per winner: %d", quizID, winnersCount, prizePerWinner)
+	}
+	// 1РІ. РћР±РЅРѕРІР»СЏРµРј СЃС‚Р°С‚РёСЃС‚РёРєСѓ РїРѕР»СЊР·РѕРІР°С‚РµР»РµР№-РїРѕР±РµРґРёС‚РµР»РµР№ Р’РќРЈРўР Р С‚СЂР°РЅР·Р°РєС†РёРё (РµСЃР»Рё РµСЃС‚СЊ РїРѕР±РµРґРёС‚РµР»Рё)
+	if winnersCount > 0 && prizePerWinner >= 0 { // Р”РѕР±Р°РІРёРј РїСЂРѕРІРµСЂРєСѓ РЅР° РЅРµРѕС‚СЂРёС†Р°С‚РµР»СЊРЅС‹Р№ РїСЂРёР·
 		if err = tx.Model(&entity.User{}).Where("id IN ?", winnerIDs).Updates(map[string]interface{}{
 			"wins_count":      gorm.Expr("wins_count + ?", 1),
 			"total_prize_won": gorm.Expr("total_prize_won + ?", prizePerWinner),
 		}).Error; err != nil {
-			log.Printf("[ResultService] Ошибка при обновлении статистики победителей (wins_count, total_prize_won) для викторины #%d в транзакции: %v", quizID, err)
+			log.Printf("[ResultService] РћС€РёР±РєР° РїСЂРё РѕР±РЅРѕРІР»РµРЅРёРё СЃС‚Р°С‚РёСЃС‚РёРєРё РїРѕР±РµРґРёС‚РµР»РµР№ (wins_count, total_prize_won) РґР»СЏ РІРёРєС‚РѕСЂРёРЅС‹ #%d РІ С‚СЂР°РЅР·Р°РєС†РёРё: %v", quizID, err)
 			tx.Rollback()
-			return fmt.Errorf("ошибка обновления статистики победителей: %w", err)
+			return fmt.Errorf("РѕС€РёР±РєР° РѕР±РЅРѕРІР»РµРЅРёСЏ СЃС‚Р°С‚РёСЃС‚РёРєРё РїРѕР±РµРґРёС‚РµР»РµР№: %w", err)
 		}
-		log.Printf("[ResultService] Статистика для %d победителей викторины #%d успешно обновлена в транзакции.", winnersCount, quizID)
+		log.Printf("[ResultService] РЎС‚Р°С‚РёСЃС‚РёРєР° РґР»СЏ %d РїРѕР±РµРґРёС‚РµР»РµР№ РІРёРєС‚РѕСЂРёРЅС‹ #%d СѓСЃРїРµС€РЅРѕ РѕР±РЅРѕРІР»РµРЅР° РІ С‚СЂР°РЅР·Р°РєС†РёРё.", winnersCount, quizID)
 	}
 
-	// === Коммит транзакции ===
+	// === РљРѕРјРјРёС‚ С‚СЂР°РЅР·Р°РєС†РёРё ===
 	if err = tx.Commit().Error; err != nil {
-		log.Printf("[ResultService] Ошибка коммита транзакции для викторины #%d: %v", quizID, err)
-		return fmt.Errorf("ошибка сохранения результатов: %w", err)
+		log.Printf("[ResultService] РћС€РёР±РєР° РєРѕРјРјРёС‚Р° С‚СЂР°РЅР·Р°РєС†РёРё РґР»СЏ РІРёРєС‚РѕСЂРёРЅС‹ #%d: %v", quizID, err)
+		return fmt.Errorf("РѕС€РёР±РєР° СЃРѕС…СЂР°РЅРµРЅРёСЏ СЂРµР·СѓР»СЊС‚Р°С‚РѕРІ: %w", err)
 	}
 
-	// 2. Отправляем WebSocket-сообщение о доступности результатов (ПОСЛЕ коммита)
+	// 2. РћС‚РїСЂР°РІР»СЏРµРј WebSocket-СЃРѕРѕР±С‰РµРЅРёРµ Рѕ РґРѕСЃС‚СѓРїРЅРѕСЃС‚Рё СЂРµР·СѓР»СЊС‚Р°С‚РѕРІ (РџРћРЎР›Р• РєРѕРјРјРёС‚Р°)
 	s.sendResultsAvailableNotification(quizID)
 
-	log.Printf("[ResultService] Финализация результатов для викторины #%d успешно завершена.", quizID)
+	log.Printf("[ResultService] Р¤РёРЅР°Р»РёР·Р°С†РёСЏ СЂРµР·СѓР»СЊС‚Р°С‚РѕРІ РґР»СЏ РІРёРєС‚РѕСЂРёРЅС‹ #%d СѓСЃРїРµС€РЅРѕ Р·Р°РІРµСЂС€РµРЅР°.", quizID)
 	return nil
 }
 
-// sendResultsAvailableNotification - вспомогательная функция для отправки WS уведомления
+// sendResultsAvailableNotification - РІСЃРїРѕРјРѕРіР°С‚РµР»СЊРЅР°СЏ С„СѓРЅРєС†РёСЏ РґР»СЏ РѕС‚РїСЂР°РІРєРё WS СѓРІРµРґРѕРјР»РµРЅРёСЏ
 func (s *ResultService) sendResultsAvailableNotification(quizID uint) {
 	if s.wsManager != nil {
 		resultsAvailableEvent := map[string]interface{}{
 			"quiz_id": quizID,
 		}
-		fullEvent := map[string]interface{}{ // Используем стандартную структуру события
+		fullEvent := map[string]interface{}{ // РСЃРїРѕР»СЊР·СѓРµРј СЃС‚Р°РЅРґР°СЂС‚РЅСѓСЋ СЃС‚СЂСѓРєС‚СѓСЂСѓ СЃРѕР±С‹С‚РёСЏ
 			"type": "quiz:results_available",
 			"data": resultsAvailableEvent,
 		}
 		if err := s.wsManager.BroadcastEventToQuiz(quizID, fullEvent); err != nil {
-			// Логируем ошибку, но не прерываем выполнение, т.к. основная работа сделана
-			log.Printf("[ResultService] Ошибка при отправке события quiz:results_available для викторины #%d: %v", quizID, err)
+			// Р›РѕРіРёСЂСѓРµРј РѕС€РёР±РєСѓ, РЅРѕ РЅРµ РїСЂРµСЂС‹РІР°РµРј РІС‹РїРѕР»РЅРµРЅРёРµ, С‚.Рє. РѕСЃРЅРѕРІРЅР°СЏ СЂР°Р±РѕС‚Р° СЃРґРµР»Р°РЅР°
+			log.Printf("[ResultService] РћС€РёР±РєР° РїСЂРё РѕС‚РїСЂР°РІРєРµ СЃРѕР±С‹С‚РёСЏ quiz:results_available РґР»СЏ РІРёРєС‚РѕСЂРёРЅС‹ #%d: %v", quizID, err)
 		} else {
-			log.Printf("[ResultService] Событие quiz:results_available для викторины #%d успешно отправлено", quizID)
+			log.Printf("[ResultService] РЎРѕР±С‹С‚РёРµ quiz:results_available РґР»СЏ РІРёРєС‚РѕСЂРёРЅС‹ #%d СѓСЃРїРµС€РЅРѕ РѕС‚РїСЂР°РІР»РµРЅРѕ", quizID)
 		}
 	} else {
-		log.Println("[ResultService] Менеджер WebSocket не инициализирован, уведомление quiz:results_available не отправлено.")
+		log.Println("[ResultService] РњРµРЅРµРґР¶РµСЂ WebSocket РЅРµ РёРЅРёС†РёР°Р»РёР·РёСЂРѕРІР°РЅ, СѓРІРµРґРѕРјР»РµРЅРёРµ quiz:results_available РЅРµ РѕС‚РїСЂР°РІР»РµРЅРѕ.")
 	}
 }
 
-// GetQuizWinners возвращает список победителей викторины
+// GetQuizWinners РІРѕР·РІСЂР°С‰Р°РµС‚ СЃРїРёСЃРѕРє РїРѕР±РµРґРёС‚РµР»РµР№ РІРёРєС‚РѕСЂРёРЅС‹
 func (s *ResultService) GetQuizWinners(quizID uint) ([]entity.Result, error) {
 	return s.resultRepo.GetQuizWinners(quizID)
 }
 
-// QuizStatistics представляет статистику викторины
+// QuizStatistics РїСЂРµРґСЃС‚Р°РІР»СЏРµС‚ СЃС‚Р°С‚РёСЃС‚РёРєСѓ РІРёРєС‚РѕСЂРёРЅС‹
 type QuizStatistics struct {
 	QuizID                 uint                   `json:"quiz_id"`
 	TotalParticipants      int                    `json:"total_participants"`
@@ -339,7 +395,7 @@ type QuizStatistics struct {
 	AvgPassRate            float64                `json:"avg_pass_rate"`           // NEW
 }
 
-// QuestionElimination представляет статистику выбытий для вопроса
+// QuestionElimination РїСЂРµРґСЃС‚Р°РІР»СЏРµС‚ СЃС‚Р°С‚РёСЃС‚РёРєСѓ РІС‹Р±С‹С‚РёР№ РґР»СЏ РІРѕРїСЂРѕСЃР°
 type QuestionElimination struct {
 	QuestionNumber  int     `json:"question_number"`
 	QuestionID      uint    `json:"question_id"`
@@ -347,21 +403,21 @@ type QuestionElimination struct {
 	ByTimeout       int     `json:"by_timeout"`
 	ByWrongAnswer   int     `json:"by_wrong_answer"`
 	AvgResponseMs   float64 `json:"avg_response_ms"`
-	Difficulty      int     `json:"difficulty"`    // NEW: сложность вопроса (1-5)
-	PassRate        float64 `json:"pass_rate"`     // NEW: % прошедших (0-1)
-	TotalAnswers    int     `json:"total_answers"` // NEW: всего ответов
+	Difficulty      int     `json:"difficulty"`    // NEW: СЃР»РѕР¶РЅРѕСЃС‚СЊ РІРѕРїСЂРѕСЃР° (1-5)
+	PassRate        float64 `json:"pass_rate"`     // NEW: % РїСЂРѕС€РµРґС€РёС… (0-1)
+	TotalAnswers    int     `json:"total_answers"` // NEW: РІСЃРµРіРѕ РѕС‚РІРµС‚РѕРІ
 }
 
-// DifficultyDistribution представляет распределение вопросов по сложности
+// DifficultyDistribution РїСЂРµРґСЃС‚Р°РІР»СЏРµС‚ СЂР°СЃРїСЂРµРґРµР»РµРЅРёРµ РІРѕРїСЂРѕСЃРѕРІ РїРѕ СЃР»РѕР¶РЅРѕСЃС‚Рё
 type DifficultyDistribution struct {
-	Difficulty1 int `json:"difficulty_1"` // Очень легко
-	Difficulty2 int `json:"difficulty_2"` // Легко
-	Difficulty3 int `json:"difficulty_3"` // Средне
-	Difficulty4 int `json:"difficulty_4"` // Сложно
-	Difficulty5 int `json:"difficulty_5"` // Очень сложно
+	Difficulty1 int `json:"difficulty_1"` // РћС‡РµРЅСЊ Р»РµРіРєРѕ
+	Difficulty2 int `json:"difficulty_2"` // Р›РµРіРєРѕ
+	Difficulty3 int `json:"difficulty_3"` // РЎСЂРµРґРЅРµ
+	Difficulty4 int `json:"difficulty_4"` // РЎР»РѕР¶РЅРѕ
+	Difficulty5 int `json:"difficulty_5"` // РћС‡РµРЅСЊ СЃР»РѕР¶РЅРѕ
 }
 
-// EliminationReasons представляет суммарные причины выбытия
+// EliminationReasons РїСЂРµРґСЃС‚Р°РІР»СЏРµС‚ СЃСѓРјРјР°СЂРЅС‹Рµ РїСЂРёС‡РёРЅС‹ РІС‹Р±С‹С‚РёСЏ
 type EliminationReasons struct {
 	Timeout      int `json:"timeout"`
 	WrongAnswer  int `json:"wrong_answer"`
@@ -369,9 +425,9 @@ type EliminationReasons struct {
 	Other        int `json:"other"`
 }
 
-// CalculateQuizStatistics вычисляет расширенную статистику для викторины
+// CalculateQuizStatistics РІС‹С‡РёСЃР»СЏРµС‚ СЂР°СЃС€РёСЂРµРЅРЅСѓСЋ СЃС‚Р°С‚РёСЃС‚РёРєСѓ РґР»СЏ РІРёРєС‚РѕСЂРёРЅС‹
 func (s *ResultService) CalculateQuizStatistics(quizID uint) (*QuizStatistics, error) {
-	// Проверяем существование викторины
+	// РџСЂРѕРІРµСЂСЏРµРј СЃСѓС‰РµСЃС‚РІРѕРІР°РЅРёРµ РІРёРєС‚РѕСЂРёРЅС‹
 	quiz, err := s.quizRepo.GetByID(quizID)
 	if err != nil {
 		return nil, err
@@ -381,7 +437,7 @@ func (s *ResultService) CalculateQuizStatistics(quizID uint) (*QuizStatistics, e
 		QuizID: quizID,
 	}
 
-	// 1. Получаем общее количество участников и победителей из results
+	// 1. РџРѕР»СѓС‡Р°РµРј РѕР±С‰РµРµ РєРѕР»РёС‡РµСЃС‚РІРѕ СѓС‡Р°СЃС‚РЅРёРєРѕРІ Рё РїРѕР±РµРґРёС‚РµР»РµР№ РёР· results
 	var participantStats struct {
 		Total      int
 		Winners    int
@@ -400,7 +456,7 @@ func (s *ResultService) CalculateQuizStatistics(quizID uint) (*QuizStatistics, e
 	stats.TotalWinners = participantStats.Winners
 	stats.TotalEliminated = participantStats.Eliminated
 
-	// 2. Среднее время ответа и правильных ответов
+	// 2. РЎСЂРµРґРЅРµРµ РІСЂРµРјСЏ РѕС‚РІРµС‚Р° Рё РїСЂР°РІРёР»СЊРЅС‹С… РѕС‚РІРµС‚РѕРІ
 	var avgStats struct {
 		AvgRespTime float64
 		AvgCorrect  float64
@@ -413,21 +469,21 @@ func (s *ResultService) CalculateQuizStatistics(quizID uint) (*QuizStatistics, e
 		Scan(&avgStats)
 	stats.AvgCorrectAnswers = avgStats.AvgCorrect
 
-	// Среднее время из user_answers
+	// РЎСЂРµРґРЅРµРµ РІСЂРµРјСЏ РёР· user_answers
 	s.db.Table("user_answers").
 		Select("AVG(response_time_ms)").
 		Where("quiz_id = ? AND response_time_ms > 0", quizID).
 		Scan(&stats.AvgResponseTimeMs)
 
-	// 3. Выбытия по вопросам с GROUP BY (расширенная статистика)
+	// 3. Р’С‹Р±С‹С‚РёСЏ РїРѕ РІРѕРїСЂРѕСЃР°Рј СЃ GROUP BY (СЂР°СЃС€РёСЂРµРЅРЅР°СЏ СЃС‚Р°С‚РёСЃС‚РёРєР°)
 	type elimByQ struct {
 		QuestionID      uint
 		EliminatedCount int
 		ByTimeout       int
 		ByWrongAnswer   int
 		AvgRespMs       float64
-		TotalAnswers    int // NEW: всего ответов
-		PassedCount     int // NEW: прошедших (правильно + вовремя)
+		TotalAnswers    int // NEW: РІСЃРµРіРѕ РѕС‚РІРµС‚РѕРІ
+		PassedCount     int // NEW: РїСЂРѕС€РµРґС€РёС… (РїСЂР°РІРёР»СЊРЅРѕ + РІРѕРІСЂРµРјСЏ)
 	}
 	var eliminations []elimByQ
 
@@ -446,17 +502,17 @@ func (s *ResultService) CalculateQuizStatistics(quizID uint) (*QuizStatistics, e
 		Order("question_id").
 		Scan(&eliminations)
 
-	// Карта агрегатов по вопросу (по ответам пользователей)
+	// РљР°СЂС‚Р° Р°РіСЂРµРіР°С‚РѕРІ РїРѕ РІРѕРїСЂРѕСЃСѓ (РїРѕ РѕС‚РІРµС‚Р°Рј РїРѕР»СЊР·РѕРІР°С‚РµР»РµР№)
 	aggregatesByQuestion := make(map[uint]elimByQ, len(eliminations))
 	for _, e := range eliminations {
 		aggregatesByQuestion[e.QuestionID] = e
 	}
 
-	// Production-путь: строим порядок и покрытие вопросов из истории показа.
-	// Это корректно даже когда все выбыли рано и на части вопросов нет ответов.
+	// Production-РїСѓС‚СЊ: СЃС‚СЂРѕРёРј РїРѕСЂСЏРґРѕРє Рё РїРѕРєСЂС‹С‚РёРµ РІРѕРїСЂРѕСЃРѕРІ РёР· РёСЃС‚РѕСЂРёРё РїРѕРєР°Р·Р°.
+	// Р­С‚Рѕ РєРѕСЂСЂРµРєС‚РЅРѕ РґР°Р¶Рµ РєРѕРіРґР° РІСЃРµ РІС‹Р±С‹Р»Рё СЂР°РЅРѕ Рё РЅР° С‡Р°СЃС‚Рё РІРѕРїСЂРѕСЃРѕРІ РЅРµС‚ РѕС‚РІРµС‚РѕРІ.
 	history, historyErr := s.questionRepo.GetQuizQuestionHistory(quiz.ID)
 	if historyErr != nil {
-		log.Printf("[ResultService] WARNING: Не удалось загрузить историю вопросов викторины #%d: %v", quiz.ID, historyErr)
+		log.Printf("[ResultService] WARNING: РќРµ СѓРґР°Р»РѕСЃСЊ Р·Р°РіСЂСѓР·РёС‚СЊ РёСЃС‚РѕСЂРёСЋ РІРѕРїСЂРѕСЃРѕРІ РІРёРєС‚РѕСЂРёРЅС‹ #%d: %v", quiz.ID, historyErr)
 	}
 
 	if len(history) > 0 {
@@ -471,7 +527,7 @@ func (s *ResultService) CalculateQuizStatistics(quizID uint) (*QuizStatistics, e
 			if q == nil {
 				loadedQ, fetchErr := s.questionRepo.GetByID(h.QuestionID)
 				if fetchErr != nil {
-					log.Printf("[ResultService] WARNING: Не удалось загрузить вопрос #%d из истории: %v", h.QuestionID, fetchErr)
+					log.Printf("[ResultService] WARNING: РќРµ СѓРґР°Р»РѕСЃСЊ Р·Р°РіСЂСѓР·РёС‚СЊ РІРѕРїСЂРѕСЃ #%d РёР· РёСЃС‚РѕСЂРёРё: %v", h.QuestionID, fetchErr)
 				} else if loadedQ != nil {
 					questionCache[h.QuestionID] = loadedQ
 					q = loadedQ
@@ -493,7 +549,7 @@ func (s *ResultService) CalculateQuizStatistics(quizID uint) (*QuizStatistics, e
 				case 5:
 					diffDist.Difficulty5++
 				}
-				// Признак "из пула": вопрос не привязан к конкретной викторине.
+				// РџСЂРёР·РЅР°Рє "РёР· РїСѓР»Р°": РІРѕРїСЂРѕСЃ РЅРµ РїСЂРёРІСЏР·Р°РЅ Рє РєРѕРЅРєСЂРµС‚РЅРѕР№ РІРёРєС‚РѕСЂРёРЅРµ.
 				if q.QuizID == nil {
 					poolUsed++
 				}
@@ -525,16 +581,16 @@ func (s *ResultService) CalculateQuizStatistics(quizID uint) (*QuizStatistics, e
 			stats.AvgPassRate = totalPassRate / float64(len(stats.EliminationsByQ))
 		}
 	} else {
-		// Legacy fallback для старых викторин без истории: строим статистику из существующих данных.
+		// Legacy fallback РґР»СЏ СЃС‚Р°СЂС‹С… РІРёРєС‚РѕСЂРёРЅ Р±РµР· РёСЃС‚РѕСЂРёРё: СЃС‚СЂРѕРёРј СЃС‚Р°С‚РёСЃС‚РёРєСѓ РёР· СЃСѓС‰РµСЃС‚РІСѓСЋС‰РёС… РґР°РЅРЅС‹С….
 		questions, qErr := s.questionRepo.GetByQuizID(quiz.ID)
 		if qErr != nil {
-			log.Printf("[ResultService] WARNING: Не удалось получить вопросы для викторины #%d: %v", quiz.ID, qErr)
+			log.Printf("[ResultService] WARNING: РќРµ СѓРґР°Р»РѕСЃСЊ РїРѕР»СѓС‡РёС‚СЊ РІРѕРїСЂРѕСЃС‹ РґР»СЏ РІРёРєС‚РѕСЂРёРЅС‹ #%d: %v", quiz.ID, qErr)
 		}
 		if len(questions) == 0 && len(eliminations) > 0 {
 			for _, e := range eliminations {
 				q, fetchErr := s.questionRepo.GetByID(e.QuestionID)
 				if fetchErr != nil {
-					log.Printf("[ResultService] WARNING: Не удалось загрузить вопрос #%d: %v", e.QuestionID, fetchErr)
+					log.Printf("[ResultService] WARNING: РќРµ СѓРґР°Р»РѕСЃСЊ Р·Р°РіСЂСѓР·РёС‚СЊ РІРѕРїСЂРѕСЃ #%d: %v", e.QuestionID, fetchErr)
 					continue
 				}
 				if q != nil {
@@ -602,7 +658,7 @@ func (s *ResultService) CalculateQuizStatistics(quizID uint) (*QuizStatistics, e
 		}
 	}
 
-	// 4. Общие причины выбытия
+	// 4. РћР±С‰РёРµ РїСЂРёС‡РёРЅС‹ РІС‹Р±С‹С‚РёСЏ
 	var reasons struct {
 		Timeout      int
 		WrongAnswer  int
@@ -626,43 +682,45 @@ func (s *ResultService) CalculateQuizStatistics(quizID uint) (*QuizStatistics, e
 		Other:        reasons.Other,
 	}
 
-	log.Printf("[ResultService] Статистика для викторины #%d: %d участников, %d победителей, %d выбыло",
+	log.Printf("[ResultService] РЎС‚Р°С‚РёСЃС‚РёРєР° РґР»СЏ РІРёРєС‚РѕСЂРёРЅС‹ #%d: %d СѓС‡Р°СЃС‚РЅРёРєРѕРІ, %d РїРѕР±РµРґРёС‚РµР»РµР№, %d РІС‹Р±С‹Р»Рѕ",
 		quizID, stats.TotalParticipants, stats.TotalWinners, stats.TotalEliminated)
 
 	return stats, nil
 }
 
-// getTotalQuestions определяет общее количество вопросов в викторине.
-// Единый источник истины. Приоритет:
-//  1. quiz.QuestionCount (фиксируется при старте в triggerQuizStart)
-//  2. len(quiz.Questions) (legacy fallback для старых викторин)
-//  3. config.MaxQuestionsPerQuiz (финальный fallback)
+// getTotalQuestions РѕРїСЂРµРґРµР»СЏРµС‚ РѕР±С‰РµРµ РєРѕР»РёС‡РµСЃС‚РІРѕ РІРѕРїСЂРѕСЃРѕРІ РІ РІРёРєС‚РѕСЂРёРЅРµ.
+// Р•РґРёРЅС‹Р№ РёСЃС‚РѕС‡РЅРёРє РёСЃС‚РёРЅС‹. РџСЂРёРѕСЂРёС‚РµС‚:
+//  1. quiz.QuestionCount (С„РёРєСЃРёСЂСѓРµС‚СЃСЏ РїСЂРё СЃС‚Р°СЂС‚Рµ РІ triggerQuizStart)
+//  2. len(quiz.Questions) (legacy fallback РґР»СЏ СЃС‚Р°СЂС‹С… РІРёРєС‚РѕСЂРёРЅ)
+//  3. config.MaxQuestionsPerQuiz (С„РёРЅР°Р»СЊРЅС‹Р№ fallback)
 func (s *ResultService) getTotalQuestions(quiz *entity.Quiz) int {
-	// Приоритет: QuestionCount — авторитетный источник
+	// РџСЂРёРѕСЂРёС‚РµС‚: QuestionCount вЂ” Р°РІС‚РѕСЂРёС‚РµС‚РЅС‹Р№ РёСЃС‚РѕС‡РЅРёРє
 	if quiz.QuestionCount > 0 {
 		return quiz.QuestionCount
 	}
 
-	// Legacy fallback: GORM ассоциация (для старых викторин без QuestionCount)
+	// Legacy fallback: GORM Р°СЃСЃРѕС†РёР°С†РёСЏ (РґР»СЏ СЃС‚Р°СЂС‹С… РІРёРєС‚РѕСЂРёРЅ Р±РµР· QuestionCount)
 	if len(quiz.Questions) > 0 {
 		return len(quiz.Questions)
 	}
 
-	// Для завершённой викторины не подставляем "плановое" значение из конфига:
-	// если вопросов фактически не было, корректнее вернуть 0 и пропустить winners flow.
+	// Р”Р»СЏ Р·Р°РІРµСЂС€С‘РЅРЅРѕР№ РІРёРєС‚РѕСЂРёРЅС‹ РЅРµ РїРѕРґСЃС‚Р°РІР»СЏРµРј "РїР»Р°РЅРѕРІРѕРµ" Р·РЅР°С‡РµРЅРёРµ РёР· РєРѕРЅС„РёРіР°:
+	// РµСЃР»Рё РІРѕРїСЂРѕСЃРѕРІ С„Р°РєС‚РёС‡РµСЃРєРё РЅРµ Р±С‹Р»Рѕ, РєРѕСЂСЂРµРєС‚РЅРµРµ РІРµСЂРЅСѓС‚СЊ 0 Рё РїСЂРѕРїСѓСЃС‚РёС‚СЊ winners flow.
 	if quiz.Status == entity.QuizStatusCompleted {
-		log.Printf("[ResultService] getTotalQuestions: викторина #%d завершена без вопросов (QuestionCount=0, Questions=0)", quiz.ID)
+		log.Printf("[ResultService] getTotalQuestions: РІРёРєС‚РѕСЂРёРЅР° #%d Р·Р°РІРµСЂС€РµРЅР° Р±РµР· РІРѕРїСЂРѕСЃРѕРІ (QuestionCount=0, Questions=0)", quiz.ID)
 		return 0
 	}
 
-	// Финальный fallback — конфиг
+	// Р¤РёРЅР°Р»СЊРЅС‹Р№ fallback вЂ” РєРѕРЅС„РёРі
 	if s.config != nil && s.config.MaxQuestionsPerQuiz > 0 {
-		log.Printf("[ResultService] getTotalQuestions: викторина #%d — fallback на MaxQuestionsPerQuiz=%d",
+		log.Printf("[ResultService] getTotalQuestions: РІРёРєС‚РѕСЂРёРЅР° #%d вЂ” fallback РЅР° MaxQuestionsPerQuiz=%d",
 			quiz.ID, s.config.MaxQuestionsPerQuiz)
 		return s.config.MaxQuestionsPerQuiz
 	}
 
-	log.Printf("[ResultService] WARNING: Не удалось определить количество вопросов для викторины #%d (Questions=%d, QuestionCount=%d)",
+	log.Printf("[ResultService] WARNING: РќРµ СѓРґР°Р»РѕСЃСЊ РѕРїСЂРµРґРµР»РёС‚СЊ РєРѕР»РёС‡РµСЃС‚РІРѕ РІРѕРїСЂРѕСЃРѕРІ РґР»СЏ РІРёРєС‚РѕСЂРёРЅС‹ #%d (Questions=%d, QuestionCount=%d)",
 		quiz.ID, len(quiz.Questions), quiz.QuestionCount)
 	return 0
 }
+
+

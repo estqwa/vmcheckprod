@@ -5,6 +5,7 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { toast } from 'sonner';
 import { useAuth } from '@/providers/AuthProvider';
+import { fetchCsrfToken } from '@/lib/api/auth';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
     consumeGoogleAuthRedirectState,
@@ -71,6 +72,9 @@ export default function GoogleAuthCallbackPage() {
             try {
                 if (state.action === 'link') {
                     setStatusText(t('googleLinkProcessing'));
+                    // Google redirect reloads the page, so in-memory CSRF token is lost.
+                    // Fetch a fresh token before calling CSRF-protected link endpoint.
+                    await fetchCsrfToken();
                     await linkGoogle({ code, redirect_uri: redirectUri, platform: 'web' });
                     toast.success(t('googleLinkSuccess'));
                     router.replace(state.returnPath || defaultProfilePath);

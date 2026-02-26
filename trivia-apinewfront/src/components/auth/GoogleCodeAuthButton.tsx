@@ -19,6 +19,11 @@ type GoogleCodeAuthButtonProps = {
     onError?: (message: string) => void;
 };
 
+type GoogleCodeAuthButtonInnerProps = GoogleCodeAuthButtonProps & {
+    pathname: string;
+    redirectUri: string;
+};
+
 export function GoogleCodeAuthButton({
     label,
     action,
@@ -27,14 +32,31 @@ export function GoogleCodeAuthButton({
     returnPath,
     onError,
 }: GoogleCodeAuthButtonProps) {
+    const pathname = usePathname();
+    const [redirectUri, setRedirectUri] = useState<string>('');
+
     const googleClientEnabled = useMemo(
         () => (process.env.NEXT_PUBLIC_GOOGLE_WEB_CLIENT_ID || '').trim() !== '' &&
             process.env.NEXT_PUBLIC_GOOGLE_OAUTH_ENABLED !== 'false',
         []
     );
 
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+        const callbackPath = buildGoogleCallbackPath(window.location.pathname);
+        setRedirectUri(`${window.location.origin}${callbackPath}`);
+    }, [pathname]);
+
     if (!googleClientEnabled) {
         return null;
+    }
+
+    if (!redirectUri) {
+        return (
+            <Button type="button" variant="outline" className={className} disabled>
+                {label}
+            </Button>
+        );
     }
 
     return (
@@ -45,6 +67,8 @@ export function GoogleCodeAuthButton({
             className={className}
             returnPath={returnPath}
             onError={onError}
+            pathname={pathname || '/'}
+            redirectUri={redirectUri}
         />
     );
 }
@@ -56,16 +80,10 @@ function GoogleCodeAuthButtonInner({
     className,
     returnPath,
     onError,
-}: GoogleCodeAuthButtonProps) {
-    const pathname = usePathname();
-    const [redirectUri, setRedirectUri] = useState<string>('');
+    pathname,
+    redirectUri,
+}: GoogleCodeAuthButtonInnerProps) {
     const [isPending, setIsPending] = useState(false);
-
-    useEffect(() => {
-        if (typeof window === 'undefined') return;
-        const callbackPath = buildGoogleCallbackPath(window.location.pathname);
-        setRedirectUri(`${window.location.origin}${callbackPath}`);
-    }, [pathname]);
 
     const login = useGoogleLogin({
         flow: 'auth-code',
@@ -86,12 +104,8 @@ function GoogleCodeAuthButtonInner({
             type="button"
             variant="outline"
             className={className}
-            disabled={disabled || isPending || !redirectUri}
+            disabled={disabled || isPending}
             onClick={() => {
-                if (!redirectUri) {
-                    onError?.('Google redirect URI is not ready');
-                    return;
-                }
                 setIsPending(true);
                 saveGoogleAuthRedirectState({
                     action,

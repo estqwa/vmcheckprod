@@ -9,14 +9,20 @@ export type GoogleAuthRedirectState = {
 };
 
 const STORAGE_KEY = 'google_auth_redirect_state_v1';
+const SUPPORTED_LOCALES = new Set(['ru', 'kk']);
+
+export function getLocalePrefixFromPath(pathname: string): string {
+    const segments = pathname.split('/').filter(Boolean);
+    const maybeLocale = segments[0];
+    if (!maybeLocale || !SUPPORTED_LOCALES.has(maybeLocale)) {
+        return '';
+    }
+    return `/${maybeLocale}`;
+}
 
 export function buildGoogleCallbackPath(pathname: string): string {
-    const segments = pathname.split('/').filter(Boolean);
-    const locale = segments[0];
-    if (!locale) {
-        return '/auth/google/callback';
-    }
-    return `/${locale}/auth/google/callback`;
+    const localePrefix = getLocalePrefixFromPath(pathname);
+    return `${localePrefix}/auth/google/callback`;
 }
 
 export function saveGoogleAuthRedirectState(state: GoogleAuthRedirectState): void {

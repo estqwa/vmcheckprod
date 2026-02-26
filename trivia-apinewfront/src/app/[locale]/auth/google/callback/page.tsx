@@ -6,7 +6,11 @@ import { useTranslations } from 'next-intl';
 import { toast } from 'sonner';
 import { useAuth } from '@/providers/AuthProvider';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { consumeGoogleAuthRedirectState, type GoogleAuthRedirectAction } from '@/lib/auth/googleRedirectState';
+import {
+    consumeGoogleAuthRedirectState,
+    getLocalePrefixFromPath,
+    type GoogleAuthRedirectAction,
+} from '@/lib/auth/googleRedirectState';
 
 type RedirectState = {
     action: GoogleAuthRedirectAction;
@@ -26,10 +30,10 @@ export default function GoogleAuthCallbackPage() {
         if (startedRef.current) return;
         startedRef.current = true;
 
-        const locale = pathname.split('/').filter(Boolean)[0] || 'ru';
-        const defaultLoginPath = `/${locale}/login`;
-        const defaultProfilePath = `/${locale}/profile`;
-        const defaultVerifyPath = `/${locale}/verify-email`;
+        const localePrefix = getLocalePrefixFromPath(pathname || '');
+        const defaultLoginPath = `${localePrefix}/login` || '/login';
+        const defaultProfilePath = `${localePrefix}/profile` || '/profile';
+        const defaultVerifyPath = `${localePrefix}/verify-email` || '/verify-email';
 
         const resolveState = (): RedirectState => {
             const stored = consumeGoogleAuthRedirectState();

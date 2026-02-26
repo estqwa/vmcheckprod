@@ -21,8 +21,10 @@ export function getLocalePrefixFromPath(pathname: string): string {
 }
 
 export function buildGoogleCallbackPath(pathname: string): string {
-    const localePrefix = getLocalePrefixFromPath(pathname);
-    return `${localePrefix}/auth/google/callback`;
+    // Canonical callback path for web OAuth. We keep it stable to avoid
+    // redirect_uri_mismatch when users navigate via locale-prefixed or legacy URLs.
+    void pathname;
+    return '/auth/google/callback';
 }
 
 export function saveGoogleAuthRedirectState(state: GoogleAuthRedirectState): void {

@@ -14,7 +14,7 @@ import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { BrandHeader } from '../../src/components/ui/BrandHeader';
 import { PrimaryButton } from '../../src/components/ui/PrimaryButton';
-import { useAuth } from '../../src/hooks/useAuth';
+import { useAuth } from '../../src/providers/AuthProvider';
 import { palette, radii, shadow, spacing, typography } from '../../src/theme/tokens';
 
 export default function VerifyEmailScreen() {
@@ -136,7 +136,7 @@ export default function VerifyEmailScreen() {
               disabled={cooldown > 0 || isSending || emailVerified}
             >
               <Text style={styles.secondaryButtonText}>
-                {cooldown > 0 ? `${t('profile.resend')} (${cooldown}s)` : t('auth.sendCode')}
+                {cooldown > 0 ? `${t('common.resend')} (${cooldown}s)` : t('auth.sendCode')}
               </Text>
             </TouchableOpacity>
 

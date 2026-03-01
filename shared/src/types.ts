@@ -39,6 +39,8 @@ export interface RegisterData {
     gender: 'male' | 'female' | 'other' | 'prefer_not_to_say';
     tos_accepted: boolean;
     privacy_accepted: boolean;
+    tos_version?: string;
+    privacy_version?: string;
     marketing_opt_in?: boolean;
 }
 

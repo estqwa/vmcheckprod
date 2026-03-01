@@ -1,10 +1,12 @@
 import React, { useEffect } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import renderer, { act } from 'react-test-renderer';
+import { waitFor } from '@testing-library/react-native';
 import * as ExpoRouter from 'expo-router';
 import { AuthProvider, useAuth } from '../providers/AuthProvider';
 import {
   checkAuth,
+  deleteAccount,
   getWsTicket,
   login,
   logout,
@@ -16,26 +18,11 @@ jest.mock('../api/auth', () => ({
   login: jest.fn(),
   register: jest.fn(),
   logout: jest.fn(),
+  deleteAccount: jest.fn(),
   checkAuth: jest.fn(),
   getWsTicket: jest.fn(),
   updateProfile: jest.fn(),
 }));
-
-async function waitForCondition(assertion: () => void, timeoutMs = 1500) {
-  const started = Date.now();
-  // eslint-disable-next-line no-constant-condition
-  while (true) {
-    try {
-      assertion();
-      return;
-    } catch (error) {
-      if (Date.now() - started > timeoutMs) {
-        throw error;
-      }
-      await new Promise((resolve) => setTimeout(resolve, 20));
-    }
-  }
-}
 
 describe('AuthProvider', () => {
   const router = {
@@ -60,6 +47,7 @@ describe('AuthProvider', () => {
       email: 'user2@test.com',
     });
     (logout as jest.Mock).mockResolvedValue(undefined);
+    (deleteAccount as jest.Mock).mockResolvedValue(undefined);
     (getWsTicket as jest.Mock).mockResolvedValue('ticket-1');
     (updateProfile as jest.Mock).mockResolvedValue(undefined);
   });
@@ -100,7 +88,7 @@ describe('AuthProvider', () => {
       latestAuth = value;
     });
 
-    await waitForCondition(() => expect(latestAuth?.isLoading).toBe(false));
+    await waitFor(() => expect(latestAuth?.isLoading).toBe(false), { timeout: 1500 });
 
     expect(latestAuth?.isAuthenticated).toBe(true);
     expect(latestAuth?.user?.id).toBe(11);
@@ -121,7 +109,7 @@ describe('AuthProvider', () => {
       latestAuth = value;
     });
 
-    await waitForCondition(() => expect(latestAuth?.isLoading).toBe(false));
+    await waitFor(() => expect(latestAuth?.isLoading).toBe(false), { timeout: 1500 });
 
     expect(latestAuth?.isAuthenticated).toBe(false);
     expect(router.replace).toHaveBeenCalledWith('/(auth)/login');
@@ -138,7 +126,7 @@ describe('AuthProvider', () => {
       latestAuth = value;
     });
 
-    await waitForCondition(() => expect(latestAuth?.isLoading).toBe(false));
+    await waitFor(() => expect(latestAuth?.isLoading).toBe(false), { timeout: 1500 });
 
     await act(async () => {
       await latestAuth?.login('user1@test.com', 'password');
@@ -165,7 +153,7 @@ describe('AuthProvider', () => {
       latestAuth = value;
     });
 
-    await waitForCondition(() => expect(latestAuth?.isLoading).toBe(false));
+    await waitFor(() => expect(latestAuth?.isLoading).toBe(false), { timeout: 1500 });
 
     await act(async () => {
       await expect(latestAuth?.login('bad@test.com', 'bad')).rejects.toEqual({
@@ -196,7 +184,7 @@ describe('AuthProvider', () => {
       latestAuth = value;
     });
 
-    await waitForCondition(() => expect(latestAuth?.isLoading).toBe(false));
+    await waitFor(() => expect(latestAuth?.isLoading).toBe(false), { timeout: 1500 });
 
     await act(async () => {
       await latestAuth?.logout();
@@ -206,6 +194,38 @@ describe('AuthProvider', () => {
     expect(clearSpy).toHaveBeenCalledTimes(1);
     expect(latestAuth?.user).toBeNull();
     expect(latestAuth?.isAuthenticated).toBe(false);
+
+    await act(async () => {
+      tree.unmount();
+    });
+  });
+
+  it('does not clear auth state when deleteAccount fails', async () => {
+    (checkAuth as jest.Mock).mockResolvedValue({
+      id: 77,
+      username: 'delete-user',
+      email: 'delete@test.com',
+    });
+    (deleteAccount as jest.Mock).mockRejectedValue({ error: 'Delete failed' });
+    (ExpoRouter.useSegments as jest.Mock).mockReturnValue(['(tabs)']);
+
+    const queryClient = new QueryClient();
+    const clearSpy = jest.spyOn(queryClient, 'clear');
+
+    let latestAuth: any = null;
+    const tree = await mountWithProbe(queryClient, (value) => {
+      latestAuth = value;
+    });
+
+    await waitFor(() => expect(latestAuth?.isLoading).toBe(false), { timeout: 1500 });
+
+    await act(async () => {
+      await expect(latestAuth?.deleteAccount()).rejects.toEqual({ error: 'Delete failed' });
+    });
+
+    expect(clearSpy).not.toHaveBeenCalled();
+    expect(latestAuth?.user?.id).toBe(77);
+    expect(latestAuth?.isAuthenticated).toBe(true);
 
     await act(async () => {
       tree.unmount();

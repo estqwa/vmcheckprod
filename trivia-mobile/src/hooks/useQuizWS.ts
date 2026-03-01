@@ -20,6 +20,18 @@ import {
 const WS_STALE_THRESHOLD_MS = WS_HEARTBEAT_INTERVAL * 3;
 const WS_WATCHDOG_INTERVAL_MS = 5000;
 
+function devWarn(...args: unknown[]) {
+  if (__DEV__) {
+    console.warn(...args);
+  }
+}
+
+function devLog(...args: unknown[]) {
+  if (__DEV__) {
+    console.log(...args);
+  }
+}
+
 export type ConnectionState = 'disconnected' | 'connecting' | 'connected' | 'reconnecting' | 'offline';
 export type SessionEndReason = 'token_expired' | 'session_revoked' | 'logout_all_devices';
 
@@ -92,7 +104,7 @@ export function useQuizWS({ quizId, enabled = true, onMessage, onSessionEnded }:
       clearReconnectTimer();
       const nextAttempt = reconnectAttemptsRef.current + 1;
       if (nextAttempt > WS_MAX_RECONNECT_ATTEMPTS) {
-        console.warn('[QuizWS] Max reconnect attempts reached, stopping auto-reconnect');
+        devWarn('[QuizWS] Max reconnect attempts reached, stopping auto-reconnect');
         setConnectionState('disconnected');
         return;
       }
@@ -102,7 +114,7 @@ export function useQuizWS({ quizId, enabled = true, onMessage, onSessionEnded }:
       setConnectionState('reconnecting');
 
       reconnectTimeoutRef.current = setTimeout(() => {
-        console.log('[QuizWS] Reconnecting:', reason);
+        devLog('[QuizWS] Reconnecting:', reason);
         void connectRef.current?.(true);
       }, delay);
     },
@@ -261,7 +273,7 @@ export function useQuizWS({ quizId, enabled = true, onMessage, onSessionEnded }:
 
             const idleForMs = Date.now() - lastServerMessageAtRef.current;
             if (idleForMs > WS_STALE_THRESHOLD_MS) {
-              console.warn('[QuizWS] Stale connection detected, forcing reconnect');
+              devWarn('[QuizWS] Stale connection detected, forcing reconnect');
               forceReconnect('stale connection');
             }
           }, WS_WATCHDOG_INTERVAL_MS);
@@ -277,7 +289,7 @@ export function useQuizWS({ quizId, enabled = true, onMessage, onSessionEnded }:
 
             const parsed: unknown = JSON.parse(event.data);
             if (!isWSMessage(parsed)) {
-              console.warn('[QuizWS] Ignoring invalid message payload');
+              devWarn('[QuizWS] Ignoring invalid message payload');
               return;
             }
 

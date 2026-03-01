@@ -17,7 +17,7 @@ import {
 import { getQuiz } from '../../../src/api/quizzes';
 import { BrandHeader } from '../../../src/components/ui/BrandHeader';
 import { TimerBlock } from '../../../src/components/ui/TimerBlock';
-import { useAuth } from '../../../src/hooks/useAuth';
+import { useAuth } from '../../../src/providers/AuthProvider';
 import { useQuizWS } from '../../../src/hooks/useQuizWS';
 import { ConnectionStatusPill } from '../../../src/components/ui/ConnectionStatusPill';
 import { leaderboardQueryKey, userQueryKey } from '../../../src/hooks/useUserQuery';
@@ -36,7 +36,7 @@ export default function LobbyScreen() {
   const quizId = Number(id);
 
   const [playerCount, setPlayerCount] = useState(0);
-  const [countdown, setCountdown] = useState({ hours: '00', minutes: '00', seconds: '00' });
+  const [countdown, setCountdown] = useState({ days: '00', hours: '00', minutes: '00', seconds: '00' });
 
   const { data: quiz, isLoading } = useQuery({
     queryKey: ['quiz', quizId],
@@ -58,7 +58,7 @@ export default function LobbyScreen() {
 
   useEffect(() => {
     if (!quiz?.scheduled_time) {
-      setCountdown({ hours: '00', minutes: '00', seconds: '00' });
+      setCountdown({ days: '00', hours: '00', minutes: '00', seconds: '00' });
       return;
     }
 
@@ -168,6 +168,7 @@ export default function LobbyScreen() {
 
             <Text style={styles.startsInLabel}>{t('quiz.startsIn')}</Text>
             <View style={styles.timerRow}>
+              <TimerBlock value={countdown.days} label={t('quiz.days')} />
               <TimerBlock value={countdown.hours} label={t('quiz.hours')} />
               <TimerBlock value={countdown.minutes} label={t('quiz.minutes')} />
               <TimerBlock value={countdown.seconds} label={t('quiz.seconds')} />

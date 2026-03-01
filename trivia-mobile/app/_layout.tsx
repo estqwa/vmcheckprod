@@ -5,16 +5,22 @@ import * as SplashScreen from 'expo-splash-screen';
 import * as Sentry from '@sentry/react-native';
 import * as WebBrowser from 'expo-web-browser';
 import { StatusBar } from 'expo-status-bar';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { QueryProvider } from '../src/providers/QueryProvider';
-import { AuthProvider } from '../src/providers/AuthProvider';
+import { AuthProvider, useAuth } from '../src/providers/AuthProvider';
 import { OfflineBanner } from '../src/components/ui/OfflineBanner';
 import { palette, radii, spacing } from '../src/theme/tokens';
 import i18n from '../src/i18n';
 
-Sentry.init({
-  dsn: process.env.EXPO_PUBLIC_SENTRY_DSN,
-  tracesSampleRate: 0.2,
-});
+const sentryDsn = (process.env.EXPO_PUBLIC_SENTRY_DSN || '').trim();
+const sentryEnabled = !__DEV__ && sentryDsn.length > 0;
+
+if (sentryEnabled) {
+  Sentry.init({
+    dsn: sentryDsn,
+    tracesSampleRate: 0.2,
+  });
+}
 
 SplashScreen.preventAutoHideAsync();
 WebBrowser.maybeCompleteAuthSession();
@@ -33,37 +39,50 @@ export function ErrorBoundary({ error, retry }: ErrorBoundaryProps) {
   );
 }
 
-function RootLayout() {
+function AppContent() {
+  const { isBootstrapping } = useAuth();
+
   useEffect(() => {
-    void SplashScreen.hideAsync();
-  }, []);
+    if (!isBootstrapping) {
+      void SplashScreen.hideAsync();
+    }
+  }, [isBootstrapping]);
 
   return (
+    <>
+      <Stack screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="(auth)" />
+        <Stack.Screen name="(tabs)" />
+        <Stack.Screen name="quiz/[id]/lobby" />
+        <Stack.Screen name="quiz/[id]/play" options={{ gestureEnabled: false }} />
+        <Stack.Screen name="quiz/[id]/results" />
+        <Stack.Screen name="profile/history" />
+        <Stack.Screen name="profile/sessions" />
+        <Stack.Screen name="profile/delete-account" />
+        <Stack.Screen name="terms" />
+        <Stack.Screen name="privacy" />
+      </Stack>
+      <OfflineBanner />
+      <StatusBar style="dark" />
+    </>
+  );
+}
+
+function RootLayout() {
+  return (
     <View style={styles.root}>
-      <QueryProvider>
-        <AuthProvider>
-          <Stack screenOptions={{ headerShown: false }}>
-            <Stack.Screen name="(auth)" />
-            <Stack.Screen name="(tabs)" />
-            <Stack.Screen name="quiz/[id]/lobby" />
-            <Stack.Screen name="quiz/[id]/play" options={{ gestureEnabled: false }} />
-            <Stack.Screen name="quiz/[id]/results" />
-            <Stack.Screen name="profile/history" />
-            <Stack.Screen name="profile/sessions" />
-            <Stack.Screen name="profile/delete-account" />
-            <Stack.Screen name="(auth)/verify-email" />
-            <Stack.Screen name="terms" />
-            <Stack.Screen name="privacy" />
-          </Stack>
-          <OfflineBanner />
-          <StatusBar style="dark" />
-        </AuthProvider>
-      </QueryProvider>
+      <SafeAreaProvider>
+        <QueryProvider>
+          <AuthProvider>
+            <AppContent />
+          </AuthProvider>
+        </QueryProvider>
+      </SafeAreaProvider>
     </View>
   );
 }
 
-export default Sentry.wrap(RootLayout);
+export default sentryEnabled ? Sentry.wrap(RootLayout) : RootLayout;
 
 const styles = StyleSheet.create({
   root: {
@@ -80,18 +99,18 @@ const styles = StyleSheet.create({
     width: '100%',
     borderRadius: radii.lg,
     borderWidth: 1,
-    borderColor: '#fca5a5',
-    backgroundColor: '#fff1f2',
+    borderColor: palette.errorSoftBorder,
+    backgroundColor: palette.errorSoftBg,
     padding: spacing.lg,
     gap: spacing.sm,
   },
   errorTitle: {
-    color: '#9f1239',
+    color: palette.errorTextStrong,
     fontSize: 18,
     fontWeight: '800',
   },
   errorText: {
-    color: '#7f1d1d',
+    color: palette.errorTextMuted,
   },
   retryButton: {
     minHeight: 42,

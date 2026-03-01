@@ -15,7 +15,7 @@ import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { BrandHeader } from '../../src/components/ui/BrandHeader';
 import { PrimaryButton } from '../../src/components/ui/PrimaryButton';
-import { useAuth } from '../../src/hooks/useAuth';
+import { useAuth } from '../../src/providers/AuthProvider';
 import { palette, radii, shadow, spacing, typography } from '../../src/theme/tokens';
 
 export default function DeleteAccountScreen() {

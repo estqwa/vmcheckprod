@@ -35,6 +35,8 @@ cors:
     - "http://localhost:5173"
     - "http://localhost:8000"
     - "http://localhost:3000"
+    - "http://localhost:8081"
+    - "http://127.0.0.1:8081"
     - "http://34.159.126.18"
     - "http://34.159.126.18:80"
     - "https://qazaquiz.duckdns.org"

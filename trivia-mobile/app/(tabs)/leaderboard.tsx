@@ -71,7 +71,7 @@ export default function LeaderboardScreen() {
             {item.username}
           </Text>
           <Text style={styles.metaText}>
-            {item.wins_count} {t('leaderboard.wins')}
+            #{item.rank}
           </Text>
         </View>
 

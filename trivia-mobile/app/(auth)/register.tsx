@@ -20,7 +20,8 @@ import type { RegisterData } from '@trivia/shared';
 import { BrandHeader } from '../../src/components/ui/BrandHeader';
 import { LanguageToggle } from '../../src/components/ui/LanguageToggle';
 import { PrimaryButton } from '../../src/components/ui/PrimaryButton';
-import { useAuth } from '../../src/hooks/useAuth';
+import { LEGAL_PRIVACY_VERSION, LEGAL_TOS_VERSION } from '../../src/constants/config';
+import { useAuth } from '../../src/providers/AuthProvider';
 import { useGoogleCodeAuthRequest } from '../../src/hooks/useGoogleCodeAuthRequest';
 import { palette, radii, shadow, spacing, typography } from '../../src/theme/tokens';
 
@@ -100,8 +101,10 @@ export default function RegisterScreen() {
         gender,
         tos_accepted: tosAccepted,
         privacy_accepted: privacyAccepted,
+        tos_version: LEGAL_TOS_VERSION,
+        privacy_version: LEGAL_PRIVACY_VERSION,
       });
-      router.replace('/(auth)/verify-email' as never);
+      router.replace('/(auth)/verify-email');
     } catch {
       // Error is surfaced through auth context.
     }
@@ -128,7 +131,7 @@ export default function RegisterScreen() {
           platform: google.platform,
         });
         if (!user.email_verified) {
-          router.replace('/(auth)/verify-email' as never);
+          router.replace('/(auth)/verify-email');
         }
       } catch (err: unknown) {
         const apiErr = err as { error?: string; error_type?: string };
@@ -319,7 +322,7 @@ export default function RegisterScreen() {
                 <Text style={styles.checkboxLabel}>
                   {t('auth.acceptTos')}
                 </Text>
-                <TouchableOpacity onPress={() => router.push('/terms' as never)} accessibilityRole="link">
+                <TouchableOpacity onPress={() => router.push('/terms')} accessibilityRole="link">
                   <Text style={styles.inlineLink}>{t('auth.termsLink')}</Text>
                 </TouchableOpacity>
               </View>
@@ -341,7 +344,7 @@ export default function RegisterScreen() {
                 <Text style={styles.checkboxLabel}>
                   {t('auth.acceptPrivacy')}
                 </Text>
-                <TouchableOpacity onPress={() => router.push('/privacy' as never)} accessibilityRole="link">
+                <TouchableOpacity onPress={() => router.push('/privacy')} accessibilityRole="link">
                   <Text style={styles.inlineLink}>{t('auth.privacyLink')}</Text>
                 </TouchableOpacity>
               </View>

@@ -40,7 +40,7 @@ const queryClient = new QueryClient({
 // ---------------------------------------------------------------------------
 // Persistence — кэш выживает перезапуск app
 // ---------------------------------------------------------------------------
-const SENSITIVE_QUERY_PREFIXES = ['auth', 'token', 'ws-ticket'];
+const SENSITIVE_QUERY_PREFIXES = ['auth', 'token'];
 
 const asyncStoragePersister = createAsyncStoragePersister({
   storage: AsyncStorage,

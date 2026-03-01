@@ -40,6 +40,9 @@ export const FlatList = function FlatList<T>({
 export const KeyboardAvoidingView = createComponent('KeyboardAvoidingView');
 export const ActivityIndicator = createComponent('ActivityIndicator');
 export const RefreshControl = createComponent('RefreshControl');
+export const Alert = {
+  alert: jest.fn(),
+};
 
 export const StyleSheet = {
   create: <T extends Record<string, unknown>>(styles: T): T => styles,

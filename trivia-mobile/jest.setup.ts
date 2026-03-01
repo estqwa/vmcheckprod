@@ -4,6 +4,20 @@
 (globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 (globalThis as unknown as { __DEV__: boolean }).__DEV__ = true;
 
+// react-test-renderer is still used by RN test stack (directly and via testing libs).
+// Filter only this known deprecation warning to keep test output readable.
+const originalConsoleError = console.error;
+console.error = (...args: unknown[]) => {
+    const [firstArg] = args;
+    if (
+        typeof firstArg === 'string' &&
+        firstArg.includes('react-test-renderer is deprecated')
+    ) {
+        return;
+    }
+    originalConsoleError(...args);
+};
+
 // Mock expo-secure-store
 jest.mock('expo-secure-store', () => ({
     getItemAsync: jest.fn().mockResolvedValue(null),

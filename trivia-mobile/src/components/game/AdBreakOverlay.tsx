@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Image, Modal, StyleSheet, Text, View } from 'react-native';
 import { createVideoPlayer, type VideoPlayer, VideoView } from 'expo-video';
 import { useTranslation } from 'react-i18next';
@@ -29,13 +29,30 @@ export function AdBreakOverlay({ adData, isVisible, onAdEnd }: AdBreakOverlayPro
   const [timeRemaining, setTimeRemaining] = useState(0);
   const [hasMediaError, setHasMediaError] = useState(false);
   const [player, setPlayer] = useState<VideoPlayer | null>(null);
+  const onAdEndRef = useRef(onAdEnd);
+  const hasSignaledEndRef = useRef(false);
+
+  useEffect(() => {
+    onAdEndRef.current = onAdEnd;
+  }, [onAdEnd]);
 
   const mediaUrl = useMemo(() => {
     if (!adData) return '';
     return resolveMediaUrl(adData.media_url);
   }, [adData]);
 
+  const adSessionKey = useMemo(() => {
+    if (!isVisible || !adData) return '';
+    return `${adData.quiz_id}:${adData.media_type}:${adData.media_url}:${adData.duration_sec}`;
+  }, [adData, isVisible]);
+
   const isVideo = adData?.media_type === 'video';
+
+  const signalAdEnd = useCallback(() => {
+    if (hasSignaledEndRef.current) return;
+    hasSignaledEndRef.current = true;
+    onAdEndRef.current?.();
+  }, []);
 
   const progressPercent = useMemo(() => {
     if (!adData || adData.duration_sec <= 0) return 0;
@@ -43,16 +60,23 @@ export function AdBreakOverlay({ adData, isVisible, onAdEnd }: AdBreakOverlayPro
   }, [adData, timeRemaining]);
 
   useEffect(() => {
-    if (!isVisible || !adData) return;
+    if (!adSessionKey || !adData) return;
 
+    hasSignaledEndRef.current = false;
     setHasMediaError(false);
-    setTimeRemaining(adData.duration_sec);
+    const duration = Math.max(0, adData.duration_sec);
+    setTimeRemaining(duration);
+
+    if (duration === 0) {
+      signalAdEnd();
+      return;
+    }
 
     const timerId = setInterval(() => {
       setTimeRemaining((prev: number) => {
         if (prev <= 1) {
           clearInterval(timerId);
-          onAdEnd?.();
+          signalAdEnd();
           return 0;
         }
         return prev - 1;
@@ -62,10 +86,10 @@ export function AdBreakOverlay({ adData, isVisible, onAdEnd }: AdBreakOverlayPro
     return () => {
       clearInterval(timerId);
     };
-  }, [adData, isVisible, onAdEnd]);
+  }, [adData, adSessionKey, signalAdEnd]);
 
   useEffect(() => {
-    if (!isVisible || !adData || !isVideo) {
+    if (!adSessionKey || !adData || !isVideo) {
       setPlayer((prev: VideoPlayer | null) => {
         if (prev) {
           try {
@@ -85,14 +109,19 @@ export function AdBreakOverlay({ adData, isVisible, onAdEnd }: AdBreakOverlayPro
       const statusSubscription = nextPlayer.addListener('statusChange', ({ error }: { error?: unknown }) => {
         if (error) {
           setHasMediaError(true);
+          signalAdEnd();
         }
       });
-      nextPlayer.loop = true;
+      const playToEndSubscription = nextPlayer.addListener('playToEnd', () => {
+        signalAdEnd();
+      });
+      nextPlayer.loop = false;
       nextPlayer.play();
       setPlayer(nextPlayer);
 
       return () => {
         statusSubscription.remove();
+        playToEndSubscription.remove();
         try {
           nextPlayer.pause();
           nextPlayer.release();
@@ -105,7 +134,7 @@ export function AdBreakOverlay({ adData, isVisible, onAdEnd }: AdBreakOverlayPro
       setHasMediaError(true);
       return undefined;
     }
-  }, [adData, isVideo, isVisible, mediaUrl]);
+  }, [adData, adSessionKey, isVideo, mediaUrl, signalAdEnd]);
 
   if (!isVisible || !adData) {
     return null;

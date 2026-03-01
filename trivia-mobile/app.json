@@ -40,7 +40,8 @@
           "project": "trivia-mobile"
         }
       ],
-      "@react-native-community/datetimepicker"
+      "@react-native-community/datetimepicker",
+      "@sentry/react-native"
     ],
     "extra": {
       "apiUrl": "https://qazaquiz.duckdns.org",

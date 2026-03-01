@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import type { Session } from '@trivia/shared';
-import { useAuth } from '../../src/hooks/useAuth';
+import { useAuth } from '../../src/providers/AuthProvider';
 import { BrandHeader } from '../../src/components/ui/BrandHeader';
 import { getDeviceId } from '../../src/services/tokenService';
 import { palette, radii, shadow, spacing, typography } from '../../src/theme/tokens';
@@ -66,11 +66,14 @@ export default function SessionsScreen() {
           await logout();
           router.replace('/(auth)/login');
         }
+      } catch (err: unknown) {
+        const apiErr = err as { error?: string };
+        Alert.alert(t('common.error'), apiErr.error || t('profile.revokeSessionError'));
       } finally {
         setRevokingSessionId(null);
       }
     },
-    [currentDeviceId, isLogoutAllPending, logout, queryClient, revokeSession, revokingSessionId, router]
+    [currentDeviceId, isLogoutAllPending, logout, queryClient, revokeSession, revokingSessionId, router, t]
   );
 
   const handleLogoutAll = useCallback(async () => {
@@ -79,10 +82,13 @@ export default function SessionsScreen() {
     try {
       await logoutAllDevices();
       router.replace('/(auth)/login');
+    } catch (err: unknown) {
+      const apiErr = err as { error?: string };
+      Alert.alert(t('common.error'), apiErr.error || t('profile.logoutAllDevicesError'));
     } finally {
       setIsLogoutAllPending(false);
     }
-  }, [isLogoutAllPending, logoutAllDevices, router]);
+  }, [isLogoutAllPending, logoutAllDevices, router, t]);
 
   if (isLoading) {
     return (

@@ -4,7 +4,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
-import { useAuth } from '../../../src/hooks/useAuth';
+import { useAuth } from '../../../src/providers/AuthProvider';
 import { getMyQuizResult, getQuizResults } from '../../../src/api/quizzes';
 import { BrandHeader } from '../../../src/components/ui/BrandHeader';
 import { palette, radii, shadow, spacing, typography } from '../../../src/theme/tokens';
@@ -42,6 +42,8 @@ export default function ResultsScreen() {
   }
 
   const rows = standings?.results ?? [];
+  const rowsToRender =
+    myResult && !rows.some((row) => row.user_id === myResult.user_id) ? [...rows, myResult] : rows;
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
@@ -107,10 +109,10 @@ export default function ResultsScreen() {
             <Text style={styles.listTitle}>{t('quiz.finalStandings')}</Text>
           </View>
 
-          {rows.length === 0 ? (
+          {rowsToRender.length === 0 ? (
             <Text style={styles.emptyText}>{t('leaderboard.noPlayers')}</Text>
           ) : (
-            rows.map((row) => {
+            rowsToRender.map((row) => {
               const highlight = row.user_id === user?.id;
               return (
                 <View

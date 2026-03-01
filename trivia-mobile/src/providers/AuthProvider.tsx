@@ -38,6 +38,7 @@ import {
 interface AuthContextType {
   user: User | null;
   isLoading: boolean;
+  isBootstrapping: boolean;
   isAuthenticated: boolean;
   error: string | null;
   login: (email: string, password: string) => Promise<void>;
@@ -58,6 +59,19 @@ interface AuthContextType {
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+function getAuthErrorMessage(err: unknown, fallback: string): string {
+  if (typeof err === 'object' && err !== null) {
+    const candidate = err as { error?: string; message?: string };
+    if (typeof candidate.error === 'string' && candidate.error.trim().length > 0) {
+      return candidate.error;
+    }
+    if (typeof candidate.message === 'string' && candidate.message.trim().length > 0) {
+      return candidate.message;
+    }
+  }
+  return fallback;
+}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient();
@@ -119,8 +133,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const loggedInUser = await authLogin({ email, password });
       setUser(loggedInUser);
     } catch (err: unknown) {
-      const apiErr = err as { error?: string };
-      setError(apiErr.error || 'Login failed');
+      setError(getAuthErrorMessage(err, 'Login failed'));
       throw err;
     } finally {
       setIsAuthPending(false);
@@ -134,8 +147,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const newUser = await authRegister(data);
       setUser(newUser);
     } catch (err: unknown) {
-      const apiErr = err as { error?: string };
-      setError(apiErr.error || 'Registration failed');
+      setError(getAuthErrorMessage(err, 'Registration failed'));
       throw err;
     } finally {
       setIsAuthPending(false);
@@ -150,8 +162,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(loggedInUser);
       return loggedInUser;
     } catch (err: unknown) {
-      const apiErr = err as { error?: string };
-      setError(apiErr.error || 'Google sign-in failed');
+      setError(getAuthErrorMessage(err, 'Google sign-in failed'));
       throw err;
     } finally {
       setIsAuthPending(false);
@@ -166,8 +177,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(updatedUser);
       return updatedUser;
     } catch (err: unknown) {
-      const apiErr = err as { error?: string };
-      setError(apiErr.error || 'Google link failed');
+      setError(getAuthErrorMessage(err, 'Google link failed'));
       throw err;
     } finally {
       setIsAuthPending(false);
@@ -190,9 +200,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       await authDeleteAccount(data);
       await authLogout();
-    } finally {
       setUser(null);
       queryClient.clear();
+    } finally {
       setIsAuthPending(false);
     }
   }, [queryClient]);
@@ -258,6 +268,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     () => ({
       user,
       isLoading,
+      isBootstrapping,
       isAuthenticated,
       error,
       login,
@@ -279,6 +290,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [
       user,
       isLoading,
+      isBootstrapping,
       isAuthenticated,
       error,
       login,

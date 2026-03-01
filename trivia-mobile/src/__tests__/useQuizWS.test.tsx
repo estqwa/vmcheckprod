@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import renderer, { act } from 'react-test-renderer';
 import { AppState } from 'react-native';
 import { WS_CLIENT_EVENTS } from '@trivia/shared';
+import { waitFor } from '@testing-library/react-native';
 import { useQuizWS } from '../hooks/useQuizWS';
 import { getWsTicket } from '../api/auth';
 import { refreshTokens } from '../services/tokenService';
@@ -58,22 +59,6 @@ function getSentPayloads(ws: MockWebSocket): Array<{ type: string; data: Record<
   return ws.send.mock.calls.map((call) => JSON.parse(call[0] as string));
 }
 
-async function waitForCondition(assertion: () => void, timeoutMs = 1500) {
-  const started = Date.now();
-  // eslint-disable-next-line no-constant-condition
-  while (true) {
-    try {
-      assertion();
-      return;
-    } catch (error) {
-      if (Date.now() - started > timeoutMs) {
-        throw error;
-      }
-      await new Promise((resolve) => setTimeout(resolve, 20));
-    }
-  }
-}
-
 describe('useQuizWS', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -122,14 +107,14 @@ describe('useQuizWS', () => {
       hookState = state;
     });
 
-    await waitForCondition(() => expect(MockWebSocket.instances.length).toBe(1));
+    await waitFor(() => expect(MockWebSocket.instances.length).toBe(1), { timeout: 1500 });
     const ws = MockWebSocket.instances[0];
 
     act(() => {
       ws.open();
     });
 
-    await waitForCondition(() => expect(hookState?.isConnected).toBe(true));
+    await waitFor(() => expect(hookState?.isConnected).toBe(true), { timeout: 1500 });
 
     const sent = getSentPayloads(ws);
     expect(sent.find((m) => m.type === WS_CLIENT_EVENTS.READY)).toEqual({
@@ -152,14 +137,14 @@ describe('useQuizWS', () => {
       hookState = state;
     });
 
-    await waitForCondition(() => expect(MockWebSocket.instances.length).toBe(1));
+    await waitFor(() => expect(MockWebSocket.instances.length).toBe(1), { timeout: 1500 });
     const ws = MockWebSocket.instances[0];
 
     act(() => {
       ws.open();
     });
 
-    await waitForCondition(() => expect(hookState?.isConnected).toBe(true));
+    await waitFor(() => expect(hookState?.isConnected).toBe(true), { timeout: 1500 });
 
     act(() => {
       hookState?.sendAnswer(101, 2);
@@ -179,7 +164,7 @@ describe('useQuizWS', () => {
     const onMessage = jest.fn();
     const tree = mountHook({ quizId: 5, onMessage }, () => undefined);
 
-    await waitForCondition(() => expect(MockWebSocket.instances.length).toBe(1));
+    await waitFor(() => expect(MockWebSocket.instances.length).toBe(1), { timeout: 1500 });
     const ws = MockWebSocket.instances[0];
 
     act(() => {
@@ -199,11 +184,52 @@ describe('useQuizWS', () => {
       ws.emitMessage(payload);
     });
 
-    await waitForCondition(() => expect(onMessage).toHaveBeenCalled());
+    await waitFor(() => expect(onMessage).toHaveBeenCalled(), { timeout: 1500 });
     expect(onMessage).toHaveBeenLastCalledWith(payload);
 
     act(() => {
       tree.unmount();
     });
+  });
+
+  it('does not emit debug reconnect warnings when __DEV__ is false', async () => {
+    const prevDev = (globalThis as unknown as { __DEV__: boolean }).__DEV__;
+    (globalThis as unknown as { __DEV__: boolean }).__DEV__ = false;
+    jest.useFakeTimers();
+
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+    (getWsTicket as jest.Mock).mockRejectedValue(new Error('ticket failed'));
+
+    let tree: ReturnType<typeof renderer.create> | null = null;
+
+    try {
+      tree = mountHook({ quizId: 42 }, () => undefined);
+
+      await act(async () => {
+        for (let i = 0; i < 8; i += 1) {
+          jest.runOnlyPendingTimers();
+          await Promise.resolve();
+        }
+      });
+
+      expect(
+        warnSpy.mock.calls.some(
+          (call) =>
+            typeof call[0] === 'string' &&
+            call[0].includes('[QuizWS] Max reconnect attempts reached')
+        )
+      ).toBe(false);
+    } finally {
+      if (tree) {
+        act(() => {
+          tree.unmount();
+        });
+      }
+      warnSpy.mockRestore();
+      errorSpy.mockRestore();
+      jest.useRealTimers();
+      (globalThis as unknown as { __DEV__: boolean }).__DEV__ = prevDev;
+    }
   });
 });

@@ -17,7 +17,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { BrandHeader } from '../../src/components/ui/BrandHeader';
 import { LanguageToggle } from '../../src/components/ui/LanguageToggle';
 import { PrimaryButton } from '../../src/components/ui/PrimaryButton';
-import { useAuth } from '../../src/hooks/useAuth';
+import { useAuth } from '../../src/providers/AuthProvider';
 import { useGoogleCodeAuthRequest } from '../../src/hooks/useGoogleCodeAuthRequest';
 import { palette, radii, shadow, spacing, typography } from '../../src/theme/tokens';
 
@@ -67,7 +67,7 @@ export default function LoginScreen() {
           platform: google.platform,
         });
         if (!user.email_verified) {
-          router.replace('/(auth)/verify-email' as never);
+          router.replace('/(auth)/verify-email');
         }
       } catch (err: unknown) {
         const apiErr = err as { error?: string; error_type?: string };

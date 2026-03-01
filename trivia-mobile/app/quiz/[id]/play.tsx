@@ -38,7 +38,7 @@ import {
 import { BrandHeader } from '../../../src/components/ui/BrandHeader';
 import { AdBreakOverlay } from '../../../src/components/game/AdBreakOverlay';
 import { ConnectionStatusPill } from '../../../src/components/ui/ConnectionStatusPill';
-import { useAuth } from '../../../src/hooks/useAuth';
+import { useAuth } from '../../../src/providers/AuthProvider';
 import { useQuizWS } from '../../../src/hooks/useQuizWS';
 import { leaderboardQueryKey, userQueryKey } from '../../../src/hooks/useUserQuery';
 import { palette, radii, shadow, spacing } from '../../../src/theme/tokens';
@@ -88,6 +88,7 @@ export default function PlayScreen() {
   const [revealedCorrectOption, setRevealedCorrectOption] = useState<number | null>(null);
   const [adBreak, setAdBreak] = useState<QuizAdBreakEvent | null>(null);
   const [showAdOverlay, setShowAdOverlay] = useState(false);
+  const [isResyncDelayed, setIsResyncDelayed] = useState(false);
 
   const hideAdOverlay = useCallback(() => {
     setShowAdOverlay(false);
@@ -126,10 +127,9 @@ export default function PlayScreen() {
       }
 
       if (msg.type === WS_SERVER_EVENTS.QUESTION && isQuizQuestionEvent(msg.data)) {
-        const localized = getLocalizedQuestionData(msg.data, i18n.language);
         setQuestion({
           id: msg.data.question_id,
-          text: localized.text,
+          text: msg.data.text,
           textKK: msg.data.text_kk,
           options: msg.data.options,
           optionsKK: msg.data.options_kk,
@@ -140,6 +140,7 @@ export default function PlayScreen() {
         setFeedback(null);
         setRevealedCorrectOption(null);
         setTimeLeft(msg.data.time_limit);
+        setIsResyncDelayed(false);
         hideAdOverlay();
         return;
       }
@@ -196,10 +197,9 @@ export default function PlayScreen() {
         if (stateData.current_question) {
           const currentQuestion = stateData.current_question as unknown;
           if (isQuizStateQuestionEvent(currentQuestion)) {
-            const localized = getLocalizedQuestionData(currentQuestion, i18n.language);
             setQuestion({
               id: currentQuestion.question_id,
-              text: localized.text,
+              text: currentQuestion.text,
               textKK: currentQuestion.text_kk,
               options: currentQuestion.options,
               optionsKK: currentQuestion.options_kk,
@@ -210,6 +210,7 @@ export default function PlayScreen() {
               setTimeLeft(currentQuestion.time_limit);
             }
             setRevealedCorrectOption(null);
+            setIsResyncDelayed(false);
             hideAdOverlay();
           }
         }
@@ -240,15 +241,28 @@ export default function PlayScreen() {
         }
       }
     },
-    [hideAdOverlay, i18n.language, invalidateUserAndLeaderboard, quizId, router]
+    [hideAdOverlay, invalidateUserAndLeaderboard, quizId, router]
   );
 
-  const { sendAnswer, connectionState, isOffline } = useQuizWS({
+  const { sendAnswer, reconnect, connectionState, isOffline } = useQuizWS({
     quizId,
     enabled: Number.isFinite(quizId) && quizId > 0,
     onMessage: handleMessage,
     onSessionEnded: handleSessionEnded,
   });
+
+  useEffect(() => {
+    if (question || isOffline || connectionState !== 'connected') {
+      setIsResyncDelayed(false);
+      return;
+    }
+
+    const timeoutId = setTimeout(() => {
+      setIsResyncDelayed(true);
+    }, 15000);
+
+    return () => clearTimeout(timeoutId);
+  }, [connectionState, isOffline, question]);
 
   useEffect(() => {
     if (feedback === 'correct') {
@@ -289,20 +303,20 @@ export default function PlayScreen() {
 
 
 
-  const displayedQuestionText = useMemo(() => {
-    if (!question) return '';
-    if (i18n.language.startsWith('kk') && question.textKK) {
-      return question.textKK;
+  const displayedQuestion = useMemo(() => {
+    if (!question) {
+      return { text: '', options: [] as QuestionOption[] };
     }
-    return question.text;
-  }, [i18n.language, question]);
 
-  const displayedOptions = useMemo(() => {
-    if (!question) return [];
-    if (i18n.language.startsWith('kk') && question.optionsKK && question.optionsKK.length > 0) {
-      return question.optionsKK;
-    }
-    return question.options;
+    return getLocalizedQuestionData(
+      {
+        text: question.text,
+        text_kk: question.textKK,
+        options: question.options,
+        options_kk: question.optionsKK,
+      },
+      i18n.language
+    );
   }, [i18n.language, question]);
 
   const getOptionStyle = useCallback(
@@ -384,6 +398,27 @@ export default function PlayScreen() {
               <Text style={styles.waitIcon}>...</Text>
               <Text style={styles.waitText}>{t('quiz.waiting')}</Text>
               <Text style={styles.waitSubText}>{connectionState === 'connected' ? t('quiz.ready') : t('quiz.connecting')}</Text>
+              {isResyncDelayed ? (
+                <View style={styles.waitActions}>
+                  <Text style={styles.waitHint}>{t('quiz.reconnecting')}</Text>
+                  <TouchableOpacity
+                    style={styles.waitActionButton}
+                    onPress={() => reconnect()}
+                    accessibilityRole="button"
+                    accessibilityLabel={t('common.retry')}
+                  >
+                    <Text style={styles.waitActionButtonText}>{t('common.retry')}</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.waitActionButton, styles.waitActionButtonSecondary]}
+                    onPress={() => router.replace('/(tabs)')}
+                    accessibilityRole="button"
+                    accessibilityLabel={t('quiz.leaveLobby')}
+                  >
+                    <Text style={styles.waitActionButtonSecondaryText}>{t('quiz.leaveLobby')}</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : null}
             </View>
           </View>
         </SafeAreaView>
@@ -428,10 +463,10 @@ export default function PlayScreen() {
                 </View>
               </View>
 
-              <Text style={styles.questionText}>{displayedQuestionText}</Text>
+              <Text style={styles.questionText}>{displayedQuestion.text}</Text>
 
               <FlatList
-                data={displayedOptions}
+                data={displayedQuestion.options}
                 renderItem={renderOption}
                 keyExtractor={(option) => String(option.id)}
                 scrollEnabled={false}
@@ -498,6 +533,36 @@ const styles = StyleSheet.create({
   },
   waitSubText: {
     color: palette.textMuted,
+  },
+  waitHint: {
+    color: palette.textMuted,
+    fontSize: 12,
+    marginTop: spacing.xs,
+  },
+  waitActions: {
+    width: '100%',
+    gap: spacing.xs,
+    marginTop: spacing.sm,
+  },
+  waitActionButton: {
+    minHeight: 40,
+    borderRadius: radii.md,
+    backgroundColor: palette.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  waitActionButtonSecondary: {
+    backgroundColor: palette.surfaceMuted,
+    borderWidth: 1,
+    borderColor: palette.border,
+  },
+  waitActionButtonText: {
+    color: palette.white,
+    fontWeight: '700',
+  },
+  waitActionButtonSecondaryText: {
+    color: palette.text,
+    fontWeight: '700',
   },
   eliminatedCard: {
     width: '100%',

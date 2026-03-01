@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
-import { useAuth } from '../../src/hooks/useAuth';
+import { useAuth } from '../../src/providers/AuthProvider';
 import { useGoogleCodeAuthRequest } from '../../src/hooks/useGoogleCodeAuthRequest';
 import { BrandHeader } from '../../src/components/ui/BrandHeader';
 import { LanguageToggle } from '../../src/components/ui/LanguageToggle';
@@ -19,9 +19,11 @@ export default function ProfileScreen() {
   const [emailCooldown, setEmailCooldown] = React.useState(0);
   const [isEmailBusy, setIsEmailBusy] = React.useState(false);
   const [isGoogleBusy, setIsGoogleBusy] = React.useState(false);
+  const userId = user?.id;
+  const emailVerified = user?.email_verified ?? false;
 
   React.useEffect(() => {
-    if (!user || user.email_verified) return;
+    if (!userId || emailVerified) return;
     (async () => {
       try {
         const status = await getEmailVerificationStatus();
@@ -30,7 +32,7 @@ export default function ProfileScreen() {
         // ignore
       }
     })();
-  }, [user, getEmailVerificationStatus]);
+  }, [emailVerified, getEmailVerificationStatus, userId]);
 
   React.useEffect(() => {
     if (emailCooldown <= 0) return;
@@ -111,7 +113,7 @@ export default function ProfileScreen() {
               <View style={styles.verifyBannerActions}>
                 <TouchableOpacity
                   style={styles.verifyButton}
-                  onPress={() => router.push('/(auth)/verify-email' as never)}
+                  onPress={() => router.push('/(auth)/verify-email')}
                   accessibilityRole="button"
                 >
                   <Text style={styles.verifyButtonText}>{t('profile.verify')}</Text>
@@ -160,7 +162,7 @@ export default function ProfileScreen() {
             </View>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.menuItem} onPress={() => router.push('/profile/sessions' as never)} accessibilityRole="button">
+          <TouchableOpacity style={styles.menuItem} onPress={() => router.push('/profile/sessions')} accessibilityRole="button">
             <View style={styles.menuItemRow}>
               <Ionicons name="shield-checkmark" size={16} color={palette.text} />
               <Text style={styles.menuItemText}>{t('profile.sessions')}</Text>
@@ -189,7 +191,7 @@ export default function ProfileScreen() {
 
           <TouchableOpacity
             style={[styles.menuItem, styles.deleteItem]}
-            onPress={() => router.push('/profile/delete-account' as never)}
+            onPress={() => router.push('/profile/delete-account')}
             accessibilityRole="button"
           >
             <View style={styles.menuItemRow}>

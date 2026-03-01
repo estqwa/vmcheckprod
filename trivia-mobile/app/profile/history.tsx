@@ -58,6 +58,7 @@ export default function HistoryScreen() {
 
   const renderItem = useCallback(({ item }: ListRenderItemInfo<QuizResult>) => {
     const status = renderStatus(item, t);
+    const hasValidQuizId = Number.isFinite(item.quiz_id) && item.quiz_id > 0;
     return (
       <View style={styles.resultCard}>
         <View style={styles.resultHeader}>
@@ -82,9 +83,14 @@ export default function HistoryScreen() {
         ) : null}
 
         <TouchableOpacity
-          style={styles.viewResultButton}
-          onPress={() => router.push(`/quiz/${item.quiz_id}/results`)}
+          style={[styles.viewResultButton, !hasValidQuizId ? styles.viewResultButtonDisabled : null]}
+          onPress={() => {
+            if (!hasValidQuizId) return;
+            router.push(`/quiz/${item.quiz_id}/results`);
+          }}
+          disabled={!hasValidQuizId}
           accessibilityRole="button"
+          accessibilityState={{ disabled: !hasValidQuizId }}
         >
           <Text style={styles.viewResultButtonText}>{t('history.viewResults')}</Text>
         </TouchableOpacity>
@@ -256,6 +262,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#f8fafc',
+  },
+  viewResultButtonDisabled: {
+    opacity: 0.5,
   },
   viewResultButtonText: {
     color: palette.text,

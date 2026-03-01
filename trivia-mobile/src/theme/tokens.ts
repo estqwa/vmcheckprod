@@ -6,6 +6,10 @@ export const palette = {
   primaryPressed: designTokens.color.primaryHover,
   white: '#ffffff',
   black: '#000000',
+  errorSoftBorder: '#fca5a5',
+  errorSoftBg: '#fff1f2',
+  errorTextStrong: '#9f1239',
+  errorTextMuted: '#7f1d1d',
 } as const;
 
 export const radii = {
@@ -51,23 +55,3 @@ export const shadow = {
     elevation: 3,
   } satisfies ViewStyle,
 };
-
-export type QuizStatusTone = {
-  backgroundColor: string;
-  textColor: string;
-};
-
-export function getQuizStatusTone(status: string): QuizStatusTone {
-  switch (status) {
-    case 'in_progress':
-      return { backgroundColor: '#dcfce7', textColor: '#166534' };
-    case 'scheduled':
-      return { backgroundColor: '#dbeafe', textColor: '#1d4ed8' };
-    case 'completed':
-      return { backgroundColor: '#f3f4f6', textColor: '#374151' };
-    case 'cancelled':
-      return { backgroundColor: '#fee2e2', textColor: '#991b1b' };
-    default:
-      return { backgroundColor: '#f3f4f6', textColor: '#374151' };
-  }
-}

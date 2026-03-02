@@ -39,6 +39,8 @@ cors:
     - "http://127.0.0.1:8081"
     - "http://34.159.126.18"
     - "http://34.159.126.18:80"
+    - "https://qazaquiz.online"
+    - "https://www.qazaquiz.online"
     - "https://qazaquiz.duckdns.org"
     - "http://qazaquiz.duckdns.org"
 

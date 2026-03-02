@@ -44,8 +44,8 @@
       "@sentry/react-native"
     ],
     "extra": {
-      "apiUrl": "https://qazaquiz.duckdns.org",
-      "wsUrl": "wss://qazaquiz.duckdns.org"
+      "apiUrl": "https://qazaquiz.online",
+      "wsUrl": "wss://qazaquiz.online"
     },
     "experiments": {
       "typedRoutes": true

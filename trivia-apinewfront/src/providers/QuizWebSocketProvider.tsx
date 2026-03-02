@@ -60,7 +60,7 @@ const getWSUrl = () => {
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
         return `${protocol}//${window.location.host}`;
     }
-    return 'wss://qazaquiz.duckdns.org';
+    return 'wss://qazaquiz.online';
 };
 
 const WS_URL = getWSUrl();

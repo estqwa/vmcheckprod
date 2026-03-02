@@ -2,7 +2,7 @@ import Constants from 'expo-constants';
 
 // Optional local backend URL for Android emulator (use via EXPO_PUBLIC_API_URL).
 const LOCAL_ANDROID_EMULATOR_API_URL = 'http://10.0.2.2:8080';
-const PROD_API_URL = 'https://qazaquiz.duckdns.org';
+const PROD_API_URL = 'https://qazaquiz.online';
 
 const extraConfig = Constants.expoConfig?.extra;
 const envApiUrl = process.env.EXPO_PUBLIC_API_URL;

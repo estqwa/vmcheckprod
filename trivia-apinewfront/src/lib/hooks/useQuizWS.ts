@@ -12,7 +12,7 @@ const getWSUrl = () => {
         return `${protocol}//${window.location.host}`;
     }
     // Fallback for server-side rendering or when window is not defined and no env var is set
-    return 'wss://qazaquiz.duckdns.org';
+    return 'wss://qazaquiz.online';
 };
 
 interface WSMessage {

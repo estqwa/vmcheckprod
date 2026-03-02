@@ -13,12 +13,20 @@
     },
     "preview": {
       "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://qazaquiz.online",
+        "EXPO_PUBLIC_WS_URL": "wss://qazaquiz.online"
+      },
       "android": {
         "buildType": "apk"
       }
     },
     "production": {
-      "autoIncrement": true
+      "autoIncrement": true,
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://qazaquiz.online",
+        "EXPO_PUBLIC_WS_URL": "wss://qazaquiz.online"
+      }
     }
   },
   "submit": {

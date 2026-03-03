@@ -172,6 +172,139 @@ describe('PlayScreen realtime flow', () => {
     });
   });
 
+  it('keeps showing incoming questions after elimination and blocks answers in spectator mode', async () => {
+    let tree: ReturnType<typeof renderer.create> | undefined;
+    await act(async () => {
+      tree = renderPlayScreen();
+    });
+    const mountedTree = tree!;
+    const root = mountedTree.root;
+
+    act(() => {
+      onMessageHandler?.({
+        type: WS_SERVER_EVENTS.QUESTION,
+        data: {
+          question_id: 101,
+          quiz_id: 1,
+          number: 1,
+          text: 'Question 1',
+          options: [
+            { id: 1, text: 'Option A' },
+            { id: 2, text: 'Option B' },
+          ],
+          time_limit: 20,
+          total_questions: 5,
+          start_time: Date.now(),
+          server_timestamp: Date.now(),
+        },
+      });
+    });
+
+    await waitFor(() => expect(hasText(root, 'Question 1')).toBe(true), { timeout: 1500 });
+
+    act(() => {
+      pressTouchableByText(root, 'Option A');
+    });
+    expect(sendAnswer).toHaveBeenCalledWith(101, 1);
+
+    act(() => {
+      onMessageHandler?.({
+        type: WS_SERVER_EVENTS.ANSWER_RESULT,
+        data: {
+          question_id: 101,
+          correct_option: 2,
+          your_answer: 1,
+          is_correct: false,
+          points_earned: 0,
+          time_taken_ms: 1400,
+          is_eliminated: true,
+        },
+      });
+    });
+
+    await waitFor(() => expect(hasText(root, 'quiz.spectatorHint')).toBe(true), { timeout: 1500 });
+    expect(hasText(root, 'quiz.eliminated')).toBe(true);
+
+    act(() => {
+      onMessageHandler?.({
+        type: WS_SERVER_EVENTS.QUESTION,
+        data: {
+          question_id: 102,
+          quiz_id: 1,
+          number: 2,
+          text: 'Question 2',
+          options: [
+            { id: 1, text: 'Option C' },
+            { id: 2, text: 'Option D' },
+          ],
+          time_limit: 20,
+          total_questions: 5,
+          start_time: Date.now(),
+          server_timestamp: Date.now(),
+        },
+      });
+    });
+
+    await waitFor(() => expect(hasText(root, 'Question 2')).toBe(true), { timeout: 1500 });
+
+    sendAnswer.mockClear();
+    act(() => {
+      pressTouchableByText(root, 'Option C');
+    });
+    expect(sendAnswer).not.toHaveBeenCalled();
+
+    await act(async () => {
+      mountedTree.unmount();
+    });
+  });
+
+  it('renders spectator mode from STATE resync and keeps answers blocked', async () => {
+    let tree: ReturnType<typeof renderer.create> | undefined;
+    await act(async () => {
+      tree = renderPlayScreen();
+    });
+    const mountedTree = tree!;
+    const root = mountedTree.root;
+
+    act(() => {
+      onMessageHandler?.({
+        type: WS_SERVER_EVENTS.STATE,
+        data: {
+          status: 'in_progress',
+          time_remaining: 18,
+          is_eliminated: true,
+          score: 15,
+          correct_count: 1,
+          current_question: {
+            question_id: 303,
+            number: 3,
+            total_questions: 5,
+            text: 'Resync Question',
+            options: [
+              { id: 1, text: 'One' },
+              { id: 2, text: 'Two' },
+            ],
+            time_limit: 20,
+          },
+        },
+      });
+    });
+
+    await waitFor(() => expect(hasText(root, 'Resync Question')).toBe(true), { timeout: 1500 });
+    expect(hasText(root, 'quiz.eliminated')).toBe(true);
+    expect(hasText(root, 'quiz.spectatorHint')).toBe(true);
+
+    sendAnswer.mockClear();
+    act(() => {
+      pressTouchableByText(root, 'One');
+    });
+    expect(sendAnswer).not.toHaveBeenCalled();
+
+    await act(async () => {
+      mountedTree.unmount();
+    });
+  });
+
   it('redirects to results on FINISH message', async () => {
     let tree: ReturnType<typeof renderer.create> | undefined;
     await act(async () => {

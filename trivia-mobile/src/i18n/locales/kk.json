@@ -126,6 +126,7 @@
     "correct": "Дұрыс",
     "incorrect": "Қате",
     "eliminated": "Сіз ойыннан шықтыңыз",
+    "spectatorHint": "Ойынды бақылауды жалғастыра аласыз, бірақ жауап бере алмайсыз",
     "score": "Ұпай: {{score}}",
     "scoreLabel": "Ұпай",
     "adBreakLabel": "Жарнама",

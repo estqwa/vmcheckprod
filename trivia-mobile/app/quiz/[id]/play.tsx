@@ -343,22 +343,32 @@ export default function PlayScreen() {
   );
 
   const renderOption = useCallback(
-    ({ item, index }: ListRenderItemInfo<QuestionOption>) => (
-      <TouchableOpacity
-        style={getOptionStyle(item.id)}
-        onPress={() => handleAnswer(item.id)}
-        disabled={selectedOption !== null || revealedCorrectOption !== null || isOffline || connectionState !== 'connected' || showAdOverlay}
-        accessibilityRole="button"
-        accessibilityLabel={item.text}
-        accessibilityState={{ disabled: selectedOption !== null || revealedCorrectOption !== null || isOffline || connectionState !== 'connected' || showAdOverlay }}
-      >
-        <View style={styles.optionLetterWrap}>
-          <Text style={styles.optionLetter}>{String.fromCharCode(65 + index)}</Text>
-        </View>
-        <Text style={styles.optionText}>{item.text}</Text>
-      </TouchableOpacity>
-    ),
-    [connectionState, getOptionStyle, handleAnswer, isOffline, revealedCorrectOption, selectedOption, showAdOverlay]
+    ({ item, index }: ListRenderItemInfo<QuestionOption>) => {
+      const isDisabled =
+        selectedOption !== null ||
+        revealedCorrectOption !== null ||
+        isEliminated ||
+        isOffline ||
+        connectionState !== 'connected' ||
+        showAdOverlay;
+
+      return (
+        <TouchableOpacity
+          style={getOptionStyle(item.id)}
+          onPress={() => handleAnswer(item.id)}
+          disabled={isDisabled}
+          accessibilityRole="button"
+          accessibilityLabel={item.text}
+          accessibilityState={{ disabled: isDisabled }}
+        >
+          <View style={styles.optionLetterWrap}>
+            <Text style={styles.optionLetter}>{String.fromCharCode(65 + index)}</Text>
+          </View>
+          <Text style={styles.optionText}>{item.text}</Text>
+        </TouchableOpacity>
+      );
+    },
+    [connectionState, getOptionStyle, handleAnswer, isEliminated, isOffline, revealedCorrectOption, selectedOption, showAdOverlay]
   );
 
   const adOverlay = (
@@ -368,24 +378,6 @@ export default function PlayScreen() {
       onAdEnd={hideAdOverlay}
     />
   );
-
-  if (isEliminated) {
-    return (
-      <>
-        {adOverlay}
-        <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
-          <BrandHeader subtitle={t('quiz.play')} onBackPress={() => router.replace('/(tabs)')} />
-          <View style={styles.centerState}>
-            <View style={styles.eliminatedCard}>
-              <Text style={styles.eliminatedIcon}>OUT</Text>
-              <Text style={styles.eliminatedTitle}>{t('quiz.eliminated')}</Text>
-              <Text style={styles.eliminatedScore}>{t('quiz.score', { score })}</Text>
-            </View>
-          </View>
-        </SafeAreaView>
-      </>
-    );
-  }
 
   if (!question) {
     return (
@@ -398,6 +390,12 @@ export default function PlayScreen() {
               <Text style={styles.waitIcon}>...</Text>
               <Text style={styles.waitText}>{t('quiz.waiting')}</Text>
               <Text style={styles.waitSubText}>{connectionState === 'connected' ? t('quiz.ready') : t('quiz.connecting')}</Text>
+              {isEliminated ? (
+                <View style={styles.spectatorBanner}>
+                  <Text style={styles.spectatorTitle}>{t('quiz.eliminated')}</Text>
+                  <Text style={styles.spectatorHint}>{t('quiz.spectatorHint')}</Text>
+                </View>
+              ) : null}
               {isResyncDelayed ? (
                 <View style={styles.waitActions}>
                   <Text style={styles.waitHint}>{t('quiz.reconnecting')}</Text>
@@ -437,6 +435,12 @@ export default function PlayScreen() {
             <View style={styles.connectionRow}>
               <ConnectionStatusPill connectionState={connectionState} isOffline={isOffline} />
             </View>
+            {isEliminated ? (
+              <View style={styles.spectatorBanner}>
+                <Text style={styles.spectatorTitle}>{t('quiz.eliminated')}</Text>
+                <Text style={styles.spectatorHint}>{t('quiz.spectatorHint')}</Text>
+              </View>
+            ) : null}
 
             <View style={styles.scoreboard} accessibilityRole="summary">
               <View style={styles.scoreItem} accessibilityLabel={`${t('quiz.scoreLabel')}: ${score}`}>
@@ -534,6 +538,26 @@ const styles = StyleSheet.create({
   waitSubText: {
     color: palette.textMuted,
   },
+  spectatorBanner: {
+    width: '100%',
+    marginTop: spacing.sm,
+    borderRadius: radii.md,
+    borderWidth: 1,
+    borderColor: '#fed7aa',
+    backgroundColor: '#fff7ed',
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    gap: 2,
+  },
+  spectatorTitle: {
+    color: '#9a3412',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  spectatorHint: {
+    color: '#b45309',
+    fontSize: 12,
+  },
   waitHint: {
     color: palette.textMuted,
     fontSize: 12,
@@ -563,32 +587,6 @@ const styles = StyleSheet.create({
   waitActionButtonSecondaryText: {
     color: palette.text,
     fontWeight: '700',
-  },
-  eliminatedCard: {
-    width: '100%',
-    borderRadius: radii.xl,
-    borderWidth: 1,
-    borderColor: '#fed7aa',
-    backgroundColor: '#fff7ed',
-    alignItems: 'center',
-    padding: spacing.xl,
-    gap: spacing.xs,
-    ...shadow.card,
-  },
-  eliminatedIcon: {
-    color: '#9a3412',
-    fontSize: 24,
-    fontWeight: '800',
-  },
-  eliminatedTitle: {
-    color: '#9a3412',
-    fontSize: 22,
-    fontWeight: '800',
-  },
-  eliminatedScore: {
-    color: '#b45309',
-    fontSize: 16,
-    fontWeight: '600',
   },
   scoreboard: {
     borderRadius: radii.lg,

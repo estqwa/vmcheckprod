@@ -126,6 +126,7 @@
     "correct": "Верно",
     "incorrect": "Неверно",
     "eliminated": "Вы выбыли",
+    "spectatorHint": "Вы можете наблюдать дальше, но отвечать нельзя",
     "score": "Баллы: {{score}}",
     "scoreLabel": "Очки",
     "adBreakLabel": "Реклама",

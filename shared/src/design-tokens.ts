@@ -1,22 +1,22 @@
-// Canonical design tokens shared across web and mobile.
+﻿// Canonical design tokens shared across web and mobile.
 // Values are stored in px (or plain numbers) so each platform
 // can transform them to its preferred units.
 export const designTokens = {
   color: {
-    primary: '#ff6b6b',
-    primaryHover: '#fa5252',
+    primary: '#c24141',
+    primaryHover: '#b91c1c',
     background: '#fafbfc',
     surface: '#ffffff',
     surfaceMuted: '#f3f4f6',
     text: '#4a4a4a',
-    textMuted: '#9ca3af',
+    textMuted: '#6b7280',
     border: '#e5e7eb',
     accentSurface: '#fff0f0',
-    success: '#10b981',
-    warning: '#f59e0b',
+    success: '#15803d',
+    warning: '#b45309',
     danger: '#ef4444',
     info: '#94a3b8',
-    prize: '#16a34a',
+    prize: '#166534',
   },
 
   radius: {

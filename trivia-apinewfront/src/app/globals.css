@@ -1,4 +1,4 @@
-@import "tailwindcss";
+﻿@import "tailwindcss";
 @import "tw-animate-css";
 
 @custom-variant dark (&:is(.dark *));
@@ -6,12 +6,12 @@
 :root {
   /* ====== QazaQuiz Color Palette ====== */
   
-  /* Акцентный цвет (Кнопки и иконки) - Коралловый */
-  --primary: #ff6b6b;
+  /* РђРєС†РµРЅС‚РЅС‹Р№ С†РІРµС‚ (РљРЅРѕРїРєРё Рё РёРєРѕРЅРєРё) - РљРѕСЂР°Р»Р»РѕРІС‹Р№ */
+  --primary: #c24141;
   --primary-foreground: #ffffff;
-  --primary-hover: #fa5252;
+  --primary-hover: #b91c1c;
   
-  /* Фон и поверхности */
+  /* Р¤РѕРЅ Рё РїРѕРІРµСЂС…РЅРѕСЃС‚Рё */
   --background: #fafbfc;
   --foreground: #4a4a4a;
   --card: #ffffff;
@@ -19,55 +19,55 @@
   --popover: #ffffff;
   --popover-foreground: #4a4a4a;
   
-  /* Вторичные цвета */
+  /* Р’С‚РѕСЂРёС‡РЅС‹Рµ С†РІРµС‚Р° */
   --secondary: #f3f4f6;
   --secondary-foreground: #4a4a4a;
   --muted: #f3f4f6;
-  --muted-foreground: #9ca3af;
+  --muted-foreground: #6b7280;
   --accent: #fff0f0;
-  --accent-foreground: #ff6b6b;
+  --accent-foreground: #c24141;
   
-  /* Системные цвета */
+  /* РЎРёСЃС‚РµРјРЅС‹Рµ С†РІРµС‚Р° */
   --destructive: #ef4444;
   --destructive-foreground: #ffffff;
-  --success: #10b981;
+  --success: #15803d;
   --success-foreground: #ffffff;
-  --warning: #f59e0b;
+  --warning: #b45309;
   --warning-foreground: #1f2937;
   
-  /* Границы и кольца */
+  /* Р“СЂР°РЅРёС†С‹ Рё РєРѕР»СЊС†Р° */
   --border: #e5e7eb;
   --input: #e5e7eb;
-  --ring: #ff6b6b;
+  --ring: #c24141;
   
-  /* Графики */
-  --chart-1: #ff6b6b;
+  /* Р“СЂР°С„РёРєРё */
+  --chart-1: #c24141;
   --chart-2: #94a3b8;
   --chart-3: #10b981;
   --chart-4: #f59e0b;
   --chart-5: #8b7e74;
   
-  /* Радиус */
+  /* Р Р°РґРёСѓСЃ */
   --radius: 0.75rem;
   
   /* Sidebar */
   --sidebar: #ffffff;
   --sidebar-foreground: #4a4a4a;
-  --sidebar-primary: #ff6b6b;
+  --sidebar-primary: #c24141;
   --sidebar-primary-foreground: #ffffff;
   --sidebar-accent: #fff0f0;
-  --sidebar-accent-foreground: #ff6b6b;
+  --sidebar-accent-foreground: #c24141;
   --sidebar-border: #e5e7eb;
   --sidebar-ring: #ff6b6b;
   
-  /* Градиент для заголовка */
+  /* Р“СЂР°РґРёРµРЅС‚ РґР»СЏ Р·Р°РіРѕР»РѕРІРєР° */
   --title-gradient: linear-gradient(to right, #8b7e74, #ff8787, #94a3b8);
   
-  /* Фоновый градиент */
+  /* Р¤РѕРЅРѕРІС‹Р№ РіСЂР°РґРёРµРЅС‚ */
   --bg-gradient: linear-gradient(135deg, #ffffff 0%, #f0f4f8 50%, #fff5f5 100%);
 }
 
-/* Темная тема - минимальная поддержка */
+/* РўРµРјРЅР°СЏ С‚РµРјР° - РјРёРЅРёРјР°Р»СЊРЅР°СЏ РїРѕРґРґРµСЂР¶РєР° */
 .dark {
   --background: #1a1a2e;
   --foreground: #f0f0f0;
@@ -75,22 +75,22 @@
   --card-foreground: #f0f0f0;
   --popover: #252540;
   --popover-foreground: #f0f0f0;
-  --primary: #ff6b6b;
+  --primary: #c24141;
   --primary-foreground: #ffffff;
   --secondary: #2a2a45;
   --secondary-foreground: #f0f0f0;
   --muted: #2a2a45;
-  --muted-foreground: #9ca3af;
+  --muted-foreground: #6b7280;
   --accent: #3a2a35;
   --accent-foreground: #ff8787;
   --destructive: #ef4444;
   --destructive-foreground: #ffffff;
   --border: #3a3a5a;
   --input: #3a3a5a;
-  --ring: #ff6b6b;
+  --ring: #c24141;
   --sidebar: #252540;
   --sidebar-foreground: #f0f0f0;
-  --sidebar-primary: #ff6b6b;
+  --sidebar-primary: #c24141;
   --sidebar-primary-foreground: #ffffff;
   --sidebar-accent: #3a2a35;
   --sidebar-accent-foreground: #ff8787;
@@ -155,17 +155,17 @@
   }
 }
 
-/* ====== Кастомные утилиты ====== */
+/* ====== РљР°СЃС‚РѕРјРЅС‹Рµ СѓС‚РёР»РёС‚С‹ ====== */
 
 /* Viewport-aware min-height:
-   100vh — fallback для старых браузеров
-   100dvh — динамическая высота viewport (учитывает адресную строку mobile Safari/Chrome) */
+   100vh вЂ” fallback РґР»СЏ СЃС‚Р°СЂС‹С… Р±СЂР°СѓР·РµСЂРѕРІ
+   100dvh вЂ” РґРёРЅР°РјРёС‡РµСЃРєР°СЏ РІС‹СЃРѕС‚Р° viewport (СѓС‡РёС‚С‹РІР°РµС‚ Р°РґСЂРµСЃРЅСѓСЋ СЃС‚СЂРѕРєСѓ mobile Safari/Chrome) */
 .min-h-app {
   min-height: 100vh;
   min-height: 100dvh;
 }
 
-/* Градиентный текст заголовка */
+/* Р“СЂР°РґРёРµРЅС‚РЅС‹Р№ С‚РµРєСЃС‚ Р·Р°РіРѕР»РѕРІРєР° */
 .text-gradient-hero {
   background: var(--title-gradient);
   -webkit-background-clip: text;
@@ -173,7 +173,7 @@
   background-clip: text;
 }
 
-/* Карточка с тенью */
+/* РљР°СЂС‚РѕС‡РєР° СЃ С‚РµРЅСЊСЋ */
 .card-elevated {
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 
               0 10px 20px -5px rgba(0, 0, 0, 0.05);
@@ -186,7 +186,7 @@
   transform: translateY(-2px);
 }
 
-/* Анимация пульсации для таймера */
+/* РђРЅРёРјР°С†РёСЏ РїСѓР»СЊСЃР°С†РёРё РґР»СЏ С‚Р°Р№РјРµСЂР° */
 @keyframes pulse-soft {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.7; }
@@ -196,7 +196,7 @@
   animation: pulse-soft 2s ease-in-out infinite;
 }
 
-/* Кнопка с красивым hover */
+/* РљРЅРѕРїРєР° СЃ РєСЂР°СЃРёРІС‹Рј hover */
 .btn-coral {
   background: #ff6b6b;
   color: white;
@@ -209,7 +209,7 @@
   box-shadow: 0 4px 12px rgba(255, 107, 107, 0.4);
 }
 
-/* Метка "Live" */
+/* РњРµС‚РєР° "Live" */
 .badge-live {
   background: linear-gradient(135deg, #ff6b6b, #ff8787);
   color: white;
@@ -231,7 +231,7 @@
   animation: pulse-soft 1.5s ease-in-out infinite;
 }
 
-/* Таймер-блок */
+/* РўР°Р№РјРµСЂ-Р±Р»РѕРє */
 .timer-block {
   background: #f8fafc;
   border: 1px solid #e5e7eb;
@@ -253,3 +253,4 @@
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
+

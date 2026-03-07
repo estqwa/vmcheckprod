@@ -9,7 +9,7 @@ import type { QuizResult } from '@trivia/shared';
 import { BrandHeader } from '../../src/components/ui/BrandHeader';
 import { getQuizHistory } from '../../src/api/quizzes';
 import { palette, radii, shadow, spacing, typography } from '../../src/theme/tokens';
-import { formatCurrency } from '../../src/utils/format';
+import { formatCurrency, formatDateTime } from '../../src/utils/format';
 
 const PAGE_SIZE = 20;
 
@@ -26,7 +26,7 @@ function renderStatus(result: QuizResult, t: (key: string, opts?: Record<string,
 }
 
 export default function HistoryScreen() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const router = useRouter();
 
   const {
@@ -66,7 +66,7 @@ export default function HistoryScreen() {
             <Ionicons name={status.icon} size={12} color={status.color} />
             <Text style={[styles.statusBadge, { color: status.color }]}>{status.label}</Text>
           </View>
-          <Text style={styles.dateText}>{new Date(item.completed_at).toLocaleString()}</Text>
+          <Text style={styles.dateText}>{formatDateTime(item.completed_at, i18n.language)}</Text>
         </View>
 
         <View style={styles.metricsRow}>
@@ -96,7 +96,7 @@ export default function HistoryScreen() {
         </TouchableOpacity>
       </View>
     );
-  }, [t, router]);
+  }, [t, i18n.language, router]);
 
   if (isLoading) {
     return (
@@ -255,7 +255,7 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   viewResultButton: {
-    minHeight: 40,
+    minHeight: 44,
     borderRadius: radii.md,
     borderWidth: 1,
     borderColor: palette.border,
@@ -276,3 +276,4 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
 });
+

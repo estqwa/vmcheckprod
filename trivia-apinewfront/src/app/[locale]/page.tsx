@@ -190,7 +190,7 @@ export default function HomePage() {
                                     </div>
                                 </div>
                                 <div className="text-right">
-                                    <p className="text-2xl font-bold text-green-500">
+                                    <p className="text-2xl font-bold text-success">
                                         {formatCurrency(upcomingQuiz.prize_fund || 1000000)}
                                     </p>
                                     <p className="text-xs text-muted-foreground">{tQuiz('prizeFund', { amount: '' })}</p>

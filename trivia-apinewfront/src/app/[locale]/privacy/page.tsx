@@ -1,22 +1,65 @@
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+﻿import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { loadLegalDocument, type LegalBlock } from '@/lib/legalContent';
 
-export default function PrivacyPage() {
-    const version = process.env.NEXT_PUBLIC_LEGAL_PRIVACY_VERSION || '1.0';
+function renderBlock(block: LegalBlock, index: number) {
+  switch (block.type) {
+    case 'heading':
+      return (
+        <h2 key={index} className='text-base font-semibold text-foreground'>
+          {block.text}
+        </h2>
+      );
+    case 'quote':
+      return (
+        <blockquote key={index} className='border-l-2 border-border pl-3 text-sm text-muted-foreground italic'>
+          {block.text}
+        </blockquote>
+      );
+    case 'list':
+      return block.ordered ? (
+        <ol key={index} className='list-decimal space-y-1 pl-5 text-sm leading-6 text-foreground'>
+          {block.items.map((item, itemIndex) => (
+            <li key={itemIndex}>{item}</li>
+          ))}
+        </ol>
+      ) : (
+        <ul key={index} className='list-disc space-y-1 pl-5 text-sm leading-6 text-foreground'>
+          {block.items.map((item, itemIndex) => (
+            <li key={itemIndex}>{item}</li>
+          ))}
+        </ul>
+      );
+    case 'paragraph':
+      return (
+        <p key={index} className='text-sm leading-6 text-foreground'>
+          {block.text}
+        </p>
+      );
+    default:
+      return null;
+  }
+}
 
-    return (
-        <main className="container max-w-3xl mx-auto px-4 py-10">
-            <Card>
-                <CardHeader>
-                    <CardTitle>Privacy Policy</CardTitle>
-                    <p className="text-sm text-muted-foreground">Version {version}</p>
-                </CardHeader>
-                <CardContent className="space-y-4 text-sm leading-6 text-muted-foreground">
-                    <p>We process account, gameplay, device, and security metadata to operate the service, prevent abuse, and support prize distribution.</p>
-                    <p>Email verification and authentication providers may be used to confirm account ownership and secure sign-in.</p>
-                    <p>This page is a rollout placeholder. Replace with approved privacy policy text before production launch and store submission.</p>
-                </CardContent>
-            </Card>
-        </main>
-    );
+export default async function PrivacyPage({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}) {
+  const { locale } = await params;
+  const legal = await loadLegalDocument('privacy', locale);
+
+  return (
+    <main className='container max-w-3xl mx-auto px-4 py-10'>
+      <Card>
+        <CardHeader>
+          <CardTitle>{legal.title}</CardTitle>
+          <p className='text-sm text-muted-foreground'>Version {legal.version}</p>
+        </CardHeader>
+        <CardContent className='space-y-4'>
+          {legal.blocks.map((block, index) => renderBlock(block, index))}
+        </CardContent>
+      </Card>
+    </main>
+  );
 }
 

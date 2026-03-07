@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+﻿import { useCallback, useEffect, useState } from 'react';
 import {
   KeyboardAvoidingView,
   Platform,
@@ -16,9 +16,10 @@ import { BrandHeader } from '../../src/components/ui/BrandHeader';
 import { PrimaryButton } from '../../src/components/ui/PrimaryButton';
 import { useAuth } from '../../src/providers/AuthProvider';
 import { palette, radii, shadow, spacing, typography } from '../../src/theme/tokens';
+import { formatDateTime } from '../../src/utils/format';
 
 export default function VerifyEmailScreen() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const router = useRouter();
   const { user, getEmailVerificationStatus, sendEmailVerificationCode, confirmEmailVerificationCode, isLoading } = useAuth();
 
@@ -43,7 +44,7 @@ export default function VerifyEmailScreen() {
       const apiErr = err as { error?: string };
       setLocalError(apiErr.error || t('auth.verifyStatusLoadError'));
     }
-  }, [getEmailVerificationStatus]);
+  }, [getEmailVerificationStatus, t]);
 
   useEffect(() => {
     void loadStatus();
@@ -127,13 +128,15 @@ export default function VerifyEmailScreen() {
             <View style={styles.metaBox}>
               <Text style={styles.metaText}>{t('auth.verifyAttemptsLeft')}: {attemptsLeft ?? '-'}</Text>
               {cooldown > 0 ? <Text style={styles.metaText}>{t('auth.verifyResendIn')}: {cooldown}s</Text> : null}
-              {expiresAt ? <Text style={styles.metaText}>{t('auth.verifyExpires')}: {new Date(expiresAt).toLocaleString()}</Text> : null}
+              {expiresAt ? <Text style={styles.metaText}>{t('auth.verifyExpires')}: {formatDateTime(expiresAt, i18n.language)}</Text> : null}
             </View>
 
             <TouchableOpacity
               style={[styles.secondaryButton, (cooldown > 0 || isSending || emailVerified) && styles.buttonDisabled]}
               onPress={() => void handleSendCode()}
               disabled={cooldown > 0 || isSending || emailVerified}
+              accessibilityRole="button"
+              accessibilityLabel={t('auth.sendCode')}
             >
               <Text style={styles.secondaryButtonText}>
                 {cooldown > 0 ? `${t('common.resend')} (${cooldown}s)` : t('auth.sendCode')}
@@ -257,3 +260,4 @@ const styles = StyleSheet.create({
     marginTop: spacing.xs,
   },
 });
+

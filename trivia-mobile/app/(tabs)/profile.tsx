@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -115,6 +115,7 @@ export default function ProfileScreen() {
                   style={styles.verifyButton}
                   onPress={() => router.push('/(auth)/verify-email')}
                   accessibilityRole="button"
+                  accessibilityLabel={t('profile.verify')}
                 >
                   <Text style={styles.verifyButtonText}>{t('profile.verify')}</Text>
                 </TouchableOpacity>
@@ -123,6 +124,7 @@ export default function ProfileScreen() {
                   onPress={() => void handleSendVerificationCode()}
                   disabled={emailCooldown > 0 || isEmailBusy}
                   accessibilityRole="button"
+                  accessibilityLabel={emailCooldown > 0 ? t('profile.resend') : t('profile.sendCode')}
                 >
                   <Text style={styles.verifySecondaryButtonText}>
                     {emailCooldown > 0 ? `${t('profile.resend')} ${emailCooldown}s` : t('profile.sendCode')}
@@ -283,7 +285,7 @@ const styles = StyleSheet.create({
   },
   verifyButton: {
     flex: 1,
-    minHeight: 40,
+    minHeight: 44,
     borderRadius: radii.md,
     backgroundColor: palette.primary,
     alignItems: 'center',
@@ -297,7 +299,7 @@ const styles = StyleSheet.create({
   },
   verifySecondaryButton: {
     flex: 1,
-    minHeight: 40,
+    minHeight: 44,
     borderRadius: radii.md,
     borderWidth: 1,
     borderColor: '#fcd34d',
@@ -404,3 +406,4 @@ const styles = StyleSheet.create({
     color: '#b91c1c',
   },
 });
+

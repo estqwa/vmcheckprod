@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
@@ -231,10 +231,10 @@ export default function QuizPlayPage() {
 
     const { status, currentQuestion, selectedAnswer, lastResult, timeRemaining, score, correctCount, isEliminated } = quizState;
 
-    // Получаем текущий язык из cookie
+    // РџРѕР»СѓС‡Р°РµРј С‚РµРєСѓС‰РёР№ СЏР·С‹Рє РёР· cookie
     const locale = useLocale();
 
-    // Локализованный текст вопроса (с fallback на русский)
+    // Р›РѕРєР°Р»РёР·РѕРІР°РЅРЅС‹Р№ С‚РµРєСЃС‚ РІРѕРїСЂРѕСЃР° (СЃ fallback РЅР° СЂСѓСЃСЃРєРёР№)
     const localizedQuestionText = useMemo(() => {
         if (!currentQuestion) return '';
         if (locale === 'kk' && currentQuestion.text_kk) {
@@ -243,7 +243,7 @@ export default function QuizPlayPage() {
         return currentQuestion.text;
     }, [currentQuestion, locale]);
 
-    // Локализованные варианты ответа (с fallback на русский)
+    // Р›РѕРєР°Р»РёР·РѕРІР°РЅРЅС‹Рµ РІР°СЂРёР°РЅС‚С‹ РѕС‚РІРµС‚Р° (СЃ fallback РЅР° СЂСѓСЃСЃРєРёР№)
     const localizedOptions: QuestionOption[] = useMemo(() => {
         if (!currentQuestion) return [];
         if (locale === 'kk' && currentQuestion.options_kk && currentQuestion.options_kk.length > 0) {
@@ -296,7 +296,7 @@ export default function QuizPlayPage() {
                                 <p className="text-xs text-muted-foreground">{t('score').replace('{score}', '')}</p>
                             </div>
                             <div className="text-center">
-                                <p className="text-lg font-bold text-green-600">{correctCount}</p>
+                                <p className="text-lg font-bold text-success">{correctCount}</p>
                                 <p className="text-xs text-muted-foreground">{t('correct')}</p>
                             </div>
                             <div className="text-center">
@@ -414,7 +414,7 @@ export default function QuizPlayPage() {
                                         <p className="text-muted-foreground">{t('score').replace('{score}', '')}</p>
                                     </div>
                                     <div>
-                                        <p className="text-3xl font-bold text-green-600">{correctCount}</p>
+                                        <p className="text-3xl font-bold text-success">{correctCount}</p>
                                         <p className="text-muted-foreground">{t('correct')}</p>
                                     </div>
                                 </div>

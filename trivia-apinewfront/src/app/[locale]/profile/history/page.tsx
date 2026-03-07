@@ -142,7 +142,7 @@ export default function GameHistoryPage() {
                                                         </span>
                                                     )}
                                                     {result.is_winner && result.prize_fund > 0 && (
-                                                        <span className="text-green-600 font-semibold inline-flex items-center gap-1">
+                                                        <span className="text-success font-semibold inline-flex items-center gap-1">
                                                             <Trophy className="w-4 h-4" />
                                                             {formatCurrency(result.prize_fund)}
                                                         </span>

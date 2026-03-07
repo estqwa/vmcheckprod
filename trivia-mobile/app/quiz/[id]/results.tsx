@@ -1,4 +1,5 @@
-﻿import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+﻿import { useEffect } from 'react';
+import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
@@ -9,6 +10,7 @@ import { getMyQuizResult, getQuizResults } from '../../../src/api/quizzes';
 import { BrandHeader } from '../../../src/components/ui/BrandHeader';
 import { palette, radii, shadow, spacing, typography } from '../../../src/theme/tokens';
 import { formatCurrency } from '../../../src/utils/format';
+import { maybeRequestReview } from '../../../src/services/reviewPrompt';
 
 export default function ResultsScreen() {
   const { t } = useTranslation();
@@ -28,6 +30,18 @@ export default function ResultsScreen() {
     queryFn: () => getQuizResults(quizId, 1, 20),
     enabled: Number.isFinite(quizId) && quizId > 0,
   });
+
+  useEffect(() => {
+    if (!myResult || myResultLoading) {
+      return;
+    }
+
+    const hasPositiveCompletedSession =
+      myResult.total_questions > 0 &&
+      (myResult.score > 0 || myResult.correct_answers > 0 || myResult.is_winner || !myResult.is_eliminated);
+
+    void maybeRequestReview(hasPositiveCompletedSession, { cooldownDays: 30 });
+  }, [myResult, myResultLoading]);
 
   if (myResultLoading || standingsLoading) {
     return (
@@ -392,3 +406,4 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
 });
+

@@ -202,7 +202,7 @@ export default function LobbyScreen() {
             )}
           </View>
 
-          <TouchableOpacity style={styles.leaveButton} onPress={() => router.replace('/(tabs)')}>
+          <TouchableOpacity style={styles.leaveButton} onPress={() => router.replace('/(tabs)')} accessibilityRole="button" accessibilityLabel={t('quiz.leaveLobby')}>
             <Text style={styles.leaveButtonText}>{t('quiz.leaveLobby')}</Text>
           </TouchableOpacity>
         </View>
@@ -346,5 +346,4 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
 });
-
 

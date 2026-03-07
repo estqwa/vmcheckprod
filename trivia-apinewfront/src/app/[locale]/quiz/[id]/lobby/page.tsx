@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
@@ -129,9 +129,9 @@ export default function QuizLobbyPage() {
     const getConnectionStatus = () => {
         switch (connectionState) {
             case 'connected':
-                return { Icon: Wifi, text: t('connected') || 'Connected', color: 'text-green-600 bg-green-50', iconClass: 'text-green-600' };
+                return { Icon: Wifi, text: t('connected') || 'Connected', color: 'text-success bg-green-50', iconClass: 'text-success' };
             case 'connecting':
-                return { Icon: Loader2, text: t('connecting') || 'Connecting...', color: 'text-yellow-600 bg-yellow-50', iconClass: 'text-yellow-600 animate-spin' };
+                return { Icon: Loader2, text: t('connecting') || 'Connecting...', color: 'text-warning bg-amber-50', iconClass: 'text-warning animate-spin' };
             case 'reconnecting':
                 return { Icon: Zap, text: t('reconnecting') || 'Reconnecting...', color: 'text-orange-600 bg-orange-50', iconClass: 'text-orange-600' };
             default:
@@ -197,7 +197,7 @@ export default function QuizLobbyPage() {
                         {/* Stats */}
                         <div className="flex justify-center gap-8">
                             <div>
-                                <p className="text-2xl font-bold text-green-600">{playerCount}</p>
+                                <p className="text-2xl font-bold text-success">{playerCount}</p>
                                 <p className="text-muted-foreground text-sm">{t('online') || 'Online'}</p>
                             </div>
                             <div>
@@ -213,7 +213,7 @@ export default function QuizLobbyPage() {
                                     <CheckCircle2 className="w-4 h-4" />
                                     {t('ready') || 'Ready'}
                                 </p>
-                                <p className="text-sm text-green-600/80">
+                                <p className="text-sm text-success/80">
                                     {t('waiting')}
                                 </p>
                             </div>
@@ -248,3 +248,4 @@ export default function QuizLobbyPage() {
         </div>
     );
 }
+

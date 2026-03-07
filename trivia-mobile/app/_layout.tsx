@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+﻿import { useEffect } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Stack, type ErrorBoundaryProps } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
@@ -29,10 +29,10 @@ export function ErrorBoundary({ error, retry }: ErrorBoundaryProps) {
   return (
     <View style={styles.errorContainer}>
       <View style={styles.errorCard}>
-        <Text style={styles.errorTitle}>{i18n.t('error.title', 'Что-то пошло не так')}</Text>
+        <Text style={styles.errorTitle}>{i18n.t('error.title', 'Something went wrong')}</Text>
         <Text style={styles.errorText}>{error.message}</Text>
-        <TouchableOpacity style={styles.retryButton} onPress={retry}>
-          <Text style={styles.retryButtonText}>{i18n.t('error.retry', 'Попробовать снова')}</Text>
+        <TouchableOpacity style={styles.retryButton} onPress={retry} accessibilityRole="button" accessibilityLabel={i18n.t('error.retry', 'Try again')}>
+          <Text style={styles.retryButtonText}>{i18n.t('error.retry', 'Try again')}</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -113,7 +113,7 @@ const styles = StyleSheet.create({
     color: palette.errorTextMuted,
   },
   retryButton: {
-    minHeight: 42,
+    minHeight: 44,
     borderRadius: radii.md,
     backgroundColor: palette.primary,
     alignItems: 'center',
@@ -125,3 +125,4 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
 });
+

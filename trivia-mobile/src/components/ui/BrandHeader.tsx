@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+﻿import type { ReactNode } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
@@ -52,8 +52,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   backButton: {
-    width: 34,
-    height: 34,
+    width: 44,
+    height: 44,
     borderRadius: radii.md,
     alignItems: 'center',
     justifyContent: 'center',
@@ -85,3 +85,4 @@ const styles = StyleSheet.create({
     marginLeft: spacing.md,
   },
 });
+

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+﻿import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   FlatList,
   ScrollView,
@@ -569,7 +569,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
   },
   waitActionButton: {
-    minHeight: 40,
+    minHeight: 44,
     borderRadius: radii.md,
     backgroundColor: palette.primary,
     alignItems: 'center',
@@ -738,3 +738,4 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
 });
+

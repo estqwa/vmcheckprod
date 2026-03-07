@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+﻿import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -9,17 +9,10 @@ import { useAuth } from '../../src/providers/AuthProvider';
 import { BrandHeader } from '../../src/components/ui/BrandHeader';
 import { getDeviceId } from '../../src/services/tokenService';
 import { palette, radii, shadow, spacing, typography } from '../../src/theme/tokens';
-
-function formatDate(value: string): string {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return value;
-  }
-  return date.toLocaleString();
-}
+import { formatDateTime } from '../../src/utils/format';
 
 export default function SessionsScreen() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const router = useRouter();
   const queryClient = useQueryClient();
   const { getActiveSessions, revokeSession, logoutAllDevices, logout } = useAuth();
@@ -127,7 +120,7 @@ export default function SessionsScreen() {
                   <Text style={styles.sessionTitle}>
                     {isCurrentSession ? t('profile.thisDevice') : `${t('profile.device')} #${session.id}`}
                   </Text>
-                  <Text style={styles.sessionMeta}>{t('profile.expiresAt')}: {formatDate(session.expires_at)}</Text>
+                  <Text style={styles.sessionMeta}>{t('profile.expiresAt')}: {formatDateTime(session.expires_at, i18n.language)}</Text>
                 </View>
 
                 <Text style={styles.sessionRow} numberOfLines={1}>
@@ -259,7 +252,7 @@ const styles = StyleSheet.create({
   },
   revokeButton: {
     marginTop: spacing.sm,
-    minHeight: 40,
+    minHeight: 44,
     borderRadius: radii.md,
     borderWidth: 1,
     borderColor: '#fecaca',
@@ -302,3 +295,4 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
 });
+

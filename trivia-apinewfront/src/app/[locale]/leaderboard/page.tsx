@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
@@ -41,7 +41,7 @@ export default function LeaderboardPage() {
     };
 
     const getRankBadge = (rank: number): React.ReactNode => {
-        if (rank === 1) return <Trophy className="w-7 h-7 text-yellow-600" />;
+        if (rank === 1) return <Trophy className="w-7 h-7 text-yellow-800" />;
         if (rank === 2) return <Medal className="w-7 h-7 text-slate-500" />;
         if (rank === 3) return <Award className="w-7 h-7 text-amber-700" />;
         return <span className="text-lg font-bold text-muted-foreground">#{rank}</span>;
@@ -106,7 +106,7 @@ export default function LeaderboardPage() {
                                                 <p className="text-xs text-muted-foreground">{t('wins')}</p>
                                             </div>
                                             <div className="text-right min-w-[70px]">
-                                                <p className="font-bold text-green-600">{formatCurrency(entry.total_prize_won, locale)}</p>
+                                                <p className="font-bold text-success">{formatCurrency(entry.total_prize_won, locale)}</p>
                                                 <p className="text-xs text-muted-foreground">{t('prize')}</p>
                                             </div>
                                         </div>
@@ -148,3 +148,4 @@ export default function LeaderboardPage() {
         </div>
     );
 }
+

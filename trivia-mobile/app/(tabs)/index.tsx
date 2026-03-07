@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useCallback, useState, type ReactElement, memo } from 'react';
+﻿import { useEffect, useMemo, useCallback, useState, type ReactElement, memo } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -19,7 +19,7 @@ import { BrandHeader } from '../../src/components/ui/BrandHeader';
 import { TimerBlock } from '../../src/components/ui/TimerBlock';
 import { palette, radii, shadow, spacing, typography } from '../../src/theme/tokens';
 import { getCountdown } from '../../src/utils/time';
-import { formatCurrency } from '../../src/utils/format';
+import { formatCurrency, formatDateTime } from '../../src/utils/format';
 
 
 
@@ -59,9 +59,9 @@ function getQuizStatusStyles(status: string) {
   }
 }
 
-/** Countdown-таймер. Обновляется раз в секунду, не вызывая ререндер родителя. */
+/** Countdown-С‚Р°Р№РјРµСЂ. РћР±РЅРѕРІР»СЏРµС‚СЃСЏ СЂР°Р· РІ СЃРµРєСѓРЅРґСѓ, РЅРµ РІС‹Р·С‹РІР°СЏ СЂРµСЂРµРЅРґРµСЂ СЂРѕРґРёС‚РµР»СЏ. */
 const UpcomingCountdown = memo(function UpcomingCountdown({ scheduledTime }: { scheduledTime: string }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [cd, setCd] = useState(() => getCountdown(scheduledTime));
 
   useEffect(() => {
@@ -85,7 +85,7 @@ const UpcomingCountdown = memo(function UpcomingCountdown({ scheduledTime }: { s
 });
 
 export default function HomeScreen() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const router = useRouter();
 
   const { data: rawQuizzes = [], isLoading, refetch, isRefetching } = useQuery({
@@ -124,12 +124,12 @@ export default function HomeScreen() {
 
           <View style={styles.quizCardBottom}>
             <Text style={styles.quizCardMeta}>Q {item.question_count} {t('quiz.questions')}</Text>
-            <Text style={styles.quizCardMeta}>{new Date(item.scheduled_time).toLocaleString()}</Text>
+            <Text style={styles.quizCardMeta}>{formatDateTime(item.scheduled_time, i18n.language)}</Text>
           </View>
         </TouchableOpacity>
       );
     },
-    [router, t]
+    [router, t, i18n.language]
   );
 
   const headerContent = useMemo(
@@ -145,7 +145,7 @@ export default function HomeScreen() {
           <Text style={styles.heroSubtitle}>{t('home.description')}</Text>
 
           {upcomingQuiz ? (
-            <TouchableOpacity style={styles.primaryCta} onPress={() => router.push(`/quiz/${upcomingQuiz.id}/lobby`)}>
+            <TouchableOpacity style={styles.primaryCta} onPress={() => router.push(`/quiz/${upcomingQuiz.id}/lobby`)} accessibilityRole="button" accessibilityLabel={t('home.joinNow')}>
               <Text style={styles.primaryCtaText}>{t('home.joinNow')}</Text>
             </TouchableOpacity>
           ) : (
@@ -199,7 +199,7 @@ export default function HomeScreen() {
 
             <UpcomingCountdown scheduledTime={upcomingQuiz.scheduled_time} />
 
-            <TouchableOpacity style={styles.secondaryCta} onPress={() => router.push(`/quiz/${upcomingQuiz.id}/lobby`)}>
+            <TouchableOpacity style={styles.secondaryCta} onPress={() => router.push(`/quiz/${upcomingQuiz.id}/lobby`)} accessibilityRole="button" accessibilityLabel={t('home.openLobby')}>
               <Text style={styles.secondaryCtaText}>{t('home.openLobby')}</Text>
             </TouchableOpacity>
           </View>
@@ -549,3 +549,4 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
 });
+

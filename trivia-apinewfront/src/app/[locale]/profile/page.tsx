@@ -211,8 +211,8 @@ function ProfileContent() {
                                 <p className="text-3xl font-bold text-foreground">{user.total_score}</p>
                                 <p className="text-muted-foreground text-sm">{t('totalScore')}</p>
                             </div>
-                            <div className="bg-green-500/10 rounded-xl p-4 text-center">
-                                <p className="text-3xl font-bold text-green-600">{formatCurrency(user.total_prize_won, locale)}</p>
+                            <div className="bg-success/10 rounded-xl p-4 text-center">
+                                <p className="text-3xl font-bold text-success">{formatCurrency(user.total_prize_won, locale)}</p>
                                 <p className="text-muted-foreground text-sm">{t('totalPrize')}</p>
                             </div>
                         </div>

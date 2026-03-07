@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
@@ -121,7 +121,7 @@ export default function QuizResultsPage() {
                             }`}>
                             <CardTitle className="flex items-center gap-2">
                                 {myResult.is_winner ? (
-                                    <Trophy className="w-6 h-6 text-yellow-600" />
+                                    <Trophy className="w-6 h-6 text-yellow-800" />
                                 ) : myResult.is_eliminated ? (
                                     <ShieldAlert className="w-6 h-6 text-orange-600" />
                                 ) : (
@@ -148,7 +148,7 @@ export default function QuizResultsPage() {
                                 </div>
                                 {myResult.prize_fund > 0 && (
                                     <div className="bg-green-50 rounded-xl p-4 text-center">
-                                        <p className="text-3xl font-bold text-green-600">{formatCurrency(myResult.prize_fund, locale)}</p>
+                                        <p className="text-3xl font-bold text-success">{formatCurrency(myResult.prize_fund, locale)}</p>
                                         <p className="text-muted-foreground text-sm">{tLeaderboard('prize')}</p>
                                     </div>
                                 )}
@@ -200,7 +200,7 @@ export default function QuizResultsPage() {
                                                 {result.rank <= 3 ? (
                                                     <span className="text-2xl inline-flex items-center justify-center">
                                                         {result.rank === 1 ? (
-                                                            <Trophy className="w-6 h-6 text-yellow-600" />
+                                                            <Trophy className="w-6 h-6 text-yellow-800" />
                                                         ) : result.rank === 2 ? (
                                                             <Medal className="w-6 h-6 text-slate-500" />
                                                         ) : (
@@ -287,5 +287,4 @@ export default function QuizResultsPage() {
         </div>
     );
 }
-
 

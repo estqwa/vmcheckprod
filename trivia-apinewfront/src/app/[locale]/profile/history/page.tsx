@@ -70,7 +70,7 @@ export default function GameHistoryPage() {
 
     return (
         <ProtectedRoute>
-            <div className="min-h-app pb-24 md:pb-0">
+            <div className="min-h-app mobile-nav-safe-area">
                 <PageHeader active='profile' />
 
                 {/* Content */}
@@ -193,4 +193,5 @@ export default function GameHistoryPage() {
         </ProtectedRoute>
     );
 }
+
 

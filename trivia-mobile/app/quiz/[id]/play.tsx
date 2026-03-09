@@ -551,16 +551,16 @@ const styles = StyleSheet.create({
   },
   spectatorTitle: {
     color: '#9a3412',
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '700',
   },
   spectatorHint: {
     color: '#b45309',
-    fontSize: 12,
+    fontSize: 13,
   },
   waitHint: {
     color: palette.textMuted,
-    fontSize: 12,
+    fontSize: 13,
     marginTop: spacing.xs,
   },
   waitActions: {
@@ -594,7 +594,7 @@ const styles = StyleSheet.create({
     borderColor: palette.border,
     backgroundColor: palette.surface,
     flexDirection: 'row',
-    paddingVertical: spacing.sm,
+    paddingVertical: spacing.md,
     ...shadow.card,
   },
   scoreItem: {
@@ -613,7 +613,7 @@ const styles = StyleSheet.create({
   },
   scoreLabel: {
     color: palette.textMuted,
-    fontSize: 11,
+    fontSize: 12,
   },
   questionCard: {
     borderRadius: radii.xl,
@@ -631,7 +631,7 @@ const styles = StyleSheet.create({
   },
   questionCounter: {
     color: '#64748b',
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '700',
   },
   timerBadge: {
@@ -738,4 +738,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
 });
+
+
 

@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { createContext, useContext, useState, useCallback, ReactNode, useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
@@ -55,14 +55,14 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: ReactNode }) {
     const queryClient = useQueryClient();
 
-    // Используем TanStack Query для данных пользователя
+    // РСЃРїРѕР»СЊР·СѓРµРј TanStack Query РґР»СЏ РґР°РЅРЅС‹С… РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ
     const { data: user, isLoading: isQueryLoading, refetch } = useUserQuery();
 
-    // Локальное состояние для ошибок и loading при login/register
+    // Р›РѕРєР°Р»СЊРЅРѕРµ СЃРѕСЃС‚РѕСЏРЅРёРµ РґР»СЏ РѕС€РёР±РѕРє Рё loading РїСЂРё login/register
     const [error, setError] = useState<string | null>(null);
     const [isAuthAction, setIsAuthAction] = useState(false);
 
-    // Комбинированный loading state
+    // РљРѕРјР±РёРЅРёСЂРѕРІР°РЅРЅС‹Р№ loading state
     const isLoading = isQueryLoading || isAuthAction;
 
     // Check if user is admin (based on role from backend)
@@ -70,7 +70,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const isAuthenticated = !!user;
     const csrfToken = getCsrfToken();
 
-    // Fetch CSRF token при наличии пользователя
+    // Fetch CSRF token РїСЂРё РЅР°Р»РёС‡РёРё РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ
     useEffect(() => {
         if (user) {
             fetchCsrfToken().catch(() => {
@@ -84,11 +84,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setError(null);
         try {
             const response = await apiLogin({ email, password });
-            // Обновляем кеш TanStack Query с данными пользователя
+            // РћР±РЅРѕРІР»СЏРµРј РєРµС€ TanStack Query СЃ РґР°РЅРЅС‹РјРё РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ
             queryClient.setQueryData(userQueryKey, response.user);
         } catch (err: unknown) {
             const error = err as { error?: string };
-            setError(error.error || 'Ошибка входа');
+            setError(error.error || 'РћС€РёР±РєР° РІС…РѕРґР°');
             throw err;
         } finally {
             setIsAuthAction(false);
@@ -100,11 +100,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setError(null);
         try {
             const response = await apiRegister(data);
-            // Обновляем кеш TanStack Query с данными пользователя
+            // РћР±РЅРѕРІР»СЏРµРј РєРµС€ TanStack Query СЃ РґР°РЅРЅС‹РјРё РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ
             queryClient.setQueryData(userQueryKey, response.user);
         } catch (err: unknown) {
             const error = err as { error?: string };
-            setError(error.error || 'Ошибка регистрации');
+            setError(error.error || 'РћС€РёР±РєР° СЂРµРіРёСЃС‚СЂР°С†РёРё');
             throw err;
         } finally {
             setIsAuthAction(false);
@@ -120,7 +120,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             return response.user;
         } catch (err: unknown) {
             const apiErr = err as { error?: string };
-            setError(apiErr.error || 'Ошибка входа через Google');
+            setError(apiErr.error || 'РћС€РёР±РєР° РІС…РѕРґР° С‡РµСЂРµР· Google');
             throw err;
         } finally {
             setIsAuthAction(false);
@@ -136,7 +136,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             return response.user;
         } catch (err: unknown) {
             const apiErr = err as { error?: string };
-            setError(apiErr.error || 'Ошибка привязки Google');
+            setError(apiErr.error || 'РћС€РёР±РєР° РїСЂРёРІСЏР·РєРё Google');
             throw err;
         } finally {
             setIsAuthAction(false);
@@ -150,7 +150,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         } catch {
             // Even if logout fails on server, clear local state
         } finally {
-            // Очищаем кеш пользователя
+            // РћС‡РёС‰Р°РµРј РєРµС€ РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ
             queryClient.setQueryData(userQueryKey, null);
             queryClient.removeQueries({ queryKey: userQueryKey });
             setIsAuthAction(false);
@@ -161,9 +161,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setIsAuthAction(true);
         try {
             await apiDeleteAccount(data);
-        } finally {
             queryClient.setQueryData(userQueryKey, null);
             queryClient.removeQueries({ queryKey: userQueryKey });
+        } finally {
             setIsAuthAction(false);
         }
     }, [queryClient]);
@@ -194,7 +194,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const updateProfile = useCallback(async (data: { username?: string; profile_picture?: string }) => {
         await apiUpdateProfile(data);
-        // Обновляем локальный кеш с новыми данными профиля
+        // РћР±РЅРѕРІР»СЏРµРј Р»РѕРєР°Р»СЊРЅС‹Р№ РєРµС€ СЃ РЅРѕРІС‹РјРё РґР°РЅРЅС‹РјРё РїСЂРѕС„РёР»СЏ
         if (user) {
             queryClient.setQueryData(userQueryKey, {
                 ...user,
@@ -204,7 +204,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
     }, [user, queryClient]);
 
-    // Функция для ручной ревалидации данных пользователя
+    // Р¤СѓРЅРєС†РёСЏ РґР»СЏ СЂСѓС‡РЅРѕР№ СЂРµРІР°Р»РёРґР°С†РёРё РґР°РЅРЅС‹С… РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ
     const refetchUser = useCallback(() => {
         refetch();
     }, [refetch]);
@@ -241,3 +241,4 @@ export function useAuth() {
     }
     return context;
 }
+

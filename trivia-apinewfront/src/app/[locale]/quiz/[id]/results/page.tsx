@@ -93,7 +93,7 @@ export default function QuizResultsPage() {
     }
 
     return (
-        <div className="min-h-app pb-24 md:pb-0">
+        <div className="min-h-app mobile-nav-safe-area">
             <PageHeader
                 rightSlot={(
                     <Button variant='ghost' onClick={() => router.push('/')} className='flex items-center gap-2'>
@@ -287,4 +287,5 @@ export default function QuizResultsPage() {
         </div>
     );
 }
+
 

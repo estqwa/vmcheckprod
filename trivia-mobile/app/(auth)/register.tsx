@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react';
+﻿import { useEffect, useState } from 'react';
 import {
   Alert,
   KeyboardAvoidingView,
   Platform,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -167,6 +168,7 @@ export default function RegisterScreen() {
       <KeyboardAvoidingView
         style={styles.keyboardWrapper}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? spacing.lg : 0}
       >
         <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
           <View style={styles.card}>
@@ -183,7 +185,6 @@ export default function RegisterScreen() {
               </View>
             ) : null}
 
-            {/* First + Last name */}
             <View style={styles.row}>
               <View style={[styles.fieldGroup, styles.halfField]}>
                 <Text style={styles.label}>{t('auth.firstName')}</Text>
@@ -236,19 +237,20 @@ export default function RegisterScreen() {
               />
             </View>
 
-            {/* Birth date */}
             <View style={styles.fieldGroup}>
               <Text style={styles.label}>{t('auth.birthDate')}</Text>
-              <TouchableOpacity
-                style={styles.input}
+              <Pressable
+                style={({ pressed }) => [styles.dateField, pressed ? styles.dateFieldPressed : null]}
                 onPress={() => setShowDatePicker(true)}
+                hitSlop={6}
+                accessibilityRole="button"
                 accessibilityLabel={t('auth.birthDate')}
               >
-                <Text style={{ color: birthDate ? palette.text : palette.textMuted, lineHeight: 48 }}>
+                <Text style={[styles.dateValue, !birthDate ? styles.datePlaceholder : null]}>
                   {birthDate ? formatDate(birthDate) : 'YYYY-MM-DD'}
                 </Text>
-              </TouchableOpacity>
-              {showDatePicker && (
+              </Pressable>
+              {showDatePicker ? (
                 <DateTimePicker
                   value={birthDate || new Date(2000, 0, 1)}
                   mode="date"
@@ -258,10 +260,9 @@ export default function RegisterScreen() {
                     if (date) setBirthDate(date);
                   }}
                 />
-              )}
+              ) : null}
             </View>
 
-            {/* Gender */}
             <View style={styles.fieldGroup}>
               <Text style={styles.label}>{t('auth.gender')}</Text>
               <View style={styles.pickerWrapper}>
@@ -283,7 +284,7 @@ export default function RegisterScreen() {
               <Text style={styles.label}>{t('auth.password')}</Text>
               <TextInput
                 style={styles.input}
-                placeholder="••••••••"
+                placeholder="вЂўвЂўвЂўвЂўвЂўвЂўвЂўвЂў"
                 placeholderTextColor={palette.textMuted}
                 value={password}
                 onChangeText={(v) => { setPassword(v); clearErrors(); }}
@@ -296,7 +297,7 @@ export default function RegisterScreen() {
               <Text style={styles.label}>{t('auth.confirmPassword')}</Text>
               <TextInput
                 style={styles.input}
-                placeholder="••••••••"
+                placeholder="вЂўвЂўвЂўвЂўвЂўвЂўвЂўвЂў"
                 placeholderTextColor={palette.textMuted}
                 value={confirmPassword}
                 onChangeText={(v) => { setConfirmPassword(v); clearErrors(); }}
@@ -305,50 +306,55 @@ export default function RegisterScreen() {
               />
             </View>
 
-            {/* Legal checkboxes */}
-            <View style={styles.checkboxRow}>
-              <TouchableOpacity
-                onPress={() => setTosAccepted(!tosAccepted)}
-                accessibilityRole="checkbox"
-                accessibilityState={{ checked: tosAccepted }}
-              >
-                <Ionicons
-                  name={tosAccepted ? 'checkbox' : 'square-outline'}
-                  size={22}
-                  color={tosAccepted ? palette.primary : palette.textMuted}
-                />
-              </TouchableOpacity>
-              <View style={styles.checkboxTextWrap}>
-                <Text style={styles.checkboxLabel}>
-                  {t('auth.acceptTos')}
-                </Text>
-                <TouchableOpacity onPress={() => router.push('/terms')} accessibilityRole="link">
+            <Pressable
+              style={({ pressed }) => [
+                styles.consentCard,
+                tosAccepted ? styles.consentCardChecked : null,
+                pressed ? styles.consentCardPressed : null,
+              ]}
+              onPress={() => { setTosAccepted(!tosAccepted); clearErrors(); }}
+              hitSlop={6}
+              accessibilityRole="checkbox"
+              accessibilityState={{ checked: tosAccepted }}
+              accessibilityLabel={t('auth.acceptTos')}
+            >
+              <Ionicons
+                name={tosAccepted ? 'checkbox' : 'square-outline'}
+                size={22}
+                color={tosAccepted ? palette.primary : palette.textMuted}
+              />
+              <View style={styles.consentContent}>
+                <Text style={styles.checkboxLabel}>{t('auth.acceptTos')}</Text>
+                <TouchableOpacity onPress={() => router.push('/terms')} accessibilityRole="link" hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
                   <Text style={styles.inlineLink}>{t('auth.termsLink')}</Text>
                 </TouchableOpacity>
               </View>
-            </View>
+            </Pressable>
 
-            <View style={styles.checkboxRow}>
-              <TouchableOpacity
-                onPress={() => setPrivacyAccepted(!privacyAccepted)}
-                accessibilityRole="checkbox"
-                accessibilityState={{ checked: privacyAccepted }}
-              >
-                <Ionicons
-                  name={privacyAccepted ? 'checkbox' : 'square-outline'}
-                  size={22}
-                  color={privacyAccepted ? palette.primary : palette.textMuted}
-                />
-              </TouchableOpacity>
-              <View style={styles.checkboxTextWrap}>
-                <Text style={styles.checkboxLabel}>
-                  {t('auth.acceptPrivacy')}
-                </Text>
-                <TouchableOpacity onPress={() => router.push('/privacy')} accessibilityRole="link">
+            <Pressable
+              style={({ pressed }) => [
+                styles.consentCard,
+                privacyAccepted ? styles.consentCardChecked : null,
+                pressed ? styles.consentCardPressed : null,
+              ]}
+              onPress={() => { setPrivacyAccepted(!privacyAccepted); clearErrors(); }}
+              hitSlop={6}
+              accessibilityRole="checkbox"
+              accessibilityState={{ checked: privacyAccepted }}
+              accessibilityLabel={t('auth.acceptPrivacy')}
+            >
+              <Ionicons
+                name={privacyAccepted ? 'checkbox' : 'square-outline'}
+                size={22}
+                color={privacyAccepted ? palette.primary : palette.textMuted}
+              />
+              <View style={styles.consentContent}>
+                <Text style={styles.checkboxLabel}>{t('auth.acceptPrivacy')}</Text>
+                <TouchableOpacity onPress={() => router.push('/privacy')} accessibilityRole="link" hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
                   <Text style={styles.inlineLink}>{t('auth.privacyLink')}</Text>
                 </TouchableOpacity>
               </View>
-            </View>
+            </Pressable>
 
             <PrimaryButton title={t('auth.registerButton')} loading={isLoading} onPress={handleSubmit} />
 
@@ -390,6 +396,7 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     justifyContent: 'center',
     padding: spacing.xl,
+    paddingBottom: spacing.xxl,
   },
   card: {
     backgroundColor: palette.surface,
@@ -455,6 +462,25 @@ const styles = StyleSheet.create({
     color: palette.text,
     fontSize: 15,
   },
+  dateField: {
+    minHeight: 48,
+    borderRadius: radii.md,
+    borderWidth: 1,
+    borderColor: palette.border,
+    backgroundColor: palette.surface,
+    paddingHorizontal: spacing.md,
+    justifyContent: 'center',
+  },
+  dateFieldPressed: {
+    opacity: 0.92,
+  },
+  dateValue: {
+    color: palette.text,
+    fontSize: 15,
+  },
+  datePlaceholder: {
+    color: palette.textMuted,
+  },
   pickerWrapper: {
     borderRadius: radii.md,
     borderWidth: 1,
@@ -466,28 +492,36 @@ const styles = StyleSheet.create({
     height: 48,
     color: palette.text,
   },
-  checkboxRow: {
+  consentCard: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: 8,
+    gap: 10,
+    borderRadius: radii.lg,
+    borderWidth: 1,
+    borderColor: palette.border,
+    backgroundColor: palette.surface,
+    padding: spacing.md,
   },
-  checkboxTextWrap: {
+  consentCardChecked: {
+    borderColor: palette.primary,
+    backgroundColor: palette.accentSurface,
+  },
+  consentCardPressed: {
+    opacity: 0.92,
+  },
+  consentContent: {
     flex: 1,
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 8,
+    gap: 6,
   },
   checkboxLabel: {
-    color: palette.textMuted,
+    color: palette.text,
     fontSize: 13,
-    flex: 1,
-    paddingTop: 2,
+    lineHeight: 18,
   },
   inlineLink: {
     color: palette.primary,
     fontSize: 13,
     fontWeight: '700',
-    paddingTop: 2,
   },
   switchRow: {
     marginTop: spacing.sm,

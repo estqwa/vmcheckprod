@@ -295,7 +295,7 @@ const styles = StyleSheet.create({
   },
   liveText: {
     color: palette.primary,
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '700',
   },
   heroTitle: {
@@ -351,7 +351,7 @@ const styles = StyleSheet.create({
   },
   howToTitle: {
     color: palette.text,
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: '700',
     marginBottom: 2,
   },
@@ -382,7 +382,7 @@ const styles = StyleSheet.create({
   nextQuizHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     gap: spacing.md,
   },
   nextQuizTitleWrap: {
@@ -412,7 +412,7 @@ const styles = StyleSheet.create({
   },
   nextQuizMeta: {
     color: palette.textMuted,
-    fontSize: 12,
+    fontSize: 13,
   },
   prizeValue: {
     color: palette.prize,
@@ -422,7 +422,7 @@ const styles = StyleSheet.create({
   },
   prizeLabel: {
     color: palette.textMuted,
-    fontSize: 11,
+    fontSize: 12,
     textAlign: 'right',
   },
   nextQuizDescription: {
@@ -432,7 +432,7 @@ const styles = StyleSheet.create({
   countdownLabel: {
     color: palette.textMuted,
     textAlign: 'center',
-    fontSize: 13,
+    fontSize: 14,
   },
   timerRow: {
     flexDirection: 'row',
@@ -549,4 +549,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
 });
+
+
 

@@ -48,15 +48,13 @@ export default function LeaderboardPage() {
     };
 
     return (
-        <div className="min-h-app pb-24 md:pb-0">
+        <div className="min-h-app mobile-nav-safe-area">
             <PageHeader active="leaderboard" />
 
             <main className="container max-w-3xl mx-auto px-4 py-8">
-                <div className="flex items-center justify-between mb-8">
-                    <div>
-                        <h1 className="text-3xl font-bold">{t('title')}</h1>
-                        <p className="text-muted-foreground">{t('subtitle') || 'Best QazaQuiz players'}</p>
-                    </div>
+                <div className="mb-8">
+                    <h1 className="text-3xl font-bold">{t('title')}</h1>
+                    <p className="text-muted-foreground">{t('subtitle') || 'Best QazaQuiz players'}</p>
                 </div>
 
                 <Card className="card-elevated border-0 rounded-2xl">
@@ -70,7 +68,7 @@ export default function LeaderboardPage() {
                         {isLoading ? (
                             <div className="space-y-4">
                                 {[...Array(5)].map((_, i) => (
-                                    <Skeleton key={i} className="h-20 w-full rounded-xl" />
+                                    <Skeleton key={i} className="h-24 w-full rounded-xl" />
                                 ))}
                             </div>
                         ) : entries.length === 0 ? (
@@ -83,31 +81,34 @@ export default function LeaderboardPage() {
                                 {entries.map((entry) => (
                                     <div
                                         key={entry.user_id}
-                                        className={`flex items-center gap-4 p-4 rounded-xl border-2 transition-all ${getRankStyle(entry.rank)}`}
+                                        className={`rounded-xl border-2 p-4 transition-all ${getRankStyle(entry.rank)}`}
                                     >
-                                        <div className="w-12 text-center flex-shrink-0 flex items-center justify-center">
-                                            {getRankBadge(entry.rank)}
-                                        </div>
-
-                                        <Avatar className="h-12 w-12 border-2 border-white shadow-sm">
-                                            <AvatarImage src={entry.profile_picture} />
-                                            <AvatarFallback className="bg-primary/10 text-primary font-medium">
-                                                {entry.username.substring(0, 2).toUpperCase()}
-                                            </AvatarFallback>
-                                        </Avatar>
-                                        <div className="flex-1 min-w-0">
-                                            <p className="font-semibold text-foreground truncate">{entry.username}</p>
-                                            <p className="text-sm text-muted-foreground">{entry.wins_count} {t('wins')}</p>
-                                        </div>
-
                                         <div className="flex items-center gap-4">
-                                            <div className="text-right">
-                                                <p className="font-bold text-primary">{entry.wins_count}</p>
-                                                <p className="text-xs text-muted-foreground">{t('wins')}</p>
+                                            <div className="flex w-12 flex-shrink-0 items-center justify-center text-center">
+                                                {getRankBadge(entry.rank)}
                                             </div>
-                                            <div className="text-right min-w-[70px]">
-                                                <p className="font-bold text-success">{formatCurrency(entry.total_prize_won, locale)}</p>
-                                                <p className="text-xs text-muted-foreground">{t('prize')}</p>
+
+                                            <Avatar className="h-12 w-12 border-2 border-white shadow-sm">
+                                                <AvatarImage src={entry.profile_picture} />
+                                                <AvatarFallback className="bg-primary/10 text-primary font-medium">
+                                                    {entry.username.substring(0, 2).toUpperCase()}
+                                                </AvatarFallback>
+                                            </Avatar>
+
+                                            <div className="min-w-0 flex-1">
+                                                <p className="truncate font-semibold text-foreground">{entry.username}</p>
+                                                <p className="text-sm text-muted-foreground">#{entry.rank}</p>
+                                            </div>
+                                        </div>
+
+                                        <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                                            <div className="rounded-xl bg-secondary/50 px-3 py-2">
+                                                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{t('wins')}</p>
+                                                <p className="mt-1 text-lg font-bold text-primary">{entry.wins_count}</p>
+                                            </div>
+                                            <div className="rounded-xl bg-green-50 px-3 py-2">
+                                                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{t('prize')}</p>
+                                                <p className="mt-1 text-lg font-bold text-success break-words">{formatCurrency(entry.total_prize_won, locale)}</p>
                                             </div>
                                         </div>
                                     </div>
@@ -115,8 +116,8 @@ export default function LeaderboardPage() {
                             </div>
                         )}
 
-                        {totalPages > 1 && (
-                            <div className="flex justify-center gap-2 mt-8">
+                        {totalPages > 1 ? (
+                            <div className="mt-8 flex justify-center gap-2">
                                 <Button
                                     variant="outline"
                                     size="sm"
@@ -139,7 +140,7 @@ export default function LeaderboardPage() {
                                     <ChevronRight className="h-4 w-4" />
                                 </Button>
                             </div>
-                        )}
+                        ) : null}
                     </CardContent>
                 </Card>
             </main>
@@ -148,4 +149,3 @@ export default function LeaderboardPage() {
         </div>
     );
 }
-

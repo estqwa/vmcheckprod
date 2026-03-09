@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
@@ -15,7 +15,6 @@ export function LanguageSwitcher() {
     const router = useRouter();
     const { user } = useAuth();
 
-    // Инициализация из cookie или user.language
     useEffect(() => {
         const cookies = document.cookie.split(';');
         const localeCookie = cookies.find(c => c.trim().startsWith(`${LOCALE_COOKIE_NAME}=`));
@@ -34,16 +33,13 @@ export function LanguageSwitcher() {
 
         setIsLoading(true);
         try {
-            // Сохраняем в cookie для middleware
             document.cookie = `${LOCALE_COOKIE_NAME}=${newLocale}; path=/; max-age=${60 * 60 * 24 * 365}`;
             setCurrentLocale(newLocale);
 
-            // Если пользователь авторизован — синхронизируем с БД
             if (user) {
                 await updateUserLanguage(newLocale);
             }
 
-            // Перезагружаем страницу для применения нового языка
             router.refresh();
         } catch (error) {
             console.error('Failed to switch language:', error);
@@ -53,36 +49,38 @@ export function LanguageSwitcher() {
     };
 
     return (
-        <div className="flex items-center gap-1 rounded-lg bg-muted p-1">
+        <div className="inline-flex min-h-10 items-center gap-1 rounded-xl border border-border/70 bg-muted/80 p-1 shadow-sm">
             <button
+                type="button"
                 onClick={() => switchLanguage('ru')}
                 disabled={isLoading}
-                className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${currentLocale === 'ru'
+                aria-pressed={currentLocale === 'ru'}
+                className={`rounded-lg px-3 py-1.5 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${currentLocale === 'ru'
                     ? 'bg-primary text-primary-foreground shadow-sm'
-                    : 'text-muted-foreground hover:text-foreground'
+                    : 'bg-white/70 text-slate-700 hover:bg-white hover:text-foreground'
                     }`}
-                aria-label="Русский язык"
             >
                 RU
+                <span className="sr-only">, русский язык</span>
             </button>
             <button
+                type="button"
                 onClick={() => switchLanguage('kk')}
                 disabled={isLoading}
-                className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${currentLocale === 'kk'
+                aria-pressed={currentLocale === 'kk'}
+                className={`rounded-lg px-3 py-1.5 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${currentLocale === 'kk'
                     ? 'bg-primary text-primary-foreground shadow-sm'
-                    : 'text-muted-foreground hover:text-foreground'
+                    : 'bg-white/70 text-slate-700 hover:bg-white hover:text-foreground'
                     }`}
-                aria-label="Қазақ тілі"
             >
                 KZ
+                <span className="sr-only">, қазақ тілі</span>
             </button>
         </div>
     );
 }
 
-// Хук для получения текущего языка
 export function useLocale(): Locale {
-    // Инициализируем state сразу из cookie (избегаем setState в useEffect)
     const [locale] = useState<Locale>(() => {
         if (typeof document === 'undefined') return 'ru';
         const cookies = document.cookie.split(';');

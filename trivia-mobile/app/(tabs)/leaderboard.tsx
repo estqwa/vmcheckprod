@@ -47,7 +47,7 @@ export default function LeaderboardScreen() {
     },
   });
 
-  const users = data?.pages.flatMap((p) => p.users) ?? [];
+  const users = data?.pages.flatMap((page) => page.users) ?? [];
 
   const handleLoadMore = useCallback(() => {
     if (hasNextPage && !isFetchingNextPage) {
@@ -60,29 +60,30 @@ export default function LeaderboardScreen() {
 
     return (
       <View style={[styles.row, rankStyle.row]} accessibilityLabel={`#${item.rank} ${item.username}`}>
-        <View style={styles.rankBox}>{renderRank(item.rank)}</View>
+        <View style={styles.rowTop}>
+          <View style={styles.rankBox}>{renderRank(item.rank)}</View>
 
-        <View style={styles.avatarCircle}>
-          <Text style={styles.avatarText}>{item.username.slice(0, 2).toUpperCase()}</Text>
+          <View style={styles.avatarCircle}>
+            <Text style={styles.avatarText}>{item.username.slice(0, 2).toUpperCase()}</Text>
+          </View>
+
+          <View style={styles.mainInfo}>
+            <Text style={styles.username} numberOfLines={1}>
+              {item.username}
+            </Text>
+            <Text style={styles.metaText}>#{item.rank}</Text>
+          </View>
         </View>
 
-        <View style={styles.mainInfo}>
-          <Text style={styles.username} numberOfLines={1}>
-            {item.username}
-          </Text>
-          <Text style={styles.metaText}>
-            #{item.rank}
-          </Text>
-        </View>
-
-        <View style={styles.statsBox}>
-          <Text style={styles.winsValue}>{item.wins_count}</Text>
-          <Text style={styles.winsLabel}>{t('leaderboard.wins')}</Text>
-        </View>
-
-        <View style={styles.statsBox}>
-          <Text style={styles.prizeValue}>{formatCurrency(item.total_prize_won)}</Text>
-          <Text style={styles.prizeLabel}>{t('leaderboard.prize')}</Text>
+        <View style={styles.statsRow}>
+          <View style={styles.statCard}>
+            <Text style={styles.statLabel}>{t('leaderboard.wins')}</Text>
+            <Text style={styles.winsValue}>{item.wins_count}</Text>
+          </View>
+          <View style={[styles.statCard, styles.statCardSuccess]}>
+            <Text style={styles.statLabel}>{t('leaderboard.prize')}</Text>
+            <Text style={styles.prizeValue}>{formatCurrency(item.total_prize_won)}</Text>
+          </View>
         </View>
       </View>
     );
@@ -174,9 +175,7 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     padding: spacing.md,
     marginBottom: spacing.sm,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
+    gap: spacing.md,
     ...shadow.card,
   },
   rowGold: {
@@ -194,6 +193,11 @@ const styles = StyleSheet.create({
   rowDefault: {
     backgroundColor: palette.surface,
     borderColor: palette.border,
+  },
+  rowTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
   },
   rankBox: {
     width: 38,
@@ -232,27 +236,40 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginTop: 2,
   },
-  statsBox: {
-    alignItems: 'flex-end',
-    minWidth: 54,
+  statsRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  statCard: {
+    flex: 1,
+    borderRadius: radii.md,
+    backgroundColor: '#f8fafc',
+    borderWidth: 1,
+    borderColor: palette.border,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  statCardSuccess: {
+    backgroundColor: '#ecfdf5',
+  },
+  statLabel: {
+    color: palette.textMuted,
+    fontSize: 11,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.3,
   },
   winsValue: {
     color: palette.primary,
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: '800',
-  },
-  winsLabel: {
-    color: palette.textMuted,
-    fontSize: 10,
+    marginTop: 4,
   },
   prizeValue: {
     color: palette.prize,
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '800',
-  },
-  prizeLabel: {
-    color: palette.textMuted,
-    fontSize: 10,
+    marginTop: 4,
   },
   footerLoading: {
     paddingVertical: spacing.md,

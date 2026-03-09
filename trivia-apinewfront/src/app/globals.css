@@ -198,15 +198,24 @@
 
 /* РљРЅРѕРїРєР° СЃ РєСЂР°СЃРёРІС‹Рј hover */
 .btn-coral {
-  background: #ff6b6b;
-  color: white;
+  background: var(--primary);
+  color: var(--primary-foreground);
   transition: all 0.2s ease;
 }
 
 .btn-coral:hover {
-  background: #fa5252;
+  background: var(--primary-hover);
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(255, 107, 107, 0.4);
+  box-shadow: 0 4px 12px rgba(194, 65, 65, 0.28);
+}
+.mobile-nav-safe-area {
+  padding-bottom: calc(6.5rem + env(safe-area-inset-bottom));
+}
+
+@media (min-width: 768px) {
+  .mobile-nav-safe-area {
+    padding-bottom: 0;
+  }
 }
 
 /* РњРµС‚РєР° "Live" */
@@ -253,4 +262,6 @@
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
+
+
 

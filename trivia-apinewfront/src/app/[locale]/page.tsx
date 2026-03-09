@@ -108,7 +108,7 @@ export default function HomePage() {
             <PageHeader active='home' />
 
             {/* Hero Section */}
-            <main className="container max-w-6xl mx-auto px-4 py-16 pb-28 md:pb-16">
+            <main className="container max-w-6xl mx-auto px-4 py-12 md:py-16 mobile-nav-safe-area md:pb-16">
                 <div className="text-center mb-16">
                     {/* Badge */}
                     <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-primary/10 text-primary text-sm font-medium mb-6">
@@ -157,7 +157,7 @@ export default function HomePage() {
 
                     {/* How to play */}
                     <div className="text-left max-w-md mx-auto bg-muted/50 rounded-xl p-6 mb-8">
-                        <h3 className="font-semibold mb-4">{tHome('howToPlay')}</h3>
+                        <h2 className="font-semibold mb-4 text-base">{tHome('howToPlay')}</h2>
                         <ol className="space-y-2 text-sm text-muted-foreground">
                             <li className="flex items-start gap-2">
                                 <span className="text-primary font-bold">1.</span>
@@ -267,4 +267,5 @@ export default function HomePage() {
         </div>
     );
 }
+
 

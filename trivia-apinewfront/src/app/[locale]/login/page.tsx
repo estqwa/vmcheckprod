@@ -6,12 +6,12 @@ import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { useAuth } from '@/providers/AuthProvider';
 import { GoogleCodeAuthButton } from '@/components/auth/GoogleCodeAuthButton';
+import { PageHeader } from '@/components/PageHeader';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
-import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 import { LogIn } from 'lucide-react';
 
 export default function LoginPage() {
@@ -36,25 +36,12 @@ export default function LoginPage() {
         }
     };
 
-
     return (
         <div className="min-h-app flex flex-col">
-            {/* Header */}
-            <header className="border-b border-border/50 bg-white/80 backdrop-blur-sm">
-                <div className="container max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
-                    <Link href="/" className="flex items-center gap-2">
-                        <div className="w-9 h-9 rounded-lg bg-primary flex items-center justify-center">
-                            <span className="text-white font-bold text-lg">Q</span>
-                        </div>
-                        <span className="font-bold text-xl text-foreground">QazaQuiz</span>
-                    </Link>
-                    <LanguageSwitcher />
-                </div>
-            </header>
+            <PageHeader minimal />
 
-            {/* Main */}
-            <main className="flex-1 flex items-center justify-center px-4 py-12">
-                <Card className="w-full max-w-md card-elevated border-0 rounded-2xl">
+            <main className="flex-1 px-4 py-8 md:flex md:items-center md:justify-center md:py-12">
+                <Card className="mx-auto w-full max-w-md card-elevated border-0 rounded-2xl">
                     <CardHeader className="text-center pb-2">
                         <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-4">
                             <LogIn className="w-8 h-8 text-primary" />
@@ -116,4 +103,3 @@ export default function LoginPage() {
         </div>
     );
 }
-

@@ -25,8 +25,8 @@ export function BrandHeader({ title = 'QazaQuiz', subtitle, onBackPress, rightSl
           <Text style={styles.brandIconText}>Q</Text>
         </View>
         <View>
-          <Text style={styles.brandTitle}>{title}</Text>
-          {subtitle ? <Text style={styles.brandSubtitle}>{subtitle}</Text> : null}
+          <Text style={styles.brandTitle} numberOfLines={1}>{title}</Text>
+          {subtitle ? <Text style={styles.brandSubtitle} numberOfLines={1}>{subtitle}</Text> : null}
         </View>
       </View>
       {rightSlot ? <View style={styles.right}>{rightSlot}</View> : null}
@@ -74,15 +74,17 @@ const styles = StyleSheet.create({
   },
   brandTitle: {
     color: palette.text,
-    fontSize: 18,
+    fontSize: 19,
     fontWeight: '800',
   },
   brandSubtitle: {
     color: palette.textMuted,
-    fontSize: 12,
+    fontSize: 13,
   },
   right: {
     marginLeft: spacing.md,
   },
 });
+
+
 

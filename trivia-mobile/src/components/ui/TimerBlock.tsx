@@ -1,4 +1,4 @@
-import { StyleSheet, Text, View } from 'react-native';
+﻿import { StyleSheet, Text, View } from 'react-native';
 import { palette, radii } from '../../theme/tokens';
 
 type TimerBlockProps = {
@@ -17,7 +17,7 @@ export function TimerBlock({ value, label }: TimerBlockProps) {
 
 const styles = StyleSheet.create({
   block: {
-    minWidth: 64,
+    minWidth: 70,
     backgroundColor: palette.surfaceMuted,
     borderWidth: 1,
     borderColor: palette.border,
@@ -27,14 +27,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   value: {
-    fontSize: 22,
+    fontSize: 24,
     fontWeight: '800',
     color: palette.text,
   },
   label: {
-    fontSize: 10,
+    fontSize: 11,
+    fontWeight: '700',
     textTransform: 'uppercase',
     color: palette.textMuted,
     marginTop: 2,
+    textAlign: 'center',
   },
 });

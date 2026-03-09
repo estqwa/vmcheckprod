@@ -137,33 +137,43 @@ export default function ResultsScreen() {
                     highlight ? styles.resultRowCurrentUser : null,
                   ]}
                 >
-                  <View style={styles.rankWrap} accessibilityElementsHidden>
-                    {row.rank === 1 ? (
-                      <Ionicons name="trophy" size={18} color="#ca8a04" />
-                    ) : row.rank === 2 ? (
-                      <Ionicons name="medal" size={18} color="#64748b" />
-                    ) : row.rank === 3 ? (
-                      <Ionicons name="ribbon" size={18} color="#b45309" />
-                    ) : (
-                      <Text style={styles.rankText}>#{row.rank}</Text>
-                    )}
+                  <View style={styles.rowTop}>
+                    <View style={styles.rankWrap} accessibilityElementsHidden>
+                      {row.rank === 1 ? (
+                        <Ionicons name="trophy" size={18} color="#ca8a04" />
+                      ) : row.rank === 2 ? (
+                        <Ionicons name="medal" size={18} color="#64748b" />
+                      ) : row.rank === 3 ? (
+                        <Ionicons name="ribbon" size={18} color="#b45309" />
+                      ) : (
+                        <Text style={styles.rankText}>#{row.rank}</Text>
+                      )}
+                    </View>
+
+                    <View style={styles.userAvatar}>
+                      <Text style={styles.userAvatarText}>{row.username.slice(0, 2).toUpperCase()}</Text>
+                    </View>
+
+                    <View style={styles.userMain}>
+                      <Text style={styles.userName} numberOfLines={1}>
+                        {row.username}
+                        {highlight ? ` (${t('quiz.you')})` : ''}
+                      </Text>
+                      <Text style={styles.userMeta}>{row.correct_answers}/{row.total_questions} {t('history.correct')}</Text>
+                    </View>
                   </View>
 
-                  <View style={styles.userAvatar}>
-                    <Text style={styles.userAvatarText}>{row.username.slice(0, 2).toUpperCase()}</Text>
-                  </View>
-
-                  <View style={styles.userMain}>
-                    <Text style={styles.userName} numberOfLines={1}>
-                      {row.username}
-                      {highlight ? ` (${t('quiz.you')})` : ''}
-                    </Text>
-                    <Text style={styles.userMeta}>{row.correct_answers}/{row.total_questions} {t('history.correct')}</Text>
-                  </View>
-
-                  <View style={styles.userScores}>
-                    <Text style={styles.userScoreBadge}>{row.score}</Text>
-                    {row.prize_fund > 0 ? <Text style={styles.userPrize}>{formatCurrency(row.prize_fund)}</Text> : null}
+                  <View style={styles.userStatsRow}>
+                    <View style={styles.userStatChip}>
+                      <Text style={styles.userStatLabel}>{t('quiz.scoreLabel')}</Text>
+                      <Text style={styles.userStatValue}>{row.score}</Text>
+                    </View>
+                    {row.prize_fund > 0 ? (
+                      <View style={[styles.userStatChip, styles.userStatChipSuccess]}>
+                        <Text style={styles.userStatLabel}>{t('leaderboard.prize')}</Text>
+                        <Text style={styles.userPrize}>{formatCurrency(row.prize_fund)}</Text>
+                      </View>
+                    ) : null}
                   </View>
                 </View>
               );
@@ -289,7 +299,7 @@ const styles = StyleSheet.create({
   },
   statLabel: {
     color: palette.textMuted,
-    fontSize: 11,
+    fontSize: 12,
     marginTop: 2,
   },
   emptyMyResultCard: {
@@ -327,11 +337,9 @@ const styles = StyleSheet.create({
   resultRow: {
     borderWidth: 1,
     borderColor: palette.border,
-    borderRadius: radii.md,
+    borderRadius: radii.lg,
     backgroundColor: '#f8fafc',
     padding: spacing.sm,
-    flexDirection: 'row',
-    alignItems: 'center',
     gap: spacing.sm,
   },
   resultRowWinner: {
@@ -341,6 +349,11 @@ const styles = StyleSheet.create({
   resultRowCurrentUser: {
     borderColor: '#fda4af',
     backgroundColor: '#fff1f2',
+  },
+  rowTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
   },
   rankWrap: {
     width: 34,
@@ -375,23 +388,43 @@ const styles = StyleSheet.create({
   },
   userMeta: {
     color: palette.textMuted,
-    fontSize: 11,
+    fontSize: 12,
     marginTop: 2,
   },
-  userScores: {
-    alignItems: 'flex-end',
-    minWidth: 52,
+  userStatsRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
   },
-  userScoreBadge: {
+  userStatChip: {
+    flex: 1,
+    borderRadius: radii.md,
+    borderWidth: 1,
+    borderColor: palette.border,
+    backgroundColor: palette.surface,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+  },
+  userStatChipSuccess: {
+    backgroundColor: '#ecfdf5',
+  },
+  userStatLabel: {
+    color: palette.textMuted,
+    fontSize: 11,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.3,
+  },
+  userStatValue: {
     color: palette.text,
     fontWeight: '800',
-    fontSize: 15,
+    fontSize: 16,
+    marginTop: 2,
   },
   userPrize: {
     color: palette.prize,
-    fontWeight: '700',
-    fontSize: 12,
-    marginTop: 1,
+    fontWeight: '800',
+    fontSize: 14,
+    marginTop: 2,
   },
   homeButton: {
     minHeight: 48,
@@ -406,4 +439,3 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
 });
-

@@ -281,41 +281,45 @@ export default function QuizPlayPage() {
 
             <div className="min-h-app">
                 {/* Header */}
-                <header className="border-b border-border/50 bg-white/80 backdrop-blur-sm sticky top-0 z-40">
-                    <div className="container max-w-6xl mx-auto px-4 py-2 min-h-14 flex flex-wrap items-center justify-between gap-2">
-                        <Link href="/" className="flex items-center gap-2 shrink-0">
-                            <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
-                                <span className="text-white font-bold">Q</span>
-                            </div>
-                            <span className="font-bold text-lg text-foreground hidden sm:inline">QazaQuiz</span>
-                        </Link>
+                <header className="sticky top-0 z-40 border-b border-border/50 bg-white/80 backdrop-blur-sm">
+                    <div className="container mx-auto max-w-6xl px-4 py-3">
+                        <div className="flex flex-col gap-3">
+                            <div className="flex items-center justify-between gap-3">
+                                <Link href="/" className="flex shrink-0 items-center gap-2">
+                                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
+                                        <span className="font-bold text-white">Q</span>
+                                    </div>
+                                    <span className="hidden text-lg font-bold text-foreground sm:inline">QazaQuiz</span>
+                                </Link>
 
-                        <div className="order-3 w-full sm:order-none sm:w-auto flex items-center justify-center gap-4">
-                            <div className="text-center">
-                                <p className="text-lg font-bold">{score}</p>
-                                <p className="text-xs text-muted-foreground">{t('score').replace('{score}', '')}</p>
+                                <div className="flex flex-wrap items-center justify-end gap-2">
+                                    <LanguageSwitcher />
+                                    {connectionState === 'disconnected' ? (
+                                        <Badge variant="destructive">{t('disconnected')}</Badge>
+                                    ) : null}
+                                    {connectionState === 'reconnecting' ? (
+                                        <Badge variant="secondary">{t('connecting')}</Badge>
+                                    ) : null}
+                                    {isEliminated ? (
+                                        <Badge className="border-orange-200 bg-orange-100 text-orange-700">{t('eliminated')}</Badge>
+                                    ) : null}
+                                </div>
                             </div>
-                            <div className="text-center">
-                                <p className="text-lg font-bold text-success">{correctCount}</p>
-                                <p className="text-xs text-muted-foreground">{t('correct')}</p>
-                            </div>
-                            <div className="text-center">
-                                <p className="text-lg font-bold text-primary">{playerCount}</p>
-                                <p className="text-xs text-muted-foreground">{t('online')}</p>
-                            </div>
-                        </div>
 
-                        <div className="ml-auto sm:ml-0 flex items-center gap-2">
-                            <LanguageSwitcher />
-                            {connectionState === 'disconnected' && (
-                                <Badge variant="destructive">{t('disconnected')}</Badge>
-                            )}
-                            {connectionState === 'reconnecting' && (
-                                <Badge variant="secondary">{t('connecting')}</Badge>
-                            )}
-                            {isEliminated && (
-                                <Badge className="bg-orange-100 text-orange-700 border-orange-200">{t('eliminated')}</Badge>
-                            )}
+                            <div className="grid grid-cols-3 gap-2 rounded-2xl border border-border/60 bg-secondary/30 p-2">
+                                <div className="rounded-xl bg-white/80 px-3 py-2 text-center">
+                                    <p className="text-lg font-bold">{score}</p>
+                                    <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{t('score').replace('{score}', '')}</p>
+                                </div>
+                                <div className="rounded-xl bg-white/80 px-3 py-2 text-center">
+                                    <p className="text-lg font-bold text-success">{correctCount}</p>
+                                    <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{t('correct')}</p>
+                                </div>
+                                <div className="rounded-xl bg-white/80 px-3 py-2 text-center">
+                                    <p className="text-lg font-bold text-primary">{playerCount}</p>
+                                    <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{t('online')}</p>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </header>
@@ -433,4 +437,5 @@ export default function QuizPlayPage() {
         </>
     );
 }
+
 

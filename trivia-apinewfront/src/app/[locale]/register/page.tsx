@@ -6,12 +6,12 @@ import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { useAuth } from '@/providers/AuthProvider';
 import { GoogleCodeAuthButton } from '@/components/auth/GoogleCodeAuthButton';
+import { PageHeader } from '@/components/PageHeader';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
-import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 import { UserPlus } from 'lucide-react';
 import type { RegisterData } from '@/lib/api/types';
 
@@ -81,22 +81,10 @@ export default function RegisterPage() {
 
     return (
         <div className="min-h-app flex flex-col">
-            {/* Header */}
-            <header className="border-b border-border/50 bg-white/80 backdrop-blur-sm">
-                <div className="container max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
-                    <Link href="/" className="flex items-center gap-2">
-                        <div className="w-9 h-9 rounded-lg bg-primary flex items-center justify-center">
-                            <span className="text-white font-bold text-lg">Q</span>
-                        </div>
-                        <span className="font-bold text-xl text-foreground">QazaQuiz</span>
-                    </Link>
-                    <LanguageSwitcher />
-                </div>
-            </header>
+            <PageHeader minimal />
 
-            {/* Main */}
-            <main className="flex-1 flex items-center justify-center px-4 py-12">
-                <Card className="w-full max-w-lg card-elevated border-0 rounded-2xl">
+            <main className="flex-1 px-4 py-8 md:py-12">
+                <Card className="mx-auto w-full max-w-3xl card-elevated border-0 rounded-2xl">
                     <CardHeader className="text-center pb-2">
                         <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-4">
                             <UserPlus className="w-8 h-8 text-primary" />
@@ -105,127 +93,135 @@ export default function RegisterPage() {
                         <CardDescription>{t('registerDescription') || 'Create your account'}</CardDescription>
                     </CardHeader>
                     <form onSubmit={handleSubmit}>
-                        <CardContent className="space-y-4">
-                            {/* Row: First + Last name */}
-                            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                                <div className="space-y-2">
-                                    <Label htmlFor="firstName">{t('firstName') || 'First Name'}</Label>
-                                    <Input
-                                        id="firstName"
-                                        type="text"
-                                        autoComplete="given-name"
-                                        value={firstName}
-                                        onChange={(e) => setFirstName(e.target.value)}
-                                        required
-                                        minLength={1}
-                                        maxLength={100}
-                                        className="h-12"
-                                    />
-                                </div>
-                                <div className="space-y-2">
-                                    <Label htmlFor="lastName">{t('lastName') || 'Last Name'}</Label>
-                                    <Input
-                                        id="lastName"
-                                        type="text"
-                                        autoComplete="family-name"
-                                        value={lastName}
-                                        onChange={(e) => setLastName(e.target.value)}
-                                        required
-                                        minLength={1}
-                                        maxLength={100}
-                                        className="h-12"
-                                    />
-                                </div>
-                            </div>
-                            <div className="space-y-2">
-                                <Label htmlFor="username">{t('username')}</Label>
-                                <Input
-                                    id="username"
-                                    type="text"
-                                    autoComplete="username"
-                                    placeholder="YourNickname"
-                                    value={username}
-                                    onChange={(e) => setUsername(e.target.value)}
-                                    required
-                                    minLength={3}
-                                    maxLength={50}
-                                    className="h-12"
-                                />
-                            </div>
-                            <div className="space-y-2">
-                                <Label htmlFor="email">{t('email')}</Label>
-                                <Input
-                                    id="email"
-                                    type="email"
-                                    autoComplete="email"
-                                    placeholder="you@example.com"
-                                    value={email}
-                                    onChange={(e) => setEmail(e.target.value)}
-                                    required
-                                    className="h-12"
-                                />
-                            </div>
-                            {/* Row: Birth date + Gender */}
-                            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                                <div className="space-y-2">
-                                    <Label htmlFor="birthDate">{t('birthDate') || 'Date of Birth'}</Label>
-                                    <Input
-                                        id="birthDate"
-                                        type="date"
-                                        autoComplete="bday"
-                                        value={birthDate}
-                                        onChange={(e) => setBirthDate(e.target.value)}
-                                        required
-                                        className="h-12"
-                                    />
-                                </div>
-                                <div className="space-y-2">
-                                    <Label htmlFor="gender">{t('gender') || 'Gender'}</Label>
-                                    <select
-                                        id="gender"
-                                        value={gender}
-                                        onChange={(e) => setGender(e.target.value as RegisterData['gender'] | '')}
-                                        required
-                                        className="h-12 w-full rounded-md border border-input bg-background px-3 text-sm"
-                                    >
-                                        <option value="">{t('selectGender') || 'Select...'}</option>
-                                        <option value="male">{t('genderMale') || 'Male'}</option>
-                                        <option value="female">{t('genderFemale') || 'Female'}</option>
-                                        <option value="other">{t('genderOther') || 'Other'}</option>
-                                        <option value="prefer_not_to_say">{t('genderPreferNot') || 'Prefer not to say'}</option>
-                                    </select>
+                        <CardContent className="space-y-6">
+                            <div className="rounded-2xl border border-border/60 bg-background/80 p-4 sm:p-5">
+                                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                                    <div className="space-y-2">
+                                        <Label htmlFor="firstName">{t('firstName') || 'First Name'}</Label>
+                                        <Input
+                                            id="firstName"
+                                            type="text"
+                                            autoComplete="given-name"
+                                            value={firstName}
+                                            onChange={(e) => setFirstName(e.target.value)}
+                                            required
+                                            minLength={1}
+                                            maxLength={100}
+                                            className="h-12"
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="lastName">{t('lastName') || 'Last Name'}</Label>
+                                        <Input
+                                            id="lastName"
+                                            type="text"
+                                            autoComplete="family-name"
+                                            value={lastName}
+                                            onChange={(e) => setLastName(e.target.value)}
+                                            required
+                                            minLength={1}
+                                            maxLength={100}
+                                            className="h-12"
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="birthDate">{t('birthDate') || 'Date of Birth'}</Label>
+                                        <Input
+                                            id="birthDate"
+                                            type="date"
+                                            autoComplete="bday"
+                                            value={birthDate}
+                                            onChange={(e) => setBirthDate(e.target.value)}
+                                            required
+                                            className="h-12"
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="gender">{t('gender') || 'Gender'}</Label>
+                                        <select
+                                            id="gender"
+                                            value={gender}
+                                            onChange={(e) => setGender(e.target.value as RegisterData['gender'] | '')}
+                                            required
+                                            className="h-12 w-full rounded-md border border-input bg-background px-3 text-sm"
+                                        >
+                                            <option value="">{t('selectGender') || 'Select...'}</option>
+                                            <option value="male">{t('genderMale') || 'Male'}</option>
+                                            <option value="female">{t('genderFemale') || 'Female'}</option>
+                                            <option value="other">{t('genderOther') || 'Other'}</option>
+                                            <option value="prefer_not_to_say">{t('genderPreferNot') || 'Prefer not to say'}</option>
+                                        </select>
+                                    </div>
                                 </div>
                             </div>
-                            <div className="space-y-2">
-                                <Label htmlFor="password">{t('password')}</Label>
-                                <Input
-                                    id="password"
-                                    type="password"
-                                    autoComplete="new-password"
-                                    placeholder="password"
-                                    value={password}
-                                    onChange={(e) => setPassword(e.target.value)}
-                                    required
-                                    minLength={6}
-                                    className="h-12"
-                                />
+
+                            <div className="rounded-2xl border border-border/60 bg-background/80 p-4 sm:p-5">
+                                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                                    <div className="space-y-2 md:col-span-1">
+                                        <Label htmlFor="username">{t('username')}</Label>
+                                        <Input
+                                            id="username"
+                                            type="text"
+                                            autoComplete="username"
+                                            placeholder="YourNickname"
+                                            value={username}
+                                            onChange={(e) => setUsername(e.target.value)}
+                                            required
+                                            minLength={3}
+                                            maxLength={50}
+                                            className="h-12"
+                                        />
+                                    </div>
+                                    <div className="space-y-2 md:col-span-1">
+                                        <Label htmlFor="email">{t('email')}</Label>
+                                        <Input
+                                            id="email"
+                                            type="email"
+                                            autoComplete="email"
+                                            placeholder="you@example.com"
+                                            value={email}
+                                            onChange={(e) => setEmail(e.target.value)}
+                                            required
+                                            className="h-12"
+                                        />
+                                    </div>
+                                </div>
                             </div>
-                            <div className="space-y-2">
-                                <Label htmlFor="confirmPassword">{t('confirmPassword')}</Label>
-                                <Input
-                                    id="confirmPassword"
-                                    type="password"
-                                    autoComplete="new-password"
-                                    placeholder="password"
-                                    value={confirmPassword}
-                                    onChange={(e) => setConfirmPassword(e.target.value)}
-                                    required
-                                    className="h-12"
-                                />
+
+                            <div className="rounded-2xl border border-border/60 bg-background/80 p-4 sm:p-5">
+                                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                                    <div className="space-y-2">
+                                        <Label htmlFor="password">{t('password')}</Label>
+                                        <Input
+                                            id="password"
+                                            type="password"
+                                            autoComplete="new-password"
+                                            placeholder="password"
+                                            value={password}
+                                            onChange={(e) => setPassword(e.target.value)}
+                                            required
+                                            minLength={6}
+                                            className="h-12"
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="confirmPassword">{t('confirmPassword')}</Label>
+                                        <Input
+                                            id="confirmPassword"
+                                            type="password"
+                                            autoComplete="new-password"
+                                            placeholder="password"
+                                            value={confirmPassword}
+                                            onChange={(e) => setConfirmPassword(e.target.value)}
+                                            required
+                                            className="h-12"
+                                        />
+                                    </div>
+                                </div>
                             </div>
-                            {/* Legal checkboxes */}
-                            <div className="space-y-3 pt-2">
-                                <label className="flex items-start gap-2 text-sm cursor-pointer">
+
+                            <div className="space-y-3 rounded-2xl border border-border/60 bg-background/80 p-4 sm:p-5">
+                                <label className="flex items-start gap-3 rounded-xl border border-border/60 bg-muted/30 p-4 text-sm cursor-pointer">
                                     <input
                                         type="checkbox"
                                         checked={tosAccepted}
@@ -233,14 +229,14 @@ export default function RegisterPage() {
                                         className="mt-0.5"
                                         required
                                     />
-                                    <span className="text-muted-foreground">
+                                    <span className="text-muted-foreground leading-6">
                                         {t('acceptTos') || 'I accept the Terms of Service'}{' '}
-                                        <Link href="/terms" className="underline underline-offset-2 hover:text-foreground">
+                                        <Link href="/terms" className="font-medium text-primary underline underline-offset-2 hover:text-foreground">
                                             {t('termsLink') || 'Terms'}
                                         </Link>
                                     </span>
                                 </label>
-                                <label className="flex items-start gap-2 text-sm cursor-pointer">
+                                <label className="flex items-start gap-3 rounded-xl border border-border/60 bg-muted/30 p-4 text-sm cursor-pointer">
                                     <input
                                         type="checkbox"
                                         checked={privacyAccepted}
@@ -248,9 +244,9 @@ export default function RegisterPage() {
                                         className="mt-0.5"
                                         required
                                     />
-                                    <span className="text-muted-foreground">
+                                    <span className="text-muted-foreground leading-6">
                                         {t('acceptPrivacy') || 'I accept the Privacy Policy'}{' '}
-                                        <Link href="/privacy" className="underline underline-offset-2 hover:text-foreground">
+                                        <Link href="/privacy" className="font-medium text-primary underline underline-offset-2 hover:text-foreground">
                                             {t('privacyLink') || 'Privacy Policy'}
                                         </Link>
                                     </span>
@@ -282,4 +278,3 @@ export default function RegisterPage() {
         </div>
     );
 }
-

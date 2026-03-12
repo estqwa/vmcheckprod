@@ -10,6 +10,7 @@ WORKDIR /repo
 
 # Copy workspace manifests first for better layer caching.
 COPY pnpm-workspace.yaml pnpm-lock.yaml ./
+COPY package.json ./package.json
 COPY shared/package.json ./shared/package.json
 COPY trivia-apinewfront/package.json ./trivia-apinewfront/package.json
 COPY trivia-mobile/package.json ./trivia-mobile/package.json

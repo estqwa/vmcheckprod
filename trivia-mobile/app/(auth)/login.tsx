@@ -124,7 +124,7 @@ export default function LoginScreen() {
               <Text style={styles.label}>{t('auth.email')}</Text>
               <TextInput
                 style={styles.input}
-                placeholder="you@example.com"
+                placeholder={t('auth.emailPlaceholder')}
                 placeholderTextColor={palette.textMuted}
                 value={email}
                 onChangeText={(value) => {
@@ -143,7 +143,7 @@ export default function LoginScreen() {
               <Text style={styles.label}>{t('auth.password')}</Text>
               <TextInput
                 style={styles.input}
-                placeholder="••••••••"
+                placeholder={t('auth.passwordPlaceholder')}
                 placeholderTextColor={palette.textMuted}
                 value={password}
                 onChangeText={(value) => {

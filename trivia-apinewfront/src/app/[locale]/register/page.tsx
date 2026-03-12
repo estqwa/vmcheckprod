@@ -163,7 +163,7 @@ export default function RegisterPage() {
                                             id="username"
                                             type="text"
                                             autoComplete="username"
-                                            placeholder="YourNickname"
+                                            placeholder={t('usernamePlaceholder')}
                                             value={username}
                                             onChange={(e) => setUsername(e.target.value)}
                                             required
@@ -178,7 +178,7 @@ export default function RegisterPage() {
                                             id="email"
                                             type="email"
                                             autoComplete="email"
-                                            placeholder="you@example.com"
+                                            placeholder={t('emailPlaceholder')}
                                             value={email}
                                             onChange={(e) => setEmail(e.target.value)}
                                             required
@@ -196,7 +196,7 @@ export default function RegisterPage() {
                                             id="password"
                                             type="password"
                                             autoComplete="new-password"
-                                            placeholder="password"
+                                            placeholder={t('passwordPlaceholder')}
                                             value={password}
                                             onChange={(e) => setPassword(e.target.value)}
                                             required
@@ -210,7 +210,7 @@ export default function RegisterPage() {
                                             id="confirmPassword"
                                             type="password"
                                             autoComplete="new-password"
-                                            placeholder="password"
+                                            placeholder={t('passwordPlaceholder')}
                                             value={confirmPassword}
                                             onChange={(e) => setConfirmPassword(e.target.value)}
                                             required

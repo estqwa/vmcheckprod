@@ -1,4 +1,5 @@
-﻿import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+﻿import { getTranslations } from 'next-intl/server';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { loadLegalDocument, type LegalBlock } from '@/lib/legalContent';
 
 function renderBlock(block: LegalBlock, index: number) {
@@ -46,6 +47,7 @@ export default async function TermsPage({
   params: Promise<{ locale: string }>;
 }) {
   const { locale } = await params;
+  const tLegal = await getTranslations({ locale, namespace: 'legal' });
   const legal = await loadLegalDocument('terms', locale);
 
   return (
@@ -53,7 +55,7 @@ export default async function TermsPage({
       <Card>
         <CardHeader>
           <CardTitle>{legal.title}</CardTitle>
-          <p className='text-sm text-muted-foreground'>Version {legal.version}</p>
+          <p className='text-sm text-muted-foreground'>{tLegal('version', { version: legal.version })}</p>
         </CardHeader>
         <CardContent className='space-y-4'>
           {legal.blocks.map((block, index) => renderBlock(block, index))}

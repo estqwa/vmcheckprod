@@ -145,13 +145,17 @@ function QuestionPoolContent() {
     const exampleJson = `[
   {
     "text": "Какой город является столицей Казахстана?",
+    "text_kk": "Қазақстанның астанасы қай қала?",
     "options": ["Алматы", "Астана", "Караганда", "Шымкент"],
+    "options_kk": ["Алматы", "Астана", "Қарағанды", "Шымкент"],
     "correct_option": 1,
     "difficulty": 1
   },
   {
     "text": "В каком году Казахстан обрел независимость?",
+    "text_kk": "Қазақстан тәуелсіздікті қай жылы алды?",
     "options": ["1989", "1990", "1991", "1992"],
+    "options_kk": ["1989", "1990", "1991", "1992"],
     "correct_option": 2,
     "difficulty": 2
   }
@@ -338,7 +342,9 @@ function QuestionPoolContent() {
                         <pre className="text-xs bg-slate-900 text-slate-100 p-4 rounded-lg overflow-x-auto">
                             {`{
   "text": "Текст вопроса",               // обязательно
+  "text_kk": "Сұрақ мәтіні",             // опционально
   "options": ["A", "B", "C", "D"],       // обязательно (мин. 2)
+  "options_kk": ["A", "B", "C", "D"],    // опционально
   "correct_option": 0,                   // обязательно (0-N)
   "difficulty": 3,                       // обязательно (1-5)
   "time_limit_sec": 10,                  // опционально (дефолт: 10)

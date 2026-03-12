@@ -1,4 +1,4 @@
-﻿import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -163,7 +163,7 @@ export default function LobbyScreen() {
               <Ionicons name="flag" size={30} color={palette.primary} />
             </View>
 
-            <Text style={styles.quizTitle}>{quiz?.title ?? `Quiz #${quizId}`}</Text>
+            <Text style={styles.quizTitle}>{quiz?.title ?? t('quiz.fallbackTitle', { id: quizId })}</Text>
             {quiz?.description ? <Text style={styles.quizDescription}>{quiz.description}</Text> : null}
 
             <Text style={styles.startsInLabel}>{t('quiz.startsIn')}</Text>

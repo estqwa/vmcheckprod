@@ -1,9 +1,10 @@
-﻿import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import { BrandHeader } from '../src/components/ui/BrandHeader';
 import { LEGAL_PRIVACY_VERSION } from '../src/constants/config';
 import { palette, radii, shadow, spacing, typography } from '../src/theme/tokens';
+import { normalizeLegalText } from '../src/utils/legalText';
 
 export default function PrivacyScreen() {
   const { t } = useTranslation();
@@ -13,7 +14,7 @@ export default function PrivacyScreen() {
 
 ${t('legal.privacyP2')}`,
   });
-  const paragraphs = body.split('\n\n').filter(Boolean);
+  const paragraphs = normalizeLegalText(body);
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
       <BrandHeader subtitle={t('legal.privacyTitle')} />

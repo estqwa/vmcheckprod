@@ -6,7 +6,8 @@
         "back": "Артқа",
         "submit": "Жіберу",
         "cancel": "Болдырмау",
-        "save": "Сақтау"
+        "save": "Сақтау",
+        "secondsShort": "сек"
     },
     "nav": {
         "home": "Басты бет",
@@ -24,7 +25,7 @@
         "countdown": "Басталуына: {seconds} сек",
         "question": "{current} сұрақ / {total}",
         "timeLeft": "Қалды: {seconds} сек",
-        "correct": "Дұрыс!",
+        "correct": "Дұрыс",
         "incorrect": "Қате",
         "eliminated": "Сіз шығып қалдыңыз",
         "winner": "Сіз жеңімпаз!",
@@ -50,7 +51,8 @@
         "playingAs": "Сіз ретінде ойнайсыз",
         "leaveLobby": "Лоббиден шығу",
         "notFound": "Викторина табылмады",
-        "starting": "Викторина басталады!"
+        "starting": "Викторина басталады!",
+        "you": "Сіз"
     },
     "auth": {
         "login": "Кіру",
@@ -109,7 +111,14 @@
         "googleLoginError": "Google арқылы кіру қатесі",
         "googleLinkRequiredError": "Бұл email бұрыннан бар. Құпия сөзбен кіріп, Google-ды профильде байланыстырыңыз.",
         "googleAuthFailed": "Google авторизация қатесі",
-        "googleCodeMissing": "Google авторизация коды жоқ"
+        "googleCodeMissing": "Google авторизация коды жоқ",
+        "emailPlaceholder": "Email енгізіңіз",
+        "passwordPlaceholder": "Құпия сөзді енгізіңіз",
+        "usernamePlaceholder": "Лақап атты енгізіңіз",
+        "verifyStatusLoadError": "Растау күйін жүктеу мүмкін болмады",
+        "verifySendError": "Кодты жіберу мүмкін болмады",
+        "verifyConfirmError": "Кодты растау мүмкін болмады",
+        "verifySuccess": "Email расталды"
     },
     "profile": {
         "title": "Профиль",
@@ -137,16 +146,17 @@
         "openVerification": "Растауды ашу",
         "verificationCodeSent": "Растау коды жіберілді",
         "sendVerificationCodeError": "Растау кодын жіберу мүмкін болмады",
-        "resendIn": "{seconds}с кейін қайта",
+        "resendIn": "Қайта жіберу {seconds} сек кейін",
         "sendCode": "Код жіберу",
         "linkGoogle": "Google-ды байланыстыру",
         "deleteAccount": "Аккаунтты жою",
         "deleting": "Жойылуда...",
         "deleteAccountConfirm": "Аккаунтты жою керек пе? Бұл әрекетті қайтару мүмкін емес.",
-        "deleteAccountPromptPassword": "Растау үшін құпия сөзді енгізіңіз (тек Google-only аккаунт үшін бос қалдыруға болады):",
+        "deleteAccountPromptPassword": "Құпия сөз (локалды аккаунттар үшін). Тек Google арқылы кірсеңіз ғана бос қалдырыңыз",
         "deleteAccountPromptReason": "Қосымша: неге кетіп жатырсыз?",
         "deleteAccountSuccess": "Аккаунт жойылды",
-        "deleteAccountError": "Аккаунтты жою мүмкін болмады"
+        "deleteAccountError": "Аккаунтты жою мүмкін болмады",
+        "ipAddressLabel": "IP-мекенжай"
     },
     "leaderboard": {
         "title": "Ойыншылар рейтингі",
@@ -155,7 +165,7 @@
         "noPlayers": "Әзірге ойыншылар жоқ",
         "rank": "Орын",
         "player": "Ойыншы",
-        "wins": "жеңіс",
+        "wins": "Жеңістер",
         "prize": "жүлде"
     },
     "history": {
@@ -167,7 +177,7 @@
         "eliminated": "Шығып қалды",
         "finished": "Аяқталды",
         "score": "Ұпай",
-        "correct": "Дұрыс",
+        "correct": "Дұрыс жауаптар",
         "rank": "Орын",
         "prize": "Жүлде",
         "viewResults": "Нәтижелер",
@@ -183,5 +193,8 @@
         "step1": "Белгіленген уақытта викторинаға қосылыңыз",
         "step2": "Сұрақтарға тез және дұрыс жауап беріңіз",
         "step3": "Соңғы қалған адам жүлде алады!"
+    },
+    "legal": {
+        "version": "{version} нұсқа"
     }
 }

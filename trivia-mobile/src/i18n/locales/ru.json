@@ -12,6 +12,7 @@
     "success": "Успешно",
     "submit": "Отправить",
     "offlineTitle": "Нет интернета",
+    "secondsShort": "сек",
     "offlineRealtimeHint": "Связь восстановится автоматически",
     "currency": "тг"
   },
@@ -27,6 +28,9 @@
     "login": "Войти",
     "register": "Регистрация",
     "logout": "Выйти",
+    "emailPlaceholder": "Введите email",
+    "passwordPlaceholder": "Введите пароль",
+    "usernamePlaceholder": "Введите никнейм",
     "email": "Email",
     "password": "Пароль",
     "username": "Имя пользователя",
@@ -44,6 +48,7 @@
     "fillAllFields": "Заполните все поля",
     "firstName": "Имя",
     "lastName": "Фамилия",
+    "birthDatePlaceholder": "Выберите дату рождения",
     "birthDate": "Дата рождения",
     "gender": "Пол",
     "selectGender": "Выберите",
@@ -65,7 +70,7 @@
     "googleSignInFailed": "Ошибка входа через Google",
     "googleSignUpFailed": "Ошибка регистрации через Google",
     "googleLinkFailed": "Не удалось привязать Google",
-    "googleLinkSuccess": "Google аккаунт привязан",
+    "googleLinkSuccess": "Аккаунт Google привязан",
     "verifyEmailTitle": "Подтвердите email",
     "emailVerified": "Email подтвержден. Доступ к призам активен.",
     "emailNotVerifiedHint": "Подтвердите email, чтобы открыть доступ к призам.",
@@ -87,7 +92,7 @@
     "title": "Викторины",
     "welcome": "Играй в QazaQuiz",
     "description": "Онлайн-викторина в реальном времени: отвечай быстрее и поднимайся в таблице лидеров.",
-    "liveQuiz": "Live викторина",
+    "liveQuiz": "Живая викторина",
     "joinNow": "Подключиться",
     "howToPlay": "Как играть",
     "step1": "Выберите ближайшую викторину",
@@ -117,7 +122,7 @@
     "seconds": "сек",
     "online": "Онлайн",
     "questions": "вопросов",
-    "prizeFund": "Приз",
+    "prizeFund": "Призовой фонд",
     "ready": "Вы готовы",
     "waiting": "Ожидание старта...",
     "leaveLobby": "Покинуть лобби",
@@ -141,6 +146,7 @@
     "status_scheduled": "Запланирована",
     "status_in_progress": "Идёт",
     "status_completed": "Завершена",
+    "fallbackTitle": "Викторина №{{id}}",
     "status_cancelled": "Отменена"
   },
   "profile": {
@@ -151,9 +157,9 @@
     "noSessions": "Активных сессий не найдено",
     "thisDevice": "Это устройство",
     "device": "Устройство",
-    "deviceId": "Device ID",
+    "deviceId": "ID устройства",
     "ipAddress": "IP-адрес",
-    "userAgent": "User-Agent",
+    "userAgent": "Клиент",
     "expiresAt": "Истекает",
     "revokeSession": "Завершить сессию",
     "revokeSessionError": "Не удалось завершить сессию",
@@ -178,7 +184,7 @@
     "deleteAccountConfirm": "Это действие необратимо. Продолжить?",
     "deleteAccountDescription": "Данные аккаунта будут обезличены, сессии отозваны. Игровая статистика может остаться в агрегированном виде.",
     "deleteAccountPasswordLabel": "Пароль (для локальных аккаунтов)",
-    "deleteAccountPasswordPlaceholder": "Оставьте пустым только для Google-only аккаунта",
+    "deleteAccountPasswordPlaceholder": "Оставьте пустым, только если входите через Google",
     "deleteAccountReasonLabel": "Причина (необязательно)",
     "deleteAccountReasonPlaceholder": "Расскажите, что пошло не так",
     "deleteAccountDeleting": "Удаление...",
@@ -198,9 +204,9 @@
   "leaderboard": {
     "title": "Лидерборд",
     "subtitle": "Лучшие игроки QazaQuiz",
-    "topPlayers": "Топ игроков",
+    "topPlayers": "Лучшие игроки",
     "rankLabel": "Место",
-    "wins": "Побед",
+    "wins": "Победы",
     "prize": "Приз",
     "noPlayers": "Пока нет игроков"
   },
@@ -212,7 +218,8 @@
     "eliminated": "Выбывание",
     "finished": "Завершено",
     "score": "Счёт",
-    "correct": "Верные",
+    "correct": "Верные ответы",
+    "correctSuffix": "верно",
     "viewResults": "Открыть результаты"
   },
   "settings": {
@@ -222,7 +229,7 @@
   },
   "notFound": {
     "title": "Ошибка",
-    "message": "Этот экран не существует.",
+    "message": "Такой экран не найден.",
     "goHome": "На главную"
   },
   "error": {

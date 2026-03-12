@@ -1,4 +1,4 @@
-﻿import React from 'react';
+import React from 'react';
 import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -127,7 +127,7 @@ export default function ProfileScreen() {
                   accessibilityLabel={emailCooldown > 0 ? t('profile.resend') : t('profile.sendCode')}
                 >
                   <Text style={styles.verifySecondaryButtonText}>
-                    {emailCooldown > 0 ? `${t('profile.resend')} ${emailCooldown}s` : t('profile.sendCode')}
+                    {emailCooldown > 0 ? `${t('profile.resend')} ${emailCooldown} ${t('common.secondsShort')}` : t('profile.sendCode')}
                   </Text>
                 </TouchableOpacity>
               </View>

@@ -39,6 +39,7 @@ function ProfileContent() {
     const t = useTranslations('profile');
     const tNav = useTranslations('nav');
     const tCommon = useTranslations('common');
+    const tAuth = useTranslations('auth');
 
     useEffect(() => {
         const fetchSessions = async () => {
@@ -268,7 +269,7 @@ function ProfileContent() {
                                         <div>
                                             <p className="font-medium">{session.device_id || t('unknownDevice')}</p>
                                             <p className="text-xs text-muted-foreground">
-                                                IP: {session.ip_address} • {formatDate(session.created_at)}
+                                                {t('ipAddressLabel')}: {session.ip_address} • {formatDate(session.created_at)}
                                             </p>
                                         </div>
                                         <Button
@@ -351,7 +352,7 @@ function ProfileContent() {
                                             autoComplete="current-password"
                                             value={deletePassword}
                                             onChange={(e) => setDeletePassword(e.target.value)}
-                                            placeholder="password"
+                                            placeholder={tAuth('passwordPlaceholder')}
                                             className="h-12 bg-white"
                                         />
                                     </div>

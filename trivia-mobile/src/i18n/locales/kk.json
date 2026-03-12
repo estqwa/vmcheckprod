@@ -12,6 +12,7 @@
     "success": "Сәтті",
     "submit": "Жіберу",
     "offlineTitle": "Интернет жоқ",
+    "secondsShort": "сек",
     "offlineRealtimeHint": "Байланыс автоматты түрде қалпына келеді",
     "currency": "тг"
   },
@@ -27,6 +28,9 @@
     "login": "Кіру",
     "register": "Тіркелу",
     "logout": "Шығу",
+    "emailPlaceholder": "Email енгізіңіз",
+    "passwordPlaceholder": "Құпия сөзді енгізіңіз",
+    "usernamePlaceholder": "Лақап атты енгізіңіз",
     "email": "Email",
     "password": "Құпия сөз",
     "username": "Пайдаланушы аты",
@@ -44,6 +48,7 @@
     "fillAllFields": "Барлық өрістерді толтырыңыз",
     "firstName": "Аты",
     "lastName": "Тегі",
+    "birthDatePlaceholder": "Туған күніңізді таңдаңыз",
     "birthDate": "Туған күні",
     "gender": "Жынысы",
     "selectGender": "Таңдаңыз",
@@ -87,7 +92,7 @@
     "title": "Викториналар",
     "welcome": "QazaQuiz ойнаңыз",
     "description": "Нақты уақыттағы онлайн викторина: жылдам жауап беріп, лидербордқа көтеріліңіз.",
-    "liveQuiz": "Live викторина",
+    "liveQuiz": "Тікелей викторина",
     "joinNow": "Қосылу",
     "howToPlay": "Қалай ойнау керек",
     "step1": "Жақын викторинаны таңдаңыз",
@@ -117,7 +122,7 @@
     "seconds": "сек",
     "online": "Онлайн",
     "questions": "сұрақ",
-    "prizeFund": "Жүлде",
+    "prizeFund": "Жүлде қоры",
     "ready": "Сіз дайынсыз",
     "waiting": "Басталуын күтіңіз...",
     "leaveLobby": "Лоббиден шығу",
@@ -141,6 +146,7 @@
     "status_scheduled": "Жоспарланған",
     "status_in_progress": "Жүріп жатыр",
     "status_completed": "Аяқталды",
+    "fallbackTitle": "Викторина №{{id}}",
     "status_cancelled": "Бас тартылды"
   },
   "profile": {
@@ -151,9 +157,9 @@
     "noSessions": "Белсенді сессиялар табылмады",
     "thisDevice": "Осы құрылғы",
     "device": "Құрылғы",
-    "deviceId": "Device ID",
+    "deviceId": "Құрылғы идентификаторы",
     "ipAddress": "IP-мекенжай",
-    "userAgent": "User-Agent",
+    "userAgent": "Клиент",
     "expiresAt": "Мерзімі",
     "revokeSession": "Сессияны аяқтау",
     "revokeSessionError": "Сессияны аяқтау мүмкін болмады",
@@ -178,7 +184,7 @@
     "deleteAccountConfirm": "Бұл әрекетті қайтару мүмкін емес. Жалғастыру керек пе?",
     "deleteAccountDescription": "Аккаунт деректері жасырындатылады, сессиялар тоқтатылады. Ойын статистикасы агрегатталған түрде қалуы мүмкін.",
     "deleteAccountPasswordLabel": "Құпия сөз (локалды аккаунттар үшін)",
-    "deleteAccountPasswordPlaceholder": "Тек Google-only аккаунт болса ғана бос қалдырыңыз",
+    "deleteAccountPasswordPlaceholder": "Тек Google арқылы кірсеңіз ғана бос қалдырыңыз",
     "deleteAccountReasonLabel": "Себебі (міндетті емес)",
     "deleteAccountReasonPlaceholder": "Не дұрыс болмағанын жазыңыз",
     "deleteAccountDeleting": "Жойылуда...",
@@ -200,7 +206,7 @@
     "subtitle": "QazaQuiz үздік ойыншылары",
     "topPlayers": "Үздік ойыншылар",
     "rankLabel": "Орын",
-    "wins": "Жеңіс",
+    "wins": "Жеңістер",
     "prize": "Жүлде",
     "noPlayers": "Әзірге ойыншылар жоқ"
   },
@@ -212,7 +218,8 @@
     "eliminated": "Шығып қалу",
     "finished": "Аяқталды",
     "score": "Ұпай",
-    "correct": "Дұрыс",
+    "correct": "Дұрыс жауаптар",
+    "correctSuffix": "дұрыс",
     "viewResults": "Нәтижені ашу"
   },
   "settings": {
@@ -222,7 +229,7 @@
   },
   "notFound": {
     "title": "Қате",
-    "message": "Бұл экран жоқ.",
+    "message": "Мұндай экран табылмады.",
     "goHome": "Басты бетке"
   },
   "error": {

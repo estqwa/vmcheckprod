@@ -1,4 +1,4 @@
-﻿import { useEffect } from 'react';
+import { useEffect } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -159,7 +159,7 @@ export default function ResultsScreen() {
                         {row.username}
                         {highlight ? ` (${t('quiz.you')})` : ''}
                       </Text>
-                      <Text style={styles.userMeta}>{row.correct_answers}/{row.total_questions} {t('history.correct')}</Text>
+                      <Text style={styles.userMeta}>{row.correct_answers}/{row.total_questions} {t('history.correctSuffix')}</Text>
                     </View>
                   </View>
 

@@ -1,4 +1,4 @@
-﻿import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   KeyboardAvoidingView,
   Platform,
@@ -127,7 +127,7 @@ export default function VerifyEmailScreen() {
 
             <View style={styles.metaBox}>
               <Text style={styles.metaText}>{t('auth.verifyAttemptsLeft')}: {attemptsLeft ?? '-'}</Text>
-              {cooldown > 0 ? <Text style={styles.metaText}>{t('auth.verifyResendIn')}: {cooldown}s</Text> : null}
+              {cooldown > 0 ? <Text style={styles.metaText}>{t('auth.verifyResendIn')}: {cooldown} {t('common.secondsShort')}</Text> : null}
               {expiresAt ? <Text style={styles.metaText}>{t('auth.verifyExpires')}: {formatDateTime(expiresAt, i18n.language)}</Text> : null}
             </View>
 
@@ -139,7 +139,7 @@ export default function VerifyEmailScreen() {
               accessibilityLabel={t('auth.sendCode')}
             >
               <Text style={styles.secondaryButtonText}>
-                {cooldown > 0 ? `${t('common.resend')} (${cooldown}s)` : t('auth.sendCode')}
+                {cooldown > 0 ? `${t('common.resend')} (${cooldown} ${t('common.secondsShort')})` : t('auth.sendCode')}
               </Text>
             </TouchableOpacity>
 

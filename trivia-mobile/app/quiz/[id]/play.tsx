@@ -1,4 +1,4 @@
-﻿import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   FlatList,
   ScrollView,
@@ -462,8 +462,8 @@ export default function PlayScreen() {
                 <Text style={styles.questionCounter}>
                   {t('quiz.question', { current: question.current, total: question.total })}
                 </Text>
-                <View style={[styles.timerBadge, timerTone.badge]} accessibilityLiveRegion="polite" accessibilityLabel={`${timeLeft} seconds`}>
-                  <Text style={[styles.timerText, timerTone.text]}>{timeLeft}s</Text>
+                <View style={[styles.timerBadge, timerTone.badge]} accessibilityLiveRegion="polite" accessibilityLabel={`${timeLeft} ${t('common.secondsShort')}`}>
+                  <Text style={[styles.timerText, timerTone.text]}>{timeLeft} {t('common.secondsShort')}</Text>
                 </View>
               </View>
 

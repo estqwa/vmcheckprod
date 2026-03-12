@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useCallback, useState, type ReactElement, memo } from 'react';
+import { useEffect, useMemo, useCallback, useState, type ReactElement, memo } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -123,7 +123,7 @@ export default function HomeScreen() {
           ) : null}
 
           <View style={styles.quizCardBottom}>
-            <Text style={styles.quizCardMeta}>Q {item.question_count} {t('quiz.questions')}</Text>
+            <Text style={styles.quizCardMeta}>{item.question_count} {t('quiz.questions')}</Text>
             <Text style={styles.quizCardMeta}>{formatDateTime(item.scheduled_time, i18n.language)}</Text>
           </View>
         </TouchableOpacity>

@@ -6,7 +6,8 @@
         "back": "Назад",
         "submit": "Отправить",
         "cancel": "Отменить",
-        "save": "Сохранить"
+        "save": "Сохранить",
+        "secondsShort": "сек"
     },
     "nav": {
         "home": "Главная",
@@ -24,8 +25,8 @@
         "countdown": "До начала: {seconds} сек",
         "question": "Вопрос {current} из {total}",
         "timeLeft": "Осталось: {seconds} сек",
-        "correct": "Правильно!",
-        "incorrect": "Неправильно",
+        "correct": "Верно",
+        "incorrect": "Неверно",
         "eliminated": "Вы выбыли",
         "winner": "Вы победитель!",
         "gameOver": "Игра окончена",
@@ -50,7 +51,8 @@
         "playingAs": "Играете как",
         "leaveLobby": "Покинуть лобби",
         "notFound": "Викторина не найдена",
-        "starting": "Викторина начинается!"
+        "starting": "Викторина начинается!",
+        "you": "Вы"
     },
     "auth": {
         "login": "Вход",
@@ -109,7 +111,14 @@
         "googleLoginError": "Ошибка входа через Google",
         "googleLinkRequiredError": "Этот email уже существует. Войдите по паролю и привяжите Google в профиле.",
         "googleAuthFailed": "Ошибка авторизации Google",
-        "googleCodeMissing": "Отсутствует код авторизации Google"
+        "googleCodeMissing": "Отсутствует код авторизации Google",
+        "emailPlaceholder": "Введите email",
+        "passwordPlaceholder": "Введите пароль",
+        "usernamePlaceholder": "Введите никнейм",
+        "verifyStatusLoadError": "Не удалось загрузить статус подтверждения",
+        "verifySendError": "Не удалось отправить код",
+        "verifyConfirmError": "Не удалось подтвердить код",
+        "verifySuccess": "Email подтвержден"
     },
     "profile": {
         "title": "Профиль",
@@ -137,25 +146,26 @@
         "openVerification": "Открыть подтверждение",
         "verificationCodeSent": "Код подтверждения отправлен",
         "sendVerificationCodeError": "Не удалось отправить код подтверждения",
-        "resendIn": "Повторно через {seconds}с",
+        "resendIn": "Повторно через {seconds} сек",
         "sendCode": "Отправить код",
         "linkGoogle": "Привязать Google",
         "deleteAccount": "Удалить аккаунт",
         "deleting": "Удаление...",
         "deleteAccountConfirm": "Удалить аккаунт? Это действие нельзя отменить.",
-        "deleteAccountPromptPassword": "Введите пароль для подтверждения (оставьте пустым только для Google-only аккаунта):",
+        "deleteAccountPromptPassword": "Пароль (для локальных аккаунтов). Оставьте пустым, только если входите через Google",
         "deleteAccountPromptReason": "Необязательно: почему вы уходите?",
         "deleteAccountSuccess": "Аккаунт удалён",
-        "deleteAccountError": "Не удалось удалить аккаунт"
+        "deleteAccountError": "Не удалось удалить аккаунт",
+        "ipAddressLabel": "IP-адрес"
     },
     "leaderboard": {
         "title": "Рейтинг игроков",
         "subtitle": "Лучшие игроки QazaQuiz",
-        "topPlayers": "Топ игроков",
+        "topPlayers": "Лучшие игроки",
         "noPlayers": "Пока нет игроков",
         "rank": "Место",
         "player": "Игрок",
-        "wins": "побед",
+        "wins": "Победы",
         "prize": "приз"
     },
     "history": {
@@ -167,7 +177,7 @@
         "eliminated": "Выбыл",
         "finished": "Завершено",
         "score": "Очки",
-        "correct": "Правильных",
+        "correct": "Верные ответы",
         "rank": "Место",
         "prize": "Приз",
         "viewResults": "Результаты",
@@ -183,5 +193,8 @@
         "step1": "Присоединитесь к викторине в назначенное время",
         "step2": "Отвечайте на вопросы быстро и правильно",
         "step3": "Последний оставшийся получает приз!"
+    },
+    "legal": {
+        "version": "Версия {version}"
     }
 }

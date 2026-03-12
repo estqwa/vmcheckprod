@@ -24,6 +24,10 @@ jest.mock('../hooks/useGoogleCodeAuthRequest', () => ({
   useGoogleCodeAuthRequest: jest.fn(),
 }));
 
+type TestTree = ReturnType<typeof renderer.create>;
+
+type TestRoot = TestTree['root'];
+
 describe('RegisterScreen', () => {
   const router = {
     push: jest.fn(),
@@ -64,7 +68,7 @@ describe('RegisterScreen', () => {
     return (jest.requireMock('@react-native-picker/picker') as { Picker: any }).Picker;
   }
 
-  function getTextInput(root: renderer.ReactTestInstance, label: string) {
+  function getTextInput(root: TestRoot, label: string) {
     const node = root.findAll(
       (instance: any) =>
         instance.props?.accessibilityLabel === label && typeof instance.props?.onChangeText === 'function',
@@ -77,7 +81,7 @@ describe('RegisterScreen', () => {
     return node;
   }
 
-  function getPressable(root: renderer.ReactTestInstance, label: string) {
+  function getPressable(root: TestRoot, label: string) {
     const node = root.findAll(
       (instance: any) =>
         instance.props?.accessibilityLabel === label && typeof instance.props?.onPress === 'function',
@@ -90,11 +94,11 @@ describe('RegisterScreen', () => {
     return node;
   }
 
-  function hasText(root: renderer.ReactTestInstance, value: string) {
+  function hasText(root: TestRoot, value: string) {
     return root.findAll((instance: any) => instance.type === 'Text' && instance.children?.includes(value)).length > 0;
   }
 
-  function fillRequiredFields(root: renderer.ReactTestInstance) {
+  function fillRequiredFields(root: TestRoot) {
     act(() => {
       getTextInput(root, 'auth.firstName').props.onChangeText('Ada');
       getTextInput(root, 'auth.lastName').props.onChangeText('Lovelace');
@@ -120,7 +124,7 @@ describe('RegisterScreen', () => {
   }
 
   it('requires consent cards before submitting', async () => {
-    let tree: renderer.ReactTestRenderer | undefined;
+    let tree: TestTree | undefined;
 
     await act(async () => {
       tree = renderer.create(<RegisterScreen />);
@@ -142,7 +146,7 @@ describe('RegisterScreen', () => {
   });
 
   it('submits successfully after consent cards are checked', async () => {
-    let tree: renderer.ReactTestRenderer | undefined;
+    let tree: TestTree | undefined;
 
     await act(async () => {
       tree = renderer.create(<RegisterScreen />);
@@ -180,3 +184,4 @@ describe('RegisterScreen', () => {
     });
   });
 });
+

@@ -222,7 +222,7 @@ export default function QuizResultsPage() {
                                             <div className="flex-1 min-w-0">
                                                 <p className="font-medium truncate">
                                                     {result.username}
-                                                    {result.user_id === user?.id && <span className="text-muted-foreground"> (You)</span>}
+                                                    {result.user_id === user?.id && <span className="text-muted-foreground"> ({t('you')})</span>}
                                                 </p>
                                                 <p className="text-sm text-muted-foreground">
                                                     {result.correct_answers}/{result.total_questions} {t('correct')}

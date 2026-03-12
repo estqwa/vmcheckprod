@@ -1,4 +1,4 @@
-﻿import { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Alert,
   KeyboardAvoidingView,
@@ -212,7 +212,7 @@ export default function RegisterScreen() {
               <Text style={styles.label}>{t('auth.username')}</Text>
               <TextInput
                 style={styles.input}
-                placeholder="YourNickname"
+                placeholder={t('auth.usernamePlaceholder')}
                 placeholderTextColor={palette.textMuted}
                 value={username}
                 onChangeText={(v) => { setUsername(v); clearErrors(); }}
@@ -226,7 +226,7 @@ export default function RegisterScreen() {
               <Text style={styles.label}>{t('auth.email')}</Text>
               <TextInput
                 style={styles.input}
-                placeholder="you@example.com"
+                placeholder={t('auth.emailPlaceholder')}
                 placeholderTextColor={palette.textMuted}
                 value={email}
                 onChangeText={(v) => { setEmail(v); clearErrors(); }}
@@ -247,7 +247,7 @@ export default function RegisterScreen() {
                 accessibilityLabel={t('auth.birthDate')}
               >
                 <Text style={[styles.dateValue, !birthDate ? styles.datePlaceholder : null]}>
-                  {birthDate ? formatDate(birthDate) : 'YYYY-MM-DD'}
+                  {birthDate ? formatDate(birthDate) : t('auth.birthDatePlaceholder')}
                 </Text>
               </Pressable>
               {showDatePicker ? (
@@ -284,7 +284,7 @@ export default function RegisterScreen() {
               <Text style={styles.label}>{t('auth.password')}</Text>
               <TextInput
                 style={styles.input}
-                placeholder="вЂўвЂўвЂўвЂўвЂўвЂўвЂўвЂў"
+                placeholder={t('auth.passwordPlaceholder')}
                 placeholderTextColor={palette.textMuted}
                 value={password}
                 onChangeText={(v) => { setPassword(v); clearErrors(); }}
@@ -297,7 +297,7 @@ export default function RegisterScreen() {
               <Text style={styles.label}>{t('auth.confirmPassword')}</Text>
               <TextInput
                 style={styles.input}
-                placeholder="вЂўвЂўвЂўвЂўвЂўвЂўвЂўвЂў"
+                placeholder={t('auth.passwordPlaceholder')}
                 placeholderTextColor={palette.textMuted}
                 value={confirmPassword}
                 onChangeText={(v) => { setConfirmPassword(v); clearErrors(); }}

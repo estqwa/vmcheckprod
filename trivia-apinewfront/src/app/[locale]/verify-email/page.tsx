@@ -14,6 +14,7 @@ import type { EmailVerificationStatus } from '@/lib/api/types';
 
 function VerifyEmailContent() {
     const t = useTranslations('auth');
+    const tCommon = useTranslations('common');
     const { user, getEmailVerificationStatus, sendEmailVerificationCode, confirmEmailVerificationCode, refetchUser } = useAuth();
     const [status, setStatus] = useState<EmailVerificationStatus | null>(null);
     const [code, setCode] = useState('');
@@ -27,7 +28,7 @@ function VerifyEmailContent() {
             setCooldown(Math.max(0, nextStatus.cooldown_remaining_sec || 0));
         } catch (error: unknown) {
             const err = error as { error?: string };
-            toast.error(err.error || 'Failed to load verification status');
+            toast.error(err.error || t('verifyStatusLoadError'));
         }
     }, [getEmailVerificationStatus]);
 
@@ -49,15 +50,17 @@ function VerifyEmailContent() {
         return status.can_send_code && cooldown <= 0;
     }, [status, cooldown]);
 
+    const cooldownLabel = `${cooldown} ${tCommon('secondsShort')}`;
+
     const handleSend = async () => {
         setIsBusy(true);
         try {
             await sendEmailVerificationCode();
-            toast.success('Verification code sent');
+            toast.success(t('verificationCodeSent'));
             await loadStatus();
         } catch (error: unknown) {
             const err = error as { error?: string };
-            toast.error(err.error || 'Failed to send verification code');
+            toast.error(err.error || t('verifySendError'));
         } finally {
             setIsBusy(false);
         }
@@ -69,12 +72,12 @@ function VerifyEmailContent() {
         try {
             await confirmEmailVerificationCode({ code: code.trim() });
             await refetchUser();
-            toast.success('Email verified');
+            toast.success(t('verifySuccess'));
             setCode('');
             await loadStatus();
         } catch (error: unknown) {
             const err = error as { error?: string };
-            toast.error(err.error || 'Failed to verify code');
+            toast.error(err.error || t('verifyConfirmError'));
         } finally {
             setIsBusy(false);
         }
@@ -102,12 +105,12 @@ function VerifyEmailContent() {
 
                     <div className="space-y-2 text-sm text-muted-foreground">
                         <p>{t('verifyAttemptsLeft') || 'Attempts left'}: {status?.attempts_left ?? '-'}</p>
-                        {cooldown > 0 && <p>{t('verifyResendCooldown') || 'Resend available in'}: {cooldown}s</p>}
+                        {cooldown > 0 && <p>{t('verifyResendCooldown') || 'Resend available in'}: {cooldownLabel}</p>}
                         {status?.expires_at && <p>{t('verifyExpiresAt') || 'Code expires at'}: {new Date(status.expires_at).toLocaleString()}</p>}
                     </div>
 
                     <Button type="button" variant="outline" className="w-full" onClick={handleSend} disabled={isBusy || !canSend}>
-                        {cooldown > 0 ? `${t('resendCode') || 'Resend code'} (${cooldown}s)` : (t('sendCode') || 'Send code')}
+                        {cooldown > 0 ? `${t('resendCode') || 'Resend code'} (${cooldownLabel})` : (t('sendCode') || 'Send code')}
                     </Button>
 
                     <form onSubmit={handleConfirm} className="space-y-3">

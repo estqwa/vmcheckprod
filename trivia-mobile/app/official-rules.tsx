@@ -2,22 +2,23 @@ import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import { BrandHeader } from '../src/components/ui/BrandHeader';
-import { LEGAL_PRIVACY_VERSION } from '../src/constants/config';
+import { LEGAL_OFFICIAL_RULES_VERSION } from '../src/constants/config';
 import { getLegalCopy } from '../src/legal/content';
 import { palette, radii, shadow, spacing, typography } from '../src/theme/tokens';
 import { normalizeLegalText } from '../src/utils/legalText';
 
-export default function PrivacyScreen() {
+export default function OfficialRulesScreen() {
   const { t, i18n } = useTranslation();
-  const body = getLegalCopy(i18n.resolvedLanguage).privacy;
+  const body = getLegalCopy(i18n.resolvedLanguage).officialRules;
   const paragraphs = normalizeLegalText(body);
+
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
-      <BrandHeader subtitle={t('legal.privacyTitle')} />
+      <BrandHeader subtitle={t('legal.officialRulesTitle')} />
       <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.card}>
-          <Text style={styles.title}>{t('legal.privacyTitle')}</Text>
-          <Text style={styles.version}>{t('legal.version', { version: LEGAL_PRIVACY_VERSION })}</Text>
+          <Text style={styles.title}>{t('legal.officialRulesTitle')}</Text>
+          <Text style={styles.version}>{t('legal.version', { version: LEGAL_OFFICIAL_RULES_VERSION })}</Text>
           {paragraphs.map((paragraph, idx) => (
             <Text key={idx} style={styles.text}>
               {paragraph}

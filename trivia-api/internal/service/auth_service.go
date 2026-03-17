@@ -114,8 +114,8 @@ func (s *AuthService) RegisterUser(input RegisterInput) (*entity.User, error) {
 
 	// РџСЂРѕРІРµСЂРєР° РІРѕР·СЂР°СЃС‚Р° (>= 13 Р»РµС‚)
 	age := calculateAge(*input.BirthDate)
-	if age < 13 {
-		return nil, fmt.Errorf("%w: user must be at least 13 years old", apperrors.ErrValidation)
+	if age < 18 {
+		return nil, fmt.Errorf("%w: user must be at least 18 years old", apperrors.ErrValidation)
 	}
 
 	// РџСЂРѕРІРµСЂРєР° СЋСЂРёРґРёС‡РµСЃРєРѕРіРѕ СЃРѕРіР»Р°СЃРёСЏ

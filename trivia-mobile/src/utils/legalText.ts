@@ -12,7 +12,11 @@ export function normalizeLegalText(body: string): string[] {
         .map((line) => line.replace(/^#{1,6}\\s*/, '').replace(/^- /, '? '))
         .join('\\n'),
     );
-  if (normalizedBlocks[0]?.startsWith('Terms of Service') || normalizedBlocks[0]?.startsWith('Privacy Policy')) {
+  if (
+    normalizedBlocks[0]?.startsWith('Terms of Service') ||
+    normalizedBlocks[0]?.startsWith('Privacy Policy') ||
+    normalizedBlocks[0]?.startsWith('Official Rules')
+  ) {
     normalizedBlocks.shift();
   }
   if (normalizedBlocks[0]?.startsWith('This is a template for informational purposes.')) {

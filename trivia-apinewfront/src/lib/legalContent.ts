@@ -1,7 +1,7 @@
 ﻿import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 
-export type LegalKind = 'privacy' | 'terms';
+export type LegalKind = 'privacy' | 'terms' | 'officialRules';
 export type LegalLocale = 'ru' | 'kk';
 
 export type LegalBlock =
@@ -18,12 +18,16 @@ export interface LegalDocument {
 
 const FILE_NAMES: Record<LegalKind, Record<LegalLocale, string>> = {
   privacy: {
-    ru: 'privacy-policy.ru.md',
-    kk: 'privacy-policy.kk.md',
+    ru: 'privacy-policy.public.ru.md',
+    kk: 'privacy-policy.public.kk.md',
   },
   terms: {
-    ru: 'terms-of-service.ru.md',
-    kk: 'terms-of-service.kk.md',
+    ru: 'terms-of-service.public.ru.md',
+    kk: 'terms-of-service.public.kk.md',
+  },
+  officialRules: {
+    ru: 'official-rules.public.ru.md',
+    kk: 'official-rules.public.kk.md',
   },
 };
 
@@ -154,7 +158,12 @@ export async function loadLegalDocument(kind: LegalKind, locale: string): Promis
     };
   } catch {
     return {
-      title: kind === 'privacy' ? 'Privacy Policy' : 'Terms of Service',
+      title:
+        kind === 'privacy'
+          ? 'Privacy Policy'
+          : kind === 'terms'
+            ? 'Terms of Service'
+            : 'Official Rules',
       version: '1.0',
       blocks: [
         {

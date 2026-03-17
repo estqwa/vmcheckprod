@@ -61,6 +61,7 @@ function AppContent() {
         <Stack.Screen name="profile/delete-account" />
         <Stack.Screen name="terms" />
         <Stack.Screen name="privacy" />
+        <Stack.Screen name="official-rules" />
       </Stack>
       <OfflineBanner />
       <StatusBar style="dark" />

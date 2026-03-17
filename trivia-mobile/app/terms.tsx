@@ -3,17 +3,13 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import { BrandHeader } from '../src/components/ui/BrandHeader';
 import { LEGAL_TOS_VERSION } from '../src/constants/config';
+import { getLegalCopy } from '../src/legal/content';
 import { palette, radii, shadow, spacing, typography } from '../src/theme/tokens';
 import { normalizeLegalText } from '../src/utils/legalText';
 
 export default function TermsScreen() {
-  const { t } = useTranslation();
-
-  const body = t('legal.termsFull', {
-    defaultValue: `${t('legal.termsP1')}
-
-${t('legal.termsP2')}`,
-  });
+  const { t, i18n } = useTranslation();
+  const body = getLegalCopy(i18n.resolvedLanguage).terms;
   const paragraphs = normalizeLegalText(body);
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
@@ -49,4 +45,3 @@ const styles = StyleSheet.create({
   version: { color: palette.textMuted, fontSize: 12 },
   text: { color: palette.text, lineHeight: 22 },
 });
-

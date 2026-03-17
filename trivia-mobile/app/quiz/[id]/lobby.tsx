@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter, type Href } from 'expo-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
@@ -189,6 +189,16 @@ export default function LobbyScreen() {
               </View>
             </View>
 
+            {(quiz?.prize_fund ?? 0) > 0 ? (
+              <View style={styles.prizeNoticeCard}>
+                <Text style={styles.prizeNoticeTitle}>{t('quiz.prizeNoticeTitle')}</Text>
+                <Text style={styles.prizeNoticeText}>{t('quiz.prizeNoticeText')}</Text>
+                <TouchableOpacity onPress={() => router.push('/official-rules' as Href)} accessibilityRole="link">
+                  <Text style={styles.prizeNoticeLink}>{t('legal.officialRulesLink')}</Text>
+                </TouchableOpacity>
+              </View>
+            ) : null}
+
             {isConnected ? (
               <View style={styles.okStateBox}>
                 <Text style={styles.okStateTitle}>{t('quiz.ready')}</Text>
@@ -300,6 +310,28 @@ const styles = StyleSheet.create({
     color: palette.textMuted,
     fontSize: 11,
     marginTop: 2,
+  },
+  prizeNoticeCard: {
+    borderRadius: radii.lg,
+    borderWidth: 1,
+    borderColor: palette.border,
+    backgroundColor: palette.accentSurface,
+    padding: spacing.md,
+    gap: spacing.xs,
+  },
+  prizeNoticeTitle: {
+    color: palette.text,
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  prizeNoticeText: {
+    color: palette.textMuted,
+    lineHeight: 20,
+  },
+  prizeNoticeLink: {
+    color: palette.primary,
+    fontSize: 13,
+    fontWeight: '700',
   },
   okStateBox: {
     backgroundColor: '#dcfce7',

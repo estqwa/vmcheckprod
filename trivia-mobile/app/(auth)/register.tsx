@@ -12,7 +12,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useRouter, type Href } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
 import { Picker } from '@react-native-picker/picker';
@@ -59,6 +59,16 @@ export default function RegisterScreen() {
     return `${y}-${m}-${d}`;
   };
 
+  const getAge = (date: Date) => {
+    const today = new Date();
+    let age = today.getFullYear() - date.getFullYear();
+    const monthDelta = today.getMonth() - date.getMonth();
+    if (monthDelta < 0 || (monthDelta === 0 && today.getDate() < date.getDate())) {
+      age -= 1;
+    }
+    return age;
+  };
+
   const handleSubmit = async () => {
     if (!firstName.trim() || !lastName.trim() || !username.trim() || !email.trim() || !password.trim() || !confirmPassword.trim()) {
       setLocalError(t('auth.fillAllFields'));
@@ -77,6 +87,11 @@ export default function RegisterScreen() {
 
     if (!birthDate) {
       setLocalError(t('auth.birthDateRequired'));
+      return;
+    }
+
+    if (getAge(birthDate) < 18) {
+      setLocalError(t('auth.ageRequirement'));
       return;
     }
 
@@ -356,6 +371,14 @@ export default function RegisterScreen() {
               </View>
             </Pressable>
 
+            <View style={styles.noticeCard}>
+              <Text style={styles.noticeTitle}>{t('auth.prizeEligibilityTitle')}</Text>
+              <Text style={styles.noticeText}>{t('auth.prizeEligibilityNotice')}</Text>
+              <TouchableOpacity onPress={() => router.push('/official-rules' as Href)} accessibilityRole="link" hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                <Text style={styles.inlineLink}>{t('legal.officialRulesLink')}</Text>
+              </TouchableOpacity>
+            </View>
+
             <PrimaryButton title={t('auth.registerButton')} loading={isLoading} onPress={handleSubmit} />
 
             {google.enabled ? (
@@ -522,6 +545,24 @@ const styles = StyleSheet.create({
     color: palette.primary,
     fontSize: 13,
     fontWeight: '700',
+  },
+  noticeCard: {
+    borderRadius: radii.lg,
+    borderWidth: 1,
+    borderColor: palette.border,
+    backgroundColor: palette.accentSurface,
+    padding: spacing.md,
+    gap: spacing.xs,
+  },
+  noticeTitle: {
+    color: palette.text,
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  noticeText: {
+    color: palette.textMuted,
+    fontSize: 13,
+    lineHeight: 20,
   },
   switchRow: {
     marginTop: spacing.sm,

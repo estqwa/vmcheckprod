@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   Alert,
   KeyboardAvoidingView,
@@ -15,7 +15,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, type Href } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
-import { Picker } from '@react-native-picker/picker';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import type { RegisterData } from '@trivia/shared';
 import { BrandHeader } from '../../src/components/ui/BrandHeader';
@@ -31,6 +30,8 @@ export default function RegisterScreen() {
   const router = useRouter();
   const { register, loginWithGoogle, error, clearError, isLoading } = useAuth();
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const isSubmittingRef = useRef(false);
   const google = useGoogleCodeAuthRequest();
 
   const [username, setUsername] = useState('');
@@ -46,6 +47,12 @@ export default function RegisterScreen() {
   const [privacyAccepted, setPrivacyAccepted] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
   const displayedError = localError ?? error;
+  const genderOptions: Array<{ label: string; value: RegisterData['gender'] }> = [
+    { label: t('auth.genderMale'), value: 'male' },
+    { label: t('auth.genderFemale'), value: 'female' },
+    { label: t('auth.genderOther'), value: 'other' },
+    { label: t('auth.genderPreferNot'), value: 'prefer_not_to_say' },
+  ];
 
   const clearErrors = () => {
     setLocalError(null);
@@ -70,6 +77,10 @@ export default function RegisterScreen() {
   };
 
   const handleSubmit = async () => {
+    if (isSubmittingRef.current || isLoading) {
+      return;
+    }
+
     if (!firstName.trim() || !lastName.trim() || !username.trim() || !email.trim() || !password.trim() || !confirmPassword.trim()) {
       setLocalError(t('auth.fillAllFields'));
       return;
@@ -106,6 +117,8 @@ export default function RegisterScreen() {
     }
 
     setLocalError(null);
+    isSubmittingRef.current = true;
+    setIsSubmitting(true);
     try {
       await register({
         username: username.trim(),
@@ -123,6 +136,9 @@ export default function RegisterScreen() {
       router.replace('/(auth)/verify-email');
     } catch {
       // Error is surfaced through auth context.
+    } finally {
+      isSubmittingRef.current = false;
+      setIsSubmitting(false);
     }
   };
 
@@ -280,18 +296,38 @@ export default function RegisterScreen() {
 
             <View style={styles.fieldGroup}>
               <Text style={styles.label}>{t('auth.gender')}</Text>
-              <View style={styles.pickerWrapper}>
-                <Picker
-                  selectedValue={gender}
-                  onValueChange={(v) => { setGender(v as RegisterData['gender'] | ''); clearErrors(); }}
-                  style={styles.picker}
-                >
-                  <Picker.Item label={t('auth.selectGender')} value="" />
-                  <Picker.Item label={t('auth.genderMale')} value="male" />
-                  <Picker.Item label={t('auth.genderFemale')} value="female" />
-                  <Picker.Item label={t('auth.genderOther')} value="other" />
-                  <Picker.Item label={t('auth.genderPreferNot')} value="prefer_not_to_say" />
-                </Picker>
+              <View style={styles.genderGroup} accessibilityRole="radiogroup">
+                {genderOptions.map((option) => {
+                  const checked = gender === option.value;
+
+                  return (
+                    <Pressable
+                      key={option.value}
+                      style={({ pressed }) => [
+                        styles.genderOption,
+                        checked ? styles.genderOptionSelected : null,
+                        pressed ? styles.genderOptionPressed : null,
+                      ]}
+                      onPress={() => {
+                        setGender(option.value);
+                        clearErrors();
+                      }}
+                      hitSlop={6}
+                      accessibilityRole="radio"
+                      accessibilityState={{ checked }}
+                      accessibilityLabel={option.label}
+                    >
+                      <Ionicons
+                        name={checked ? 'radio-button-on' : 'radio-button-off'}
+                        size={20}
+                        color={checked ? palette.primary : palette.textMuted}
+                      />
+                      <Text style={[styles.genderOptionText, checked ? styles.genderOptionTextSelected : null]}>
+                        {option.label}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
               </View>
             </View>
 
@@ -321,55 +357,71 @@ export default function RegisterScreen() {
               />
             </View>
 
-            <Pressable
-              style={({ pressed }) => [
+            <View
+              style={[
                 styles.consentCard,
                 tosAccepted ? styles.consentCardChecked : null,
-                pressed ? styles.consentCardPressed : null,
               ]}
-              onPress={() => { setTosAccepted(!tosAccepted); clearErrors(); }}
-              hitSlop={6}
-              accessibilityRole="checkbox"
-              accessibilityState={{ checked: tosAccepted }}
-              accessibilityLabel={t('auth.acceptTos')}
             >
-              <Ionicons
-                name={tosAccepted ? 'checkbox' : 'square-outline'}
-                size={22}
-                color={tosAccepted ? palette.primary : palette.textMuted}
-              />
-              <View style={styles.consentContent}>
+              <Pressable
+                style={({ pressed }) => [styles.consentToggle, pressed ? styles.consentCardPressed : null]}
+                onPress={() => { setTosAccepted(!tosAccepted); clearErrors(); }}
+                hitSlop={6}
+                accessibilityRole="checkbox"
+                accessibilityState={{ checked: tosAccepted }}
+                accessibilityLabel={t('auth.acceptTos')}
+              >
+                <Ionicons
+                  name={tosAccepted ? 'checkbox' : 'square-outline'}
+                  size={22}
+                  color={tosAccepted ? palette.primary : palette.textMuted}
+                />
                 <Text style={styles.checkboxLabel}>{t('auth.acceptTos')}</Text>
-                <TouchableOpacity onPress={() => router.push('/terms')} accessibilityRole="link" hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              </Pressable>
+              <View style={styles.consentContent}>
+                <TouchableOpacity
+                  style={styles.inlineLinkButton}
+                  onPress={() => router.push('/terms' as Href)}
+                  accessibilityRole="link"
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
                   <Text style={styles.inlineLink}>{t('auth.termsLink')}</Text>
                 </TouchableOpacity>
               </View>
-            </Pressable>
+            </View>
 
-            <Pressable
-              style={({ pressed }) => [
+            <View
+              style={[
                 styles.consentCard,
                 privacyAccepted ? styles.consentCardChecked : null,
-                pressed ? styles.consentCardPressed : null,
               ]}
-              onPress={() => { setPrivacyAccepted(!privacyAccepted); clearErrors(); }}
-              hitSlop={6}
-              accessibilityRole="checkbox"
-              accessibilityState={{ checked: privacyAccepted }}
-              accessibilityLabel={t('auth.acceptPrivacy')}
             >
-              <Ionicons
-                name={privacyAccepted ? 'checkbox' : 'square-outline'}
-                size={22}
-                color={privacyAccepted ? palette.primary : palette.textMuted}
-              />
-              <View style={styles.consentContent}>
+              <Pressable
+                style={({ pressed }) => [styles.consentToggle, pressed ? styles.consentCardPressed : null]}
+                onPress={() => { setPrivacyAccepted(!privacyAccepted); clearErrors(); }}
+                hitSlop={6}
+                accessibilityRole="checkbox"
+                accessibilityState={{ checked: privacyAccepted }}
+                accessibilityLabel={t('auth.acceptPrivacy')}
+              >
+                <Ionicons
+                  name={privacyAccepted ? 'checkbox' : 'square-outline'}
+                  size={22}
+                  color={privacyAccepted ? palette.primary : palette.textMuted}
+                />
                 <Text style={styles.checkboxLabel}>{t('auth.acceptPrivacy')}</Text>
-                <TouchableOpacity onPress={() => router.push('/privacy')} accessibilityRole="link" hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              </Pressable>
+              <View style={styles.consentContent}>
+                <TouchableOpacity
+                  style={styles.inlineLinkButton}
+                  onPress={() => router.push('/privacy' as Href)}
+                  accessibilityRole="link"
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
                   <Text style={styles.inlineLink}>{t('auth.privacyLink')}</Text>
                 </TouchableOpacity>
               </View>
-            </Pressable>
+            </View>
 
             <View style={styles.noticeCard}>
               <Text style={styles.noticeTitle}>{t('auth.prizeEligibilityTitle')}</Text>
@@ -379,13 +431,13 @@ export default function RegisterScreen() {
               </TouchableOpacity>
             </View>
 
-            <PrimaryButton title={t('auth.registerButton')} loading={isLoading} onPress={handleSubmit} />
+            <PrimaryButton title={t('auth.registerButton')} loading={isLoading || isSubmitting} onPress={handleSubmit} />
 
             {google.enabled ? (
               <TouchableOpacity
                 style={styles.googleButton}
                 onPress={() => void handleGooglePress()}
-                disabled={!google.request || isLoading || isGoogleLoading}
+                disabled={!google.request || isLoading || isSubmitting || isGoogleLoading}
                 accessibilityRole="button"
               >
                 <Text style={styles.googleButtonText}>
@@ -504,26 +556,47 @@ const styles = StyleSheet.create({
   datePlaceholder: {
     color: palette.textMuted,
   },
-  pickerWrapper: {
+  genderGroup: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+  },
+  genderOption: {
+    width: '48%',
+    minHeight: 48,
     borderRadius: radii.md,
     borderWidth: 1,
     borderColor: palette.border,
     backgroundColor: palette.surface,
-    overflow: 'hidden',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
   },
-  picker: {
-    height: 48,
+  genderOptionSelected: {
+    borderColor: palette.primary,
+    backgroundColor: palette.accentSurface,
+  },
+  genderOptionPressed: {
+    opacity: 0.92,
+  },
+  genderOptionText: {
     color: palette.text,
+    fontSize: 14,
+    fontWeight: '600',
+    flexShrink: 1,
+  },
+  genderOptionTextSelected: {
+    color: palette.primary,
   },
   consentCard: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 10,
     borderRadius: radii.lg,
     borderWidth: 1,
     borderColor: palette.border,
     backgroundColor: palette.surface,
     padding: spacing.md,
+    gap: spacing.sm,
   },
   consentCardChecked: {
     borderColor: palette.primary,
@@ -533,13 +606,21 @@ const styles = StyleSheet.create({
     opacity: 0.92,
   },
   consentContent: {
-    flex: 1,
-    gap: 6,
+    paddingLeft: 32,
+  },
+  consentToggle: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
   },
   checkboxLabel: {
     color: palette.text,
     fontSize: 13,
     lineHeight: 18,
+    flex: 1,
+  },
+  inlineLinkButton: {
+    alignSelf: 'flex-start',
   },
   inlineLink: {
     color: palette.primary,

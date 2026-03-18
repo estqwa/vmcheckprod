@@ -110,10 +110,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (isBootstrapping) return;
 
-    const inAuthGroup = segments[0] === '(auth)';
+    const topLevelSegment = String(segments[0] ?? '');
+    const inAuthGroup = topLevelSegment === '(auth)';
+    const isPublicRoute = topLevelSegment === 'terms' || topLevelSegment === 'privacy' || topLevelSegment === 'official-rules';
     const isVerifyEmailScreen = String(segments[1] ?? '') === 'verify-email';
 
-    if (!isAuthenticated && !inAuthGroup) {
+    if (!isAuthenticated && !inAuthGroup && !isPublicRoute) {
       router.replace('/(auth)/login');
       return;
     }

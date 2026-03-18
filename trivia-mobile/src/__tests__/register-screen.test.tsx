@@ -10,12 +10,6 @@ jest.mock('@react-native-community/datetimepicker', () => {
   return DateTimePicker;
 });
 
-jest.mock('@react-native-picker/picker', () => {
-  const Picker = (props: any) => null;
-  (Picker as any).Item = () => null;
-  return { Picker };
-});
-
 jest.mock('../providers/AuthProvider', () => ({
   useAuth: jest.fn(),
 }));
@@ -62,10 +56,6 @@ describe('RegisterScreen', () => {
 
   function getMockDateTimePicker() {
     return jest.requireMock('@react-native-community/datetimepicker') as any;
-  }
-
-  function getMockPicker() {
-    return (jest.requireMock('@react-native-picker/picker') as { Picker: any }).Picker;
   }
 
   function getTextInput(root: TestRoot, label: string) {
@@ -117,9 +107,8 @@ describe('RegisterScreen', () => {
       datePicker.props.onChange({}, new Date(2000, 0, 2));
     });
 
-    const picker = root.findByType(getMockPicker());
     act(() => {
-      picker.props.onValueChange('female');
+      getPressable(root, 'auth.genderFemale').props.onPress();
     });
   }
 
@@ -178,6 +167,46 @@ describe('RegisterScreen', () => {
       privacy_version: expect.any(String),
     });
     expect(router.replace).toHaveBeenCalledWith('/(auth)/verify-email');
+
+    await act(async () => {
+      tree!.unmount();
+    });
+  });
+
+  it('ignores duplicate submit presses while registration is pending', async () => {
+    let tree: TestTree | undefined;
+    let resolveRegister: (() => void) | undefined;
+    register.mockImplementation(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveRegister = resolve;
+        }),
+    );
+
+    await act(async () => {
+      tree = renderer.create(<RegisterScreen />);
+    });
+
+    const root = tree!.root;
+    fillRequiredFields(root);
+
+    act(() => {
+      getPressable(root, 'auth.acceptTos').props.onPress();
+      getPressable(root, 'auth.acceptPrivacy').props.onPress();
+    });
+
+    let firstSubmit: Promise<void> | undefined;
+    let secondSubmit: Promise<void> | undefined;
+
+    await act(async () => {
+      firstSubmit = getPressable(root, 'auth.registerButton').props.onPress();
+      secondSubmit = getPressable(root, 'auth.registerButton').props.onPress();
+      expect(register).toHaveBeenCalledTimes(1);
+      resolveRegister?.();
+      await Promise.all([firstSubmit, secondSubmit]);
+    });
+
+    expect(register).toHaveBeenCalledTimes(1);
 
     await act(async () => {
       tree!.unmount();

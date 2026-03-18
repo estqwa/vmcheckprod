@@ -119,6 +119,32 @@ describe('AuthProvider', () => {
     });
   });
 
+  it('allows unauthenticated user to open public legal routes', async () => {
+    (checkAuth as jest.Mock).mockResolvedValue(null);
+
+    for (const route of ['terms', 'privacy', 'official-rules']) {
+      jest.clearAllMocks();
+      (ExpoRouter.useRouter as jest.Mock).mockReturnValue(router);
+      (ExpoRouter.useSegments as jest.Mock).mockReturnValue([route]);
+      (checkAuth as jest.Mock).mockResolvedValue(null);
+
+      const queryClient = new QueryClient();
+      let latestAuth: any = null;
+      const tree = await mountWithProbe(queryClient, (value) => {
+        latestAuth = value;
+      });
+
+      await waitFor(() => expect(latestAuth?.isLoading).toBe(false), { timeout: 1500 });
+
+      expect(latestAuth?.isAuthenticated).toBe(false);
+      expect(router.replace).not.toHaveBeenCalledWith('/(auth)/login');
+
+      await act(async () => {
+        tree.unmount();
+      });
+    }
+  });
+
   it('executes login flow and stores authenticated user', async () => {
     const queryClient = new QueryClient();
     let latestAuth: any = null;

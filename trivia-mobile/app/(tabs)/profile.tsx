@@ -7,7 +7,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../src/providers/AuthProvider';
 import { useGoogleCodeAuthRequest } from '../../src/hooks/useGoogleCodeAuthRequest';
 import { BrandHeader } from '../../src/components/ui/BrandHeader';
+import { StateBanner } from '../../src/components/ui/StateBanner';
 import { LanguageToggle } from '../../src/components/ui/LanguageToggle';
+import { SurfaceCard } from '../../src/components/ui/SurfaceCard';
 import { palette, radii, shadow, spacing, typography } from '../../src/theme/tokens';
 import { formatCurrency } from '../../src/utils/format';
 
@@ -99,38 +101,51 @@ export default function ProfileScreen() {
       <BrandHeader subtitle={t('profile.title')} />
 
       <ScrollView contentContainerStyle={styles.content}>
-        <View style={styles.userCard}>
+        <SurfaceCard style={styles.userCard}>
           <View style={styles.avatar}>
             <Text style={styles.avatarText}>{user?.username?.slice(0, 2).toUpperCase() ?? 'U'}</Text>
           </View>
           <Text style={styles.username}>{user?.username ?? '-'}</Text>
           <Text style={styles.email}>{user?.email ?? '-'}</Text>
 
-          {user && !user.email_verified ? (
-            <View style={styles.verifyBanner}>
-              <Text style={styles.verifyBannerTitle}>{t('profile.emailNotVerifiedTitle')}</Text>
-              <Text style={styles.verifyBannerText}>{t('profile.emailNotVerifiedText')}</Text>
-              <View style={styles.verifyBannerActions}>
-                <TouchableOpacity
-                  style={styles.verifyButton}
-                  onPress={() => router.push('/(auth)/verify-email')}
-                  accessibilityRole="button"
-                  accessibilityLabel={t('profile.verify')}
-                >
-                  <Text style={styles.verifyButtonText}>{t('profile.verify')}</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.verifySecondaryButton}
-                  onPress={() => void handleSendVerificationCode()}
-                  disabled={emailCooldown > 0 || isEmailBusy}
-                  accessibilityRole="button"
-                  accessibilityLabel={emailCooldown > 0 ? t('profile.resend') : t('profile.sendCode')}
-                >
-                  <Text style={styles.verifySecondaryButtonText}>
-                    {emailCooldown > 0 ? `${t('profile.resend')} ${emailCooldown} ${t('common.secondsShort')}` : t('profile.sendCode')}
-                  </Text>
-                </TouchableOpacity>
+          {user?.email_verified ? (
+            <View style={styles.statusRow}>
+              <View style={styles.statusPill}>
+                <Text style={styles.statusPillText}>{t('common.success')}</Text>
               </View>
+            </View>
+          ) : null}
+
+          {user && !user.email_verified ? (
+            <StateBanner
+              tone="warning"
+              title={t('profile.emailNotVerifiedTitle')}
+              description={t('profile.emailNotVerifiedText')}
+              style={styles.verifyBanner}
+            />
+          ) : null}
+
+          {user && !user.email_verified ? (
+            <View style={styles.verifyBannerActions}>
+              <TouchableOpacity
+                style={styles.verifyButton}
+                onPress={() => router.push('/(auth)/verify-email')}
+                accessibilityRole="button"
+                accessibilityLabel={t('profile.verify')}
+              >
+                <Text style={styles.verifyButtonText}>{t('profile.verify')}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.verifySecondaryButton}
+                onPress={() => void handleSendVerificationCode()}
+                disabled={emailCooldown > 0 || isEmailBusy}
+                accessibilityRole="button"
+                accessibilityLabel={emailCooldown > 0 ? t('profile.resend') : t('profile.sendCode')}
+              >
+                <Text style={styles.verifySecondaryButtonText}>
+                  {emailCooldown > 0 ? `${t('profile.resend')} ${emailCooldown} ${t('common.secondsShort')}` : t('profile.sendCode')}
+                </Text>
+              </TouchableOpacity>
             </View>
           ) : null}
 
@@ -152,9 +167,9 @@ export default function ProfileScreen() {
               <Text style={styles.statLabel}>{t('profile.totalPrize')}</Text>
             </View>
           </View>
-        </View>
+        </SurfaceCard>
 
-        <View style={styles.actionCard}>
+        <SurfaceCard style={styles.actionCard}>
           <Text style={styles.cardTitle}>{t('profile.actions')}</Text>
 
           <TouchableOpacity style={styles.menuItem} onPress={() => router.push('/profile/history')} accessibilityRole="button">
@@ -208,7 +223,7 @@ export default function ProfileScreen() {
               <Text style={[styles.menuItemText, styles.logoutText]}>{t('auth.logout')}</Text>
             </View>
           </TouchableOpacity>
-        </View>
+        </SurfaceCard>
       </ScrollView>
     </SafeAreaView>
   );
@@ -225,13 +240,8 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.xxl,
   },
   userCard: {
-    backgroundColor: palette.surface,
-    borderWidth: 1,
-    borderColor: palette.border,
-    borderRadius: radii.xl,
-    padding: spacing.lg,
     alignItems: 'center',
-    ...shadow.card,
+    gap: spacing.xs,
   },
   avatar: {
     width: 84,
@@ -257,31 +267,18 @@ const styles = StyleSheet.create({
   email: {
     color: palette.textMuted,
     marginTop: 2,
-    marginBottom: spacing.md,
+    marginBottom: 2,
+    textAlign: 'center',
   },
   verifyBanner: {
     width: '100%',
-    borderRadius: radii.lg,
-    borderWidth: 1,
-    borderColor: '#fcd34d',
-    backgroundColor: '#fffbeb',
-    padding: spacing.md,
     marginBottom: spacing.md,
-    gap: 6,
-  },
-  verifyBannerTitle: {
-    color: '#92400e',
-    fontWeight: '800',
-    fontSize: 14,
-  },
-  verifyBannerText: {
-    color: '#92400e',
-    fontSize: 12,
   },
   verifyBannerActions: {
     flexDirection: 'row',
     gap: spacing.sm,
     marginTop: 4,
+    width: '100%',
   },
   verifyButton: {
     flex: 1,
@@ -353,13 +350,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   actionCard: {
-    backgroundColor: palette.surface,
-    borderWidth: 1,
-    borderColor: palette.border,
-    borderRadius: radii.xl,
-    padding: spacing.lg,
     gap: spacing.sm,
-    ...shadow.card,
   },
   cardTitle: {
     ...typography.sectionTitle,
@@ -405,5 +396,23 @@ const styles = StyleSheet.create({
   logoutText: {
     color: '#b91c1c',
   },
+  statusRow: {
+    width: '100%',
+    alignItems: 'center',
+    marginTop: spacing.xs,
+    marginBottom: spacing.xs,
+  },
+  statusPill: {
+    borderRadius: radii.pill,
+    backgroundColor: '#ecfdf5',
+    borderWidth: 1,
+    borderColor: '#bbf7d0',
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 5,
+  },
+  statusPillText: {
+    color: '#166534',
+    fontSize: 12,
+    fontWeight: '700',
+  },
 });
-

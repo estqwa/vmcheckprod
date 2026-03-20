@@ -6,7 +6,9 @@ import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
 import type { LeaderboardEntry } from '@trivia/shared';
 import { BrandHeader } from '../../src/components/ui/BrandHeader';
+import { EmptyState } from '../../src/components/ui/EmptyState';
 import { getLeaderboard } from '../../src/api/user';
+import { StatusBadge } from '../../src/components/ui/StatusBadge';
 import { palette, radii, shadow, spacing, typography } from '../../src/theme/tokens';
 import { formatCurrency } from '../../src/utils/format';
 
@@ -24,6 +26,13 @@ function renderRank(rank: number) {
   if (rank === 2) return <Ionicons name="medal" size={22} color="#64748b" />;
   if (rank === 3) return <Ionicons name="ribbon" size={22} color="#b45309" />;
   return <Text style={styles.rankText}>#{rank}</Text>;
+}
+
+function getRankTone(rank: number) {
+  if (rank === 1) return 'success' as const;
+  if (rank === 2) return 'warning' as const;
+  if (rank === 3) return 'info' as const;
+  return 'neutral' as const;
 }
 
 export default function LeaderboardScreen() {
@@ -71,7 +80,7 @@ export default function LeaderboardScreen() {
             <Text style={styles.username} numberOfLines={1}>
               {item.username}
             </Text>
-            <Text style={styles.metaText}>#{item.rank}</Text>
+            <StatusBadge tone={getRankTone(item.rank)} label={`#${item.rank}`} style={styles.rankBadge} />
           </View>
         </View>
 
@@ -112,10 +121,11 @@ export default function LeaderboardScreen() {
         contentContainerStyle={styles.content}
         ListHeaderComponent={<Text style={styles.screenTitle}>{t('leaderboard.topPlayers')}</Text>}
         ListEmptyComponent={
-          <View style={styles.emptyCard}>
-            <Ionicons name="podium" size={40} color={palette.textMuted} style={styles.emptyIcon} />
-            <Text style={styles.emptyText}>{t('leaderboard.noPlayers')}</Text>
-          </View>
+          <EmptyState
+            title={t('leaderboard.noPlayers')}
+            icon={<Ionicons name="podium" size={40} color={palette.textMuted} />}
+            style={styles.emptyCard}
+          />
         }
         ListFooterComponent={
           isFetchingNextPage ? (
@@ -156,19 +166,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   emptyCard: {
-    backgroundColor: palette.surface,
-    borderRadius: radii.xl,
-    borderWidth: 1,
-    borderColor: palette.border,
-    alignItems: 'center',
-    padding: spacing.xl,
-    ...shadow.card,
-  },
-  emptyIcon: {
-    marginBottom: spacing.sm,
-  },
-  emptyText: {
-    color: palette.textMuted,
+    marginTop: spacing.sm,
   },
   row: {
     borderRadius: radii.lg,
@@ -235,6 +233,9 @@ const styles = StyleSheet.create({
     color: palette.textMuted,
     fontSize: 12,
     marginTop: 2,
+  },
+  rankBadge: {
+    marginTop: spacing.xs,
   },
   statsRow: {
     flexDirection: 'row',

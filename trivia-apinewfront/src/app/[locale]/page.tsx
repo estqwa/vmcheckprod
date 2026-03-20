@@ -7,7 +7,10 @@ import { useAuth } from '@/providers/AuthProvider';
 import { getScheduledQuizzes, Quiz } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { CountdownTile } from '@/components/ui/countdown-tile';
+import { EmptyState } from '@/components/ui/empty-state';
 import { Skeleton } from '@/components/ui/skeleton';
+import { SurfaceCard } from '@/components/ui/surface-card';
 import { formatCurrency } from '@/lib/formatCurrency';
 import { MobileBottomNav } from '@/components/MobileBottomNav';
 import { PageHeader } from '@/components/PageHeader';
@@ -156,7 +159,7 @@ export default function HomePage() {
                     </div>
 
                     {/* How to play */}
-                    <div className="text-left max-w-md mx-auto bg-muted/50 rounded-xl p-6 mb-8">
+                    <SurfaceCard tone="muted" className="mx-auto mb-8 max-w-md p-6 text-left shadow-none">
                         <h2 className="font-semibold mb-4 text-base">{tHome('howToPlay')}</h2>
                         <ol className="space-y-2 text-sm text-muted-foreground">
                             <li className="flex items-start gap-2">
@@ -172,7 +175,7 @@ export default function HomePage() {
                                 {tHome('step3')}
                             </li>
                         </ol>
-                    </div>
+                    </SurfaceCard>
                 </div>
 
                 {/* Next Game Card */}
@@ -207,22 +210,10 @@ export default function HomePage() {
                             <div className="text-center mb-6">
                                 <p className="text-sm text-muted-foreground mb-3">{tQuiz('countdown', { seconds: '' })}</p>
                                 <div className="flex justify-center gap-2">
-                                    <div className="timer-block">
-                                        <div className="value">{String(timeRemaining.days).padStart(2, '0')}</div>
-                                        <div className="label">{tQuiz('days')}</div>
-                                    </div>
-                                    <div className="timer-block">
-                                        <div className="value">{String(timeRemaining.hours).padStart(2, '0')}</div>
-                                        <div className="label">{tQuiz('hours')}</div>
-                                    </div>
-                                    <div className="timer-block">
-                                        <div className="value">{String(timeRemaining.minutes).padStart(2, '0')}</div>
-                                        <div className="label">{tQuiz('minutes')}</div>
-                                    </div>
-                                    <div className="timer-block">
-                                        <div className="value">{String(timeRemaining.seconds).padStart(2, '0')}</div>
-                                        <div className="label">{tQuiz('seconds')}</div>
-                                    </div>
+                                    <CountdownTile value={String(timeRemaining.days).padStart(2, '0')} label={tQuiz('days')} />
+                                    <CountdownTile value={String(timeRemaining.hours).padStart(2, '0')} label={tQuiz('hours')} />
+                                    <CountdownTile value={String(timeRemaining.minutes).padStart(2, '0')} label={tQuiz('minutes')} />
+                                    <CountdownTile value={String(timeRemaining.seconds).padStart(2, '0')} label={tQuiz('seconds')} />
                                 </div>
                             </div>
 
@@ -251,15 +242,12 @@ export default function HomePage() {
                         </CardFooter>
                     </Card>
                 ) : (
-                    <Card className="max-w-xl mx-auto card-elevated border-0 rounded-2xl text-center py-12">
-                        <CardContent>
-                            <Gamepad2 className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
-                            <h3 className="text-xl font-semibold mb-2">{tQuiz('noActiveQuiz')}</h3>
-                            <p className="text-muted-foreground">
-                                {tQuiz('waiting')}
-                            </p>
-                        </CardContent>
-                    </Card>
+                    <EmptyState
+                        className="mx-auto max-w-xl border-border bg-card py-12 shadow-sm"
+                        icon={<Gamepad2 className="h-12 w-12" />}
+                        title={tQuiz('noActiveQuiz')}
+                        description={tQuiz('waiting')}
+                    />
                 )}
 
                 <MobileBottomNav active="home" />

@@ -16,7 +16,9 @@ import {
 } from '@trivia/shared';
 import { getQuiz } from '../../../src/api/quizzes';
 import { BrandHeader } from '../../../src/components/ui/BrandHeader';
-import { TimerBlock } from '../../../src/components/ui/TimerBlock';
+import { CountdownTile } from '../../../src/components/ui/CountdownTile';
+import { StateBanner } from '../../../src/components/ui/StateBanner';
+import { StatTile } from '../../../src/components/ui/StatTile';
 import { useAuth } from '../../../src/providers/AuthProvider';
 import { useQuizWS } from '../../../src/hooks/useQuizWS';
 import { ConnectionStatusPill } from '../../../src/components/ui/ConnectionStatusPill';
@@ -168,25 +170,33 @@ export default function LobbyScreen() {
 
             <Text style={styles.startsInLabel}>{t('quiz.startsIn')}</Text>
             <View style={styles.timerRow}>
-              <TimerBlock value={countdown.days} label={t('quiz.days')} />
-              <TimerBlock value={countdown.hours} label={t('quiz.hours')} />
-              <TimerBlock value={countdown.minutes} label={t('quiz.minutes')} />
-              <TimerBlock value={countdown.seconds} label={t('quiz.seconds')} />
+              <CountdownTile value={countdown.days} label={t('quiz.days')} style={styles.timerTile} />
+              <CountdownTile value={countdown.hours} label={t('quiz.hours')} style={styles.timerTile} />
+              <CountdownTile value={countdown.minutes} label={t('quiz.minutes')} style={styles.timerTile} />
+              <CountdownTile value={countdown.seconds} label={t('quiz.seconds')} style={styles.timerTile} />
             </View>
 
             <View style={styles.statsRow} accessibilityRole="summary">
-              <View style={styles.statBox} accessibilityLabel={`${t('quiz.online')}: ${playerCount}`}>
-                <Text style={styles.statValue}>{playerCount}</Text>
-                <Text style={styles.statLabel}>{t('quiz.online')}</Text>
-              </View>
-              <View style={styles.statBox} accessibilityLabel={`${t('quiz.questions')}: ${quiz?.question_count ?? 0}`}>
-                <Text style={styles.statValue}>{quiz?.question_count ?? 0}</Text>
-                <Text style={styles.statLabel}>{t('quiz.questions')}</Text>
-              </View>
-              <View style={styles.statBox} accessibilityLabel={`${t('quiz.prizeFund')}: ${formatCurrency(quiz?.prize_fund ?? 0)}`}>
-                <Text style={styles.prizeValue}>{formatCurrency(quiz?.prize_fund ?? 0)}</Text>
-                <Text style={styles.statLabel}>{t('quiz.prizeFund')}</Text>
-              </View>
+              <StatTile
+                label={t('quiz.online')}
+                value={playerCount}
+                size="compact"
+                style={styles.statTile}
+              />
+              <StatTile
+                label={t('quiz.questions')}
+                value={quiz?.question_count ?? 0}
+                tone="primary"
+                size="compact"
+                style={styles.statTile}
+              />
+              <StatTile
+                label={t('quiz.prizeFund')}
+                value={formatCurrency(quiz?.prize_fund ?? 0)}
+                tone="success"
+                size="compact"
+                style={styles.statTile}
+              />
             </View>
 
             {(quiz?.prize_fund ?? 0) > 0 ? (
@@ -199,17 +209,11 @@ export default function LobbyScreen() {
               </View>
             ) : null}
 
-            {isConnected ? (
-              <View style={styles.okStateBox}>
-                <Text style={styles.okStateTitle}>{t('quiz.ready')}</Text>
-                <Text style={styles.okStateDesc}>{t('quiz.waiting')}</Text>
-              </View>
-            ) : (
-              <View style={styles.warnStateBox}>
-                <Text style={styles.warnStateTitle}>{isOffline ? t('quiz.offline') : t('quiz.connecting')}</Text>
-                <Text style={styles.warnStateDesc}>{t('quiz.reconnecting')}</Text>
-              </View>
-            )}
+            <StateBanner
+              tone={isConnected ? 'success' : isOffline ? 'offline' : 'warning'}
+              title={isConnected ? t('quiz.ready') : isOffline ? t('quiz.offline') : t('quiz.connecting')}
+              description={isConnected ? t('quiz.waiting') : t('quiz.reconnecting')}
+            />
           </View>
 
           <TouchableOpacity style={styles.leaveButton} onPress={() => router.replace('/(tabs)')} accessibilityRole="button" accessibilityLabel={t('quiz.leaveLobby')}>
@@ -282,34 +286,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 8,
   },
+  timerTile: {
+    flex: 1,
+  },
   statsRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     gap: spacing.sm,
   },
-  statBox: {
+  statTile: {
     flex: 1,
-    backgroundColor: '#f8fafc',
-    borderWidth: 1,
-    borderColor: palette.border,
-    borderRadius: radii.md,
-    paddingVertical: spacing.sm,
-    alignItems: 'center',
-  },
-  statValue: {
-    color: palette.text,
-    fontSize: 18,
-    fontWeight: '800',
-  },
-  prizeValue: {
-    color: palette.prize,
-    fontSize: 15,
-    fontWeight: '800',
-  },
-  statLabel: {
-    color: palette.textMuted,
-    fontSize: 11,
-    marginTop: 2,
   },
   prizeNoticeCard: {
     borderRadius: radii.lg,
@@ -332,40 +317,6 @@ const styles = StyleSheet.create({
     color: palette.primary,
     fontSize: 13,
     fontWeight: '700',
-  },
-  okStateBox: {
-    backgroundColor: '#dcfce7',
-    borderColor: '#bbf7d0',
-    borderWidth: 1,
-    borderRadius: radii.md,
-    padding: spacing.md,
-    alignItems: 'center',
-    gap: 2,
-  },
-  okStateTitle: {
-    color: '#166534',
-    fontWeight: '700',
-  },
-  okStateDesc: {
-    color: '#15803d',
-    fontSize: 12,
-  },
-  warnStateBox: {
-    backgroundColor: '#ffedd5',
-    borderColor: '#fed7aa',
-    borderWidth: 1,
-    borderRadius: radii.md,
-    padding: spacing.md,
-    alignItems: 'center',
-    gap: 2,
-  },
-  warnStateTitle: {
-    color: '#9a3412',
-    fontWeight: '700',
-  },
-  warnStateDesc: {
-    color: '#c2410c',
-    fontSize: 12,
   },
   leaveButton: {
     minHeight: 44,

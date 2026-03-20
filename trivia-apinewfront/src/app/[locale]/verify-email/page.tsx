@@ -6,9 +6,11 @@ import { useTranslations } from 'next-intl';
 import { toast } from 'sonner';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { FormField } from '@/components/ui/form-field';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import { StateBanner } from '@/components/ui/state-banner';
+import { SurfaceCard } from '@/components/ui/surface-card';
 import { useAuth } from '@/providers/AuthProvider';
 import type { EmailVerificationStatus } from '@/lib/api/types';
 
@@ -85,7 +87,7 @@ function VerifyEmailContent() {
 
     return (
         <div className="min-h-app flex items-center justify-center px-4 py-10">
-            <Card className="w-full max-w-md">
+            <SurfaceCard className="w-full max-w-md">
                 <CardHeader>
                     <CardTitle>{t('verifyEmailTitle') || 'Verify your email'}</CardTitle>
                     <CardDescription>
@@ -94,16 +96,18 @@ function VerifyEmailContent() {
                 </CardHeader>
                 <CardContent className="space-y-4">
                     {status?.email_verified ? (
-                        <div className="rounded-lg border border-green-200 bg-green-50 p-3 text-sm text-green-800">
-                            {t('emailVerified') || 'Your email is verified. Prize eligibility is active.'}
-                        </div>
+                        <StateBanner
+                            tone="success"
+                            title={t('emailVerified') || 'Your email is verified. Prize eligibility is active.'}
+                        />
                     ) : (
-                        <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
-                            {t('emailNotVerifiedHint') || 'Verify email to unlock prize eligibility and secure account recovery.'}
-                        </div>
+                        <StateBanner
+                            tone="warning"
+                            title={t('emailNotVerifiedHint') || 'Verify email to unlock prize eligibility and secure account recovery.'}
+                        />
                     )}
 
-                    <div className="space-y-2 text-sm text-muted-foreground">
+                    <div className="space-y-2 rounded-xl border border-border bg-muted/30 p-4 text-sm text-muted-foreground">
                         <p>{t('verifyAttemptsLeft') || 'Attempts left'}: {status?.attempts_left ?? '-'}</p>
                         {cooldown > 0 && <p>{t('verifyResendCooldown') || 'Resend available in'}: {cooldownLabel}</p>}
                         {status?.expires_at && <p>{t('verifyExpiresAt') || 'Code expires at'}: {new Date(status.expires_at).toLocaleString()}</p>}
@@ -114,8 +118,7 @@ function VerifyEmailContent() {
                     </Button>
 
                     <form onSubmit={handleConfirm} className="space-y-3">
-                        <div className="space-y-2">
-                            <Label htmlFor="verify-code">{t('verificationCode') || 'Verification code'}</Label>
+                        <FormField label={t('verificationCode') || 'Verification code'} htmlFor="verify-code">
                             <Input
                                 id="verify-code"
                                 inputMode="numeric"
@@ -126,7 +129,7 @@ function VerifyEmailContent() {
                                 placeholder="123456"
                                 disabled={isBusy || !!status?.email_verified}
                             />
-                        </div>
+                        </FormField>
                         <Button type="submit" className="w-full" disabled={isBusy || code.length !== 6 || !!status?.email_verified}>
                             {t('confirmCode') || 'Confirm code'}
                         </Button>
@@ -140,7 +143,7 @@ function VerifyEmailContent() {
                         {t('refreshStatus') || 'Refresh status'}
                     </Button>
                 </CardFooter>
-            </Card>
+            </SurfaceCard>
         </div>
     );
 }
@@ -152,4 +155,3 @@ export default function VerifyEmailPage() {
         </ProtectedRoute>
     );
 }
-

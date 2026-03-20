@@ -7,10 +7,12 @@ import { getQuiz, getQuizResults, getMyResult, Quiz, QuizResult, PaginatedResult
 import { useAuth } from '@/providers/AuthProvider';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { EmptyState } from '@/components/ui/empty-state';
+import { StatTile } from '@/components/ui/stat-tile';
+import { StatusBadge } from '@/components/ui/status-badge';
 import { useLocale } from '@/components/LanguageSwitcher';
 import { formatCurrency } from '@/lib/formatCurrency';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ChevronLeft, ChevronRight, Medal, ShieldAlert, BarChart3, Trophy, Award, Gamepad2, Home } from 'lucide-react';
 import { MobileBottomNav } from '@/components/MobileBottomNav';
@@ -128,29 +130,43 @@ export default function QuizResultsPage() {
                                     <BarChart3 className="w-6 h-6 text-primary" />
                                 )}
                                 {t('score').replace(': {score}', '')}
-                                {myResult.is_winner && <Badge className="bg-yellow-400 text-yellow-900 border-0">{t('winner')}</Badge>}
-                                {myResult.is_eliminated && <Badge className="bg-orange-100 text-orange-700 border-0">{t('eliminated')}</Badge>}
+                                {myResult.is_winner ? (
+                                    <StatusBadge tone="warning" icon={<Trophy className="h-3 w-3" />}>
+                                        {t('winner')}
+                                    </StatusBadge>
+                                ) : null}
+                                {myResult.is_eliminated ? (
+                                    <StatusBadge tone="danger" icon={<ShieldAlert className="h-3 w-3" />}>
+                                        {t('eliminated')}
+                                    </StatusBadge>
+                                ) : null}
                             </CardTitle>
                         </CardHeader>
                         <CardContent className="pt-6">
                             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                                <div className="bg-secondary/50 rounded-xl p-4 text-center">
-                                    <p className="text-3xl font-bold">#{myResult.rank}</p>
-                                    <p className="text-muted-foreground text-sm">{tLeaderboard('rank')}</p>
-                                </div>
-                                <div className="bg-primary/10 rounded-xl p-4 text-center">
-                                    <p className="text-3xl font-bold text-primary">{myResult.score}</p>
-                                    <p className="text-muted-foreground text-sm">{t('score').replace(': {score}', '')}</p>
-                                </div>
-                                <div className="bg-secondary/50 rounded-xl p-4 text-center">
-                                    <p className="text-3xl font-bold">{myResult.correct_answers}/{myResult.total_questions}</p>
-                                    <p className="text-muted-foreground text-sm">{t('correct')}</p>
-                                </div>
+                                <StatTile
+                                    label={tLeaderboard('rank')}
+                                    value={`#${myResult.rank}`}
+                                    size="compact"
+                                />
+                                <StatTile
+                                    label={t('score').replace(': {score}', '')}
+                                    value={myResult.score}
+                                    tone="primary"
+                                    size="compact"
+                                />
+                                <StatTile
+                                    label={t('correct')}
+                                    value={`${myResult.correct_answers}/${myResult.total_questions}`}
+                                    size="compact"
+                                />
                                 {myResult.prize_fund > 0 && (
-                                    <div className="bg-green-50 rounded-xl p-4 text-center">
-                                        <p className="text-3xl font-bold text-success">{formatCurrency(myResult.prize_fund, locale)}</p>
-                                        <p className="text-muted-foreground text-sm">{tLeaderboard('prize')}</p>
-                                    </div>
+                                    <StatTile
+                                        label={tLeaderboard('prize')}
+                                        value={formatCurrency(myResult.prize_fund, locale)}
+                                        tone="success"
+                                        size="compact"
+                                    />
                                 )}
                             </div>
                         </CardContent>
@@ -174,10 +190,10 @@ export default function QuizResultsPage() {
                     </CardHeader>
                     <CardContent>
                         {!results || results.results.length === 0 ? (
-                            <div className="text-center py-12">
-                                <Gamepad2 className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-                                <p className="text-muted-foreground">{tLeaderboard('noPlayers')}</p>
-                            </div>
+                            <EmptyState
+                                icon={<Gamepad2 className="h-12 w-12" />}
+                                title={tLeaderboard('noPlayers')}
+                            />
                         ) : (
                             <div className="space-y-3">
                                 {isPageLoading ? (
@@ -231,12 +247,12 @@ export default function QuizResultsPage() {
 
                                             {/* Stats */}
                                             <div className="flex items-center gap-2">
-                                                <Badge variant="outline" className="font-bold">{result.score}</Badge>
+                                                <StatusBadge tone="info">{result.score}</StatusBadge>
                                                 {result.prize_fund > 0 && (
-                                                    <Badge className="bg-green-500 border-0">{formatCurrency(result.prize_fund, locale)}</Badge>
+                                                    <StatusBadge tone="success">{formatCurrency(result.prize_fund, locale)}</StatusBadge>
                                                 )}
                                                 {result.is_eliminated && (
-                                                    <Badge className="bg-orange-100 text-orange-700 border-0 text-xs">{t('eliminated')}</Badge>
+                                                    <StatusBadge tone="danger">{t('eliminated')}</StatusBadge>
                                                 )}
                                             </div>
                                         </div>

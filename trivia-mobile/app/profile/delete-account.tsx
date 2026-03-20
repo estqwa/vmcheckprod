@@ -14,9 +14,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { BrandHeader } from '../../src/components/ui/BrandHeader';
+import { FormField } from '../../src/components/ui/FormField';
 import { PrimaryButton } from '../../src/components/ui/PrimaryButton';
+import { StateBanner } from '../../src/components/ui/StateBanner';
+import { SurfaceCard } from '../../src/components/ui/SurfaceCard';
 import { useAuth } from '../../src/providers/AuthProvider';
-import { palette, radii, shadow, spacing, typography } from '../../src/theme/tokens';
+import { palette, radii, spacing, typography } from '../../src/theme/tokens';
 
 export default function DeleteAccountScreen() {
   const { t } = useTranslation();
@@ -66,20 +69,13 @@ export default function DeleteAccountScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
         <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
-          <View style={styles.card}>
+          <SurfaceCard style={styles.card}>
             <Text style={styles.title}>{t('profile.deleteAccountTitle')}</Text>
-            <Text style={styles.warningText}>
-              {t('profile.deleteAccountDescription')}
-            </Text>
+            <StateBanner tone="danger" description={t('profile.deleteAccountDescription')} />
 
-            {error ? (
-              <View style={styles.errorBox}>
-                <Text style={styles.errorText}>{error}</Text>
-              </View>
-            ) : null}
+            {error ? <StateBanner tone="danger" description={error} /> : null}
 
-            <View style={styles.fieldGroup}>
-              <Text style={styles.label}>{t('profile.deleteAccountPasswordLabel')}</Text>
+            <FormField label={t('profile.deleteAccountPasswordLabel')}>
               <TextInput
                 style={styles.input}
                 value={password}
@@ -88,10 +84,9 @@ export default function DeleteAccountScreen() {
                 placeholder={t('profile.deleteAccountPasswordPlaceholder')}
                 placeholderTextColor={palette.textMuted}
               />
-            </View>
+            </FormField>
 
-            <View style={styles.fieldGroup}>
-              <Text style={styles.label}>{t('profile.deleteAccountReasonLabel')}</Text>
+            <FormField label={t('profile.deleteAccountReasonLabel')}>
               <TextInput
                 style={[styles.input, styles.textArea]}
                 value={reason}
@@ -102,7 +97,7 @@ export default function DeleteAccountScreen() {
                 placeholder={t('profile.deleteAccountReasonPlaceholder')}
                 placeholderTextColor={palette.textMuted}
               />
-            </View>
+            </FormField>
 
             <PrimaryButton
               title={isSubmitting ? t('profile.deleteAccountDeleting') : t('profile.deleteAccount')}
@@ -113,7 +108,7 @@ export default function DeleteAccountScreen() {
             <TouchableOpacity onPress={() => router.back()} accessibilityRole="button">
               <Text style={styles.cancelLink}>{t('common.cancel')}</Text>
             </TouchableOpacity>
-          </View>
+          </SurfaceCard>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -124,21 +119,8 @@ const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: palette.background },
   keyboardWrapper: { flex: 1 },
   scroll: { flexGrow: 1, justifyContent: 'center', padding: spacing.xl },
-  card: {
-    backgroundColor: palette.surface,
-    borderRadius: radii.xl,
-    borderWidth: 1,
-    borderColor: palette.border,
-    padding: spacing.xl,
-    gap: spacing.md,
-    ...shadow.card,
-  },
+  card: { gap: spacing.md },
   title: { ...typography.title, textAlign: 'center' },
-  warningText: { color: '#991b1b', backgroundColor: '#fef2f2', borderColor: '#fecaca', borderWidth: 1, borderRadius: radii.md, padding: spacing.sm },
-  errorBox: { borderRadius: radii.md, borderWidth: 1, borderColor: '#fecaca', backgroundColor: '#fee2e2', padding: spacing.sm },
-  errorText: { color: '#b91c1c', fontSize: 13 },
-  fieldGroup: { gap: 6 },
-  label: { color: palette.text, fontSize: 14, fontWeight: '600' },
   input: {
     minHeight: 48,
     borderRadius: radii.md,

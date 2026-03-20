@@ -4,12 +4,14 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useTranslations } from 'next-intl';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
+import { CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { EmptyState } from '@/components/ui/empty-state';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useLocale } from '@/components/LanguageSwitcher';
 import { formatCurrency } from '@/lib/formatCurrency';
+import { StatusBadge } from '@/components/ui/status-badge';
+import { SurfaceCard } from '@/components/ui/surface-card';
 import { Trophy, XCircle, Clock, ChevronLeft, ChevronRight, History as HistoryIcon, Target } from 'lucide-react';
 import { getMyGameHistory } from '@/lib/api/user';
 import { QuizResult } from '@/lib/api/types';
@@ -46,25 +48,22 @@ export default function GameHistoryPage() {
     const getStatusBadge = (result: QuizResult) => {
         if (result.is_winner) {
             return (
-                <Badge className="bg-gradient-to-r from-yellow-400 to-amber-400 text-yellow-900 border-0">
-                    <Trophy className="w-3 h-3 mr-1" />
+                <StatusBadge tone="warning" icon={<Trophy className="w-3 h-3" />}>
                     {t('history.winner')}
-                </Badge>
+                </StatusBadge>
             );
         }
         if (result.is_eliminated) {
             return (
-                <Badge variant="destructive" className="bg-red-100 text-red-700 border-0">
-                    <XCircle className="w-3 h-3 mr-1" />
+                <StatusBadge tone="danger" icon={<XCircle className="w-3 h-3" />}>
                     {t('history.eliminated')}
-                </Badge>
+                </StatusBadge>
             );
         }
         return (
-            <Badge variant="secondary" className="bg-gray-100 text-gray-700 border-0">
-                <Clock className="w-3 h-3 mr-1" />
+            <StatusBadge tone="neutral" icon={<Clock className="w-3 h-3" />}>
                 {t('history.finished')}
-            </Badge>
+            </StatusBadge>
         );
     };
 
@@ -88,7 +87,7 @@ export default function GameHistoryPage() {
                         {t('history.title')}
                     </h1>
 
-                    <Card className="card-elevated border-0 rounded-2xl">
+                    <SurfaceCard className="card-elevated border-0 rounded-2xl">
                         <CardHeader>
                             <CardTitle className="flex items-center gap-2">
                                 <HistoryIcon className="w-5 h-5 text-primary" />
@@ -106,21 +105,24 @@ export default function GameHistoryPage() {
                                     ))}
                                 </div>
                             ) : results.length === 0 ? (
-                                <div className="text-center py-12">
-                                    <Target className="w-10 h-10 text-muted-foreground mx-auto mb-4" />
-                                    <p className="text-muted-foreground mb-4">{t('history.noGames')}</p>
-                                    <Button asChild className="btn-coral">
-                                        <Link href="/">
-                                            {t('history.playNow')}
-                                        </Link>
-                                    </Button>
-                                </div>
+                                <EmptyState
+                                    icon={<Target className="w-10 h-10" />}
+                                    title={t('history.noGames')}
+                                    action={(
+                                        <Button asChild className="btn-coral">
+                                            <Link href="/">
+                                                {t('history.playNow')}
+                                            </Link>
+                                        </Button>
+                                    )}
+                                />
                             ) : (
                                 <div className="space-y-3">
                                     {results.map((result) => (
-                                        <div
+                                        <SurfaceCard
                                             key={result.id}
-                                            className="flex items-center justify-between p-4 rounded-xl bg-secondary/30 hover:bg-secondary/50 transition-colors"
+                                            tone="muted"
+                                            className="flex items-center justify-between gap-4 p-4 shadow-none transition-colors hover:bg-secondary/50"
                                         >
                                             <div className="flex-1">
                                                 <div className="flex items-center gap-3 mb-2">
@@ -154,7 +156,7 @@ export default function GameHistoryPage() {
                                                     {t('history.viewResults')}
                                                 </Link>
                                             </Button>
-                                        </div>
+                                        </SurfaceCard>
                                     ))}
 
                                     {/* Pagination */}
@@ -186,7 +188,7 @@ export default function GameHistoryPage() {
                                 </div>
                             )}
                         </CardContent>
-                    </Card>
+                    </SurfaceCard>
                 </main>
                 <MobileBottomNav active="profile" />
             </div>

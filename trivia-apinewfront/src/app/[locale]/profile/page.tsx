@@ -9,18 +9,23 @@ import { GoogleCodeAuthButton } from '@/components/auth/GoogleCodeAuthButton';
 import { getSessions, revokeSession, logoutAll, Session } from '@/lib/api';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { Button } from '@/components/ui/button';
+import { EmptyState } from '@/components/ui/empty-state';
+import { FormField } from '@/components/ui/form-field';
 import { Input } from '@/components/ui/input';
+import { StatTile } from '@/components/ui/stat-tile';
 import { useLocale } from '@/components/LanguageSwitcher';
 import { formatCurrency } from '@/lib/formatCurrency';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
+import { StateBanner } from '@/components/ui/state-banner';
 import { Skeleton } from '@/components/ui/skeleton';
+import { SurfaceCard } from '@/components/ui/surface-card';
 import { toast } from 'sonner';
 import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 import { MobileBottomNav } from '@/components/MobileBottomNav';
 import { formatDate } from '@/lib/formatDate';
-import { Languages, LogOut, Settings, Shield, History, Wrench } from 'lucide-react';
+import { Languages, LogOut, Settings, Shield, History, Wrench, ShieldAlert } from 'lucide-react';
 import { PageHeader } from '@/components/PageHeader';
 
 function ProfileContent() {
@@ -154,16 +159,14 @@ function ProfileContent() {
                 <h1 className="text-3xl font-bold mb-8">{t('title')}</h1>
 
                 {!user.email_verified ? (
-                    <Card className="mb-6 rounded-2xl border-amber-200 bg-amber-50/60">
-                        <CardHeader>
-                            <CardTitle className="text-lg text-amber-900">
-                                {t('emailVerificationRequiredTitle')}
-                            </CardTitle>
-                            <CardDescription className="text-amber-800">
-                                {t('emailVerificationRequiredDescription')}
-                            </CardDescription>
-                        </CardHeader>
-                        <CardContent className="flex flex-col gap-3 sm:flex-row">
+                    <StateBanner
+                        tone="warning"
+                        className="mb-6"
+                        icon={<ShieldAlert className="h-5 w-5" />}
+                        title={t('emailVerificationRequiredTitle')}
+                        description={t('emailVerificationRequiredDescription')}
+                    >
+                        <div className="flex flex-col gap-3 sm:flex-row">
                             <Button asChild variant="outline" className="border-amber-300 bg-white">
                                 <Link href="/verify-email">{t('openVerification')}</Link>
                             </Button>
@@ -177,8 +180,8 @@ function ProfileContent() {
                                     ? t('resendIn', { seconds: verificationMeta?.cooldown ?? 0 })
                                     : t('sendCode')}
                             </Button>
-                        </CardContent>
-                    </Card>
+                        </div>
+                    </StateBanner>
                 ) : null}
 
                 <Card className="mb-6 card-elevated border-0 rounded-2xl">
@@ -201,22 +204,15 @@ function ProfileContent() {
                     </CardHeader>
                     <CardContent>
                         <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-                            <div className="rounded-xl bg-secondary/50 p-4 text-center">
-                                <p className="text-3xl font-bold text-foreground">{user.games_played}</p>
-                                <p className="text-sm text-muted-foreground">{t('gamesPlayed')}</p>
-                            </div>
-                            <div className="rounded-xl bg-primary/10 p-4 text-center">
-                                <p className="text-3xl font-bold text-primary">{user.wins_count}</p>
-                                <p className="text-sm text-muted-foreground">{t('winsCount')}</p>
-                            </div>
-                            <div className="rounded-xl bg-secondary/50 p-4 text-center">
-                                <p className="text-3xl font-bold text-foreground">{user.total_score}</p>
-                                <p className="text-sm text-muted-foreground">{t('totalScore')}</p>
-                            </div>
-                            <div className="rounded-xl bg-success/10 p-4 text-center">
-                                <p className="text-3xl font-bold text-success break-words">{formatCurrency(user.total_prize_won, locale)}</p>
-                                <p className="text-sm text-muted-foreground">{t('totalPrize')}</p>
-                            </div>
+                            <StatTile label={t('gamesPlayed')} value={user.games_played} size="compact" />
+                            <StatTile label={t('winsCount')} value={user.wins_count} tone="primary" size="compact" />
+                            <StatTile label={t('totalScore')} value={user.total_score} size="compact" />
+                            <StatTile
+                                label={t('totalPrize')}
+                                value={formatCurrency(user.total_prize_won, locale)}
+                                tone="success"
+                                size="compact"
+                            />
                         </div>
                         {user.games_played > 0 ? (
                             <div className="mt-4 border-t border-border/50 pt-4">
@@ -261,11 +257,15 @@ function ProfileContent() {
                                 <Skeleton className="h-16 w-full rounded-xl" />
                             </div>
                         ) : sessions.length === 0 ? (
-                            <p className="py-4 text-center text-muted-foreground">{t('noSessions')}</p>
+                            <EmptyState title={t('noSessions')} />
                         ) : (
                             <div className="space-y-3">
                                 {sessions.map((session) => (
-                                    <div key={session.id} className="flex flex-col gap-3 rounded-xl bg-secondary/30 p-4 sm:flex-row sm:items-center sm:justify-between">
+                                    <SurfaceCard
+                                        key={session.id}
+                                        tone="muted"
+                                        className="gap-3 p-4 shadow-none sm:flex-row sm:items-center sm:justify-between"
+                                    >
                                         <div>
                                             <p className="font-medium">{session.device_id || t('unknownDevice')}</p>
                                             <p className="text-xs text-muted-foreground">
@@ -280,7 +280,7 @@ function ProfileContent() {
                                         >
                                             {t('endSession')}
                                         </Button>
-                                    </div>
+                                    </SurfaceCard>
                                 ))}
                             </div>
                         )}
@@ -319,12 +319,12 @@ function ProfileContent() {
                             />
                         </div>
 
-                        <div className="rounded-2xl border border-destructive/20 bg-destructive/5 p-4">
+                        <StateBanner
+                            tone="danger"
+                            title={t('deleteAccount')}
+                            description={t('deleteAccountConfirm')}
+                        >
                             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                                <div className="space-y-1">
-                                    <p className="font-semibold text-foreground">{t('deleteAccount')}</p>
-                                    <p className="text-sm text-muted-foreground">{t('deleteAccountConfirm')}</p>
-                                </div>
                                 <Button
                                     type="button"
                                     variant={isDeleteFormOpen ? 'outline' : 'destructive'}
@@ -344,8 +344,7 @@ function ProfileContent() {
 
                             {isDeleteFormOpen ? (
                                 <div className="mt-4 space-y-4 border-t border-destructive/10 pt-4">
-                                    <div className="space-y-2">
-                                        <p className="text-sm text-muted-foreground">{t('deleteAccountPromptPassword')}</p>
+                                    <FormField label={t('deleteAccountPromptPassword')}>
                                         <Input
                                             id="delete-password"
                                             type="password"
@@ -355,15 +354,14 @@ function ProfileContent() {
                                             placeholder={tAuth('passwordPlaceholder')}
                                             className="h-12 bg-white"
                                         />
-                                    </div>
-                                    <div className="space-y-2">
-                                        <p className="text-sm text-muted-foreground">{t('deleteAccountPromptReason')}</p>
+                                    </FormField>
+                                    <FormField label={t('deleteAccountPromptReason')}>
                                         <textarea
                                             value={deleteReason}
                                             onChange={(e) => setDeleteReason(e.target.value)}
                                             className="min-h-28 w-full rounded-md border border-input bg-white px-3 py-3 text-sm text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring"
                                         />
-                                    </div>
+                                    </FormField>
                                     <div className="flex flex-col gap-3 sm:flex-row">
                                         <Button type="button" variant="outline" className="h-11" onClick={closeDeleteForm} disabled={isDeletingAccount}>
                                             {tCommon('cancel')}
@@ -374,7 +372,7 @@ function ProfileContent() {
                                     </div>
                                 </div>
                             ) : null}
-                        </div>
+                        </StateBanner>
                     </CardContent>
                 </Card>
             </main>

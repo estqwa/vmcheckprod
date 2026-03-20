@@ -6,6 +6,9 @@ import { useTranslations } from 'next-intl';
 import { getLeaderboard } from '@/lib/api';
 import { leaderboardQueryKey } from '@/lib/hooks/useUserQuery';
 import { Button } from '@/components/ui/button';
+import { EmptyState } from '@/components/ui/empty-state';
+import { StatTile } from '@/components/ui/stat-tile';
+import { StatusBadge } from '@/components/ui/status-badge';
 import { useLocale } from '@/components/LanguageSwitcher';
 import { formatCurrency } from '@/lib/formatCurrency';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -47,6 +50,13 @@ export default function LeaderboardPage() {
         return <span className="text-lg font-bold text-muted-foreground">#{rank}</span>;
     };
 
+    const getRankTone = (rank: number) => {
+        if (rank === 1) return 'warning' as const;
+        if (rank === 2) return 'info' as const;
+        if (rank === 3) return 'success' as const;
+        return 'neutral' as const;
+    };
+
     return (
         <div className="min-h-app mobile-nav-safe-area">
             <PageHeader active="leaderboard" />
@@ -72,10 +82,10 @@ export default function LeaderboardPage() {
                                 ))}
                             </div>
                         ) : entries.length === 0 ? (
-                            <div className="text-center py-12">
-                                <Gamepad2 className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-                                <p className="text-muted-foreground">{t('noPlayers') || 'No players yet'}</p>
-                            </div>
+                            <EmptyState
+                                icon={<Gamepad2 className="h-12 w-12" />}
+                                title={t('noPlayers') || 'No players yet'}
+                            />
                         ) : (
                             <div className="space-y-3">
                                 {entries.map((entry) => (
@@ -96,20 +106,26 @@ export default function LeaderboardPage() {
                                             </Avatar>
 
                                             <div className="min-w-0 flex-1">
-                                                <p className="truncate font-semibold text-foreground">{entry.username}</p>
-                                                <p className="text-sm text-muted-foreground">#{entry.rank}</p>
+                                                <div className="flex flex-wrap items-center gap-2">
+                                                    <p className="truncate font-semibold text-foreground">{entry.username}</p>
+                                                    <StatusBadge tone={getRankTone(entry.rank)}>#{entry.rank}</StatusBadge>
+                                                </div>
                                             </div>
                                         </div>
 
                                         <div className="mt-3 grid gap-2 sm:grid-cols-2">
-                                            <div className="rounded-xl bg-secondary/50 px-3 py-2">
-                                                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{t('wins')}</p>
-                                                <p className="mt-1 text-lg font-bold text-primary">{entry.wins_count}</p>
-                                            </div>
-                                            <div className="rounded-xl bg-green-50 px-3 py-2">
-                                                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{t('prize')}</p>
-                                                <p className="mt-1 text-lg font-bold text-success break-words">{formatCurrency(entry.total_prize_won, locale)}</p>
-                                            </div>
+                                            <StatTile
+                                                label={t('wins')}
+                                                value={entry.wins_count}
+                                                tone={entry.rank === 1 ? 'primary' : 'default'}
+                                                size="compact"
+                                            />
+                                            <StatTile
+                                                label={t('prize')}
+                                                value={formatCurrency(entry.total_prize_won, locale)}
+                                                tone="success"
+                                                size="compact"
+                                            />
                                         </div>
                                     </div>
                                 ))}

@@ -13,9 +13,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { BrandHeader } from '../../src/components/ui/BrandHeader';
+import { FormField } from '../../src/components/ui/FormField';
 import { PrimaryButton } from '../../src/components/ui/PrimaryButton';
+import { StateBanner } from '../../src/components/ui/StateBanner';
+import { SurfaceCard } from '../../src/components/ui/SurfaceCard';
 import { useAuth } from '../../src/providers/AuthProvider';
-import { palette, radii, shadow, spacing, typography } from '../../src/theme/tokens';
+import { palette, radii, spacing, typography } from '../../src/theme/tokens';
 import { formatDateTime } from '../../src/utils/format';
 
 export default function VerifyEmailScreen() {
@@ -101,29 +104,17 @@ export default function VerifyEmailScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
         <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
-          <View style={styles.card}>
+          <SurfaceCard style={styles.card}>
             <Text style={styles.title}>{t('auth.verifyEmailTitle')}</Text>
             <Text style={styles.subtitle}>{user?.email ?? ''}</Text>
 
             {emailVerified ? (
-              <View style={styles.successBox}>
-                <Text style={styles.successText}>
-                  {t('auth.emailVerified')}
-                </Text>
-              </View>
+              <StateBanner tone="success" description={t('auth.emailVerified')} />
             ) : (
-              <View style={styles.warningBox}>
-                <Text style={styles.warningText}>
-                  {t('auth.emailNotVerifiedHint')}
-                </Text>
-              </View>
+              <StateBanner tone="warning" description={t('auth.emailNotVerifiedHint')} />
             )}
 
-            {localError ? (
-              <View style={styles.errorBox}>
-                <Text style={styles.errorText}>{localError}</Text>
-              </View>
-            ) : null}
+            {localError ? <StateBanner tone="danger" description={localError} /> : null}
 
             <View style={styles.metaBox}>
               <Text style={styles.metaText}>{t('auth.verifyAttemptsLeft')}: {attemptsLeft ?? '-'}</Text>
@@ -143,8 +134,7 @@ export default function VerifyEmailScreen() {
               </Text>
             </TouchableOpacity>
 
-            <View style={styles.fieldGroup}>
-              <Text style={styles.label}>{t('auth.verificationCode')}</Text>
+            <FormField label={t('auth.verificationCode')}>
               <TextInput
                 style={styles.input}
                 value={code}
@@ -158,7 +148,7 @@ export default function VerifyEmailScreen() {
                 placeholderTextColor={palette.textMuted}
                 editable={!emailVerified}
               />
-            </View>
+            </FormField>
 
             <PrimaryButton
               title={t('auth.confirmCode')}
@@ -170,7 +160,7 @@ export default function VerifyEmailScreen() {
             <TouchableOpacity onPress={() => router.replace('/(tabs)')} accessibilityRole="button">
               <Text style={styles.skipLink}>{t('common.back')}</Text>
             </TouchableOpacity>
-          </View>
+          </SurfaceCard>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -181,52 +171,18 @@ const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: palette.background },
   keyboardWrapper: { flex: 1 },
   scroll: { flexGrow: 1, justifyContent: 'center', padding: spacing.xl },
-  card: {
-    backgroundColor: palette.surface,
-    borderRadius: radii.xl,
-    borderWidth: 1,
-    borderColor: palette.border,
-    padding: spacing.xl,
-    gap: spacing.md,
-    ...shadow.card,
-  },
+  card: { gap: spacing.md },
   title: { ...typography.title, textAlign: 'center' },
   subtitle: { ...typography.subtitle, textAlign: 'center' },
-  warningBox: {
-    borderRadius: radii.md,
-    borderWidth: 1,
-    borderColor: '#fcd34d',
-    backgroundColor: '#fffbeb',
-    padding: spacing.sm,
-  },
-  warningText: { color: '#92400e', fontSize: 13 },
-  successBox: {
-    borderRadius: radii.md,
-    borderWidth: 1,
-    borderColor: '#86efac',
-    backgroundColor: '#f0fdf4',
-    padding: spacing.sm,
-  },
-  successText: { color: '#166534', fontSize: 13 },
-  errorBox: {
-    borderRadius: radii.md,
-    borderWidth: 1,
-    borderColor: '#fecaca',
-    backgroundColor: '#fee2e2',
-    padding: spacing.sm,
-  },
-  errorText: { color: '#b91c1c', fontSize: 13 },
   metaBox: {
     borderRadius: radii.md,
     borderWidth: 1,
     borderColor: palette.border,
-    backgroundColor: '#f8fafc',
+    backgroundColor: palette.surfaceMuted,
     padding: spacing.sm,
     gap: 4,
   },
   metaText: { color: palette.textMuted, fontSize: 12 },
-  fieldGroup: { gap: 6 },
-  label: { color: palette.text, fontSize: 14, fontWeight: '600' },
   input: {
     height: 48,
     borderRadius: radii.md,
@@ -242,7 +198,7 @@ const styles = StyleSheet.create({
     borderRadius: radii.md,
     borderWidth: 1,
     borderColor: palette.border,
-    backgroundColor: '#fff',
+    backgroundColor: palette.surface,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: spacing.md,
@@ -260,4 +216,3 @@ const styles = StyleSheet.create({
     marginTop: spacing.xs,
   },
 });
-

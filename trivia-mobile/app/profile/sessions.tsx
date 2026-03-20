@@ -7,8 +7,12 @@ import { useTranslation } from 'react-i18next';
 import type { Session } from '@trivia/shared';
 import { useAuth } from '../../src/providers/AuthProvider';
 import { BrandHeader } from '../../src/components/ui/BrandHeader';
+import { EmptyState } from '../../src/components/ui/EmptyState';
+import { StatTile } from '../../src/components/ui/StatTile';
+import { StatusBadge } from '../../src/components/ui/StatusBadge';
+import { SurfaceCard } from '../../src/components/ui/SurfaceCard';
 import { getDeviceId } from '../../src/services/tokenService';
-import { palette, radii, shadow, spacing, typography } from '../../src/theme/tokens';
+import { palette, radii, spacing, typography } from '../../src/theme/tokens';
 import { formatDateTime } from '../../src/utils/format';
 
 export default function SessionsScreen() {
@@ -100,26 +104,22 @@ export default function SessionsScreen() {
       <BrandHeader subtitle={t('profile.sessions')} onBackPress={() => router.back()} />
 
       <ScrollView contentContainerStyle={styles.content}>
-        <View style={styles.summaryCard}>
-          <Text style={styles.summaryTitle}>{t('profile.activeSessions')}</Text>
-          <Text style={styles.summaryValue}>{sortedSessions.length}</Text>
-        </View>
+        <StatTile label={t('profile.activeSessions')} value={sortedSessions.length} tone="primary" />
 
         {sortedSessions.length === 0 ? (
-          <View style={styles.emptyCard}>
-            <Text style={styles.emptyText}>{t('profile.noSessions')}</Text>
-          </View>
+          <EmptyState title={t('profile.noSessions')} />
         ) : (
           sortedSessions.map((session) => {
             const isCurrentSession = currentDeviceId !== null && session.device_id === currentDeviceId;
             const isRevokingThis = revokingSessionId === session.id;
 
             return (
-              <View key={session.id} style={styles.sessionCard}>
+              <SurfaceCard key={session.id} style={styles.sessionCard}>
                 <View style={styles.sessionHeader}>
-                  <Text style={styles.sessionTitle}>
-                    {isCurrentSession ? t('profile.thisDevice') : `${t('profile.device')} #${session.id}`}
-                  </Text>
+                  <View style={styles.sessionTitleRow}>
+                    <Text style={styles.sessionTitle}>{`${t('profile.device')} #${session.id}`}</Text>
+                    {isCurrentSession ? <StatusBadge tone="warning" label={t('profile.thisDevice')} /> : null}
+                  </View>
                   <Text style={styles.sessionMeta}>{t('profile.expiresAt')}: {formatDateTime(session.expires_at, i18n.language)}</Text>
                 </View>
 
@@ -144,7 +144,7 @@ export default function SessionsScreen() {
                     {isRevokingThis ? t('common.loading') : t('profile.revokeSession')}
                   </Text>
                 </TouchableOpacity>
-              </View>
+              </SurfaceCard>
             );
           })
         )}
@@ -196,46 +196,19 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     paddingBottom: spacing.xxl,
   },
-  summaryCard: {
-    borderRadius: radii.lg,
-    borderWidth: 1,
-    borderColor: palette.border,
-    backgroundColor: palette.surface,
-    padding: spacing.md,
-    ...shadow.card,
-  },
-  summaryTitle: {
-    ...typography.sectionTitle,
-  },
-  summaryValue: {
-    color: palette.primary,
-    fontSize: 32,
-    fontWeight: '800',
-    marginTop: spacing.xs,
-  },
-  emptyCard: {
-    borderRadius: radii.lg,
-    borderWidth: 1,
-    borderColor: palette.border,
-    backgroundColor: palette.surface,
-    padding: spacing.lg,
-  },
-  emptyText: {
-    color: palette.textMuted,
-    textAlign: 'center',
-  },
   sessionCard: {
-    borderRadius: radii.lg,
-    borderWidth: 1,
-    borderColor: palette.border,
-    backgroundColor: palette.surface,
     padding: spacing.md,
     gap: spacing.xs,
-    ...shadow.card,
   },
   sessionHeader: {
     gap: 2,
     marginBottom: spacing.xs,
+  },
+  sessionTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: spacing.xs,
   },
   sessionTitle: {
     color: palette.text,

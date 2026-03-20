@@ -9,8 +9,11 @@ import { getQuiz, Quiz } from '@/lib/api';
 import { useQuizWebSocket, WSMessage } from '@/providers/QuizWebSocketProvider';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
+import { CountdownTile } from '@/components/ui/countdown-tile';
 import { Skeleton } from '@/components/ui/skeleton';
+import { StateBanner } from '@/components/ui/state-banner';
+import { StatTile } from '@/components/ui/stat-tile';
+import { StatusBadge } from '@/components/ui/status-badge';
 import { toast } from 'sonner';
 import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 import { ArrowLeft, CheckCircle2, Gamepad2, Loader2, Wifi, WifiOff, Zap } from 'lucide-react';
@@ -129,13 +132,41 @@ export default function QuizLobbyPage() {
     const getConnectionStatus = () => {
         switch (connectionState) {
             case 'connected':
-                return { Icon: Wifi, text: t('connected') || 'Connected', color: 'text-success bg-green-50', iconClass: 'text-success' };
+                return {
+                    Icon: Wifi,
+                    text: t('connected') || 'Connected',
+                    description: t('waiting'),
+                    badgeTone: 'success' as const,
+                    bannerTone: 'success' as const,
+                    iconClass: 'text-success',
+                };
             case 'connecting':
-                return { Icon: Loader2, text: t('connecting') || 'Connecting...', color: 'text-warning bg-amber-50', iconClass: 'text-warning animate-spin' };
+                return {
+                    Icon: Loader2,
+                    text: t('connecting') || 'Connecting...',
+                    description: t('reconnecting') || 'Trying to reconnect...',
+                    badgeTone: 'info' as const,
+                    bannerTone: 'info' as const,
+                    iconClass: 'text-warning animate-spin',
+                };
             case 'reconnecting':
-                return { Icon: Zap, text: t('reconnecting') || 'Reconnecting...', color: 'text-orange-600 bg-orange-50', iconClass: 'text-orange-600' };
+                return {
+                    Icon: Zap,
+                    text: t('reconnecting') || 'Reconnecting...',
+                    description: t('reconnecting') || 'Trying to reconnect...',
+                    badgeTone: 'warning' as const,
+                    bannerTone: 'warning' as const,
+                    iconClass: 'text-orange-600',
+                };
             default:
-                return { Icon: WifiOff, text: t('disconnected') || 'Disconnected', color: 'text-red-600 bg-red-50', iconClass: 'text-red-600' };
+                return {
+                    Icon: WifiOff,
+                    text: t('disconnected') || 'Disconnected',
+                    description: t('reconnecting') || 'Trying to reconnect...',
+                    badgeTone: 'offline' as const,
+                    bannerTone: 'offline' as const,
+                    iconClass: 'text-red-600',
+                };
         }
     };
 
@@ -154,10 +185,12 @@ export default function QuizLobbyPage() {
                     </Link>
                     <div className="ml-auto sm:ml-0 flex items-center gap-2">
                         <LanguageSwitcher />
-                        <Badge className={`${status.color} border-0`}>
-                            <status.Icon className={`w-3.5 h-3.5 mr-1 ${status.iconClass}`} />
+                        <StatusBadge
+                            tone={status.badgeTone}
+                            icon={<status.Icon className={`h-3.5 w-3.5 ${status.iconClass}`} />}
+                        >
                             {status.text}
-                        </Badge>
+                        </StatusBadge>
                     </div>
                 </div>
             </header>
@@ -179,56 +212,40 @@ export default function QuizLobbyPage() {
                         <div>
                             <p className="text-sm text-muted-foreground mb-3">{t('startsIn') || 'Starts in'}</p>
                             <div className="flex justify-center gap-2">
-                                <div className="timer-block">
-                                    <div className="value">{String(timeRemaining.hours).padStart(2, '0')}</div>
-                                    <div className="label">{t('hours') || 'Hours'}</div>
-                                </div>
-                                <div className="timer-block">
-                                    <div className="value">{String(timeRemaining.minutes).padStart(2, '0')}</div>
-                                    <div className="label">{t('minutes') || 'Minutes'}</div>
-                                </div>
-                                <div className="timer-block">
-                                    <div className="value">{String(timeRemaining.seconds).padStart(2, '0')}</div>
-                                    <div className="label">{t('seconds') || 'Seconds'}</div>
-                                </div>
+                                <CountdownTile value={String(timeRemaining.hours).padStart(2, '0')} label={t('hours') || 'Hours'} />
+                                <CountdownTile value={String(timeRemaining.minutes).padStart(2, '0')} label={t('minutes') || 'Minutes'} />
+                                <CountdownTile value={String(timeRemaining.seconds).padStart(2, '0')} label={t('seconds') || 'Seconds'} />
                             </div>
                         </div>
 
                         {/* Stats */}
-                        <div className="flex justify-center gap-8">
-                            <div>
-                                <p className="text-2xl font-bold text-success">{playerCount}</p>
-                                <p className="text-muted-foreground text-sm">{t('online') || 'Online'}</p>
-                            </div>
-                            <div>
-                                <p className="text-2xl font-bold">{quiz.question_count}</p>
-                                <p className="text-muted-foreground text-sm">{t('questions') || 'Questions'}</p>
-                            </div>
+                        <div className="grid gap-3 sm:grid-cols-2">
+                            <StatTile
+                                label={t('online') || 'Online'}
+                                value={playerCount}
+                                tone="success"
+                                size="compact"
+                            />
+                            <StatTile
+                                label={t('questions') || 'Questions'}
+                                value={quiz.question_count}
+                                size="compact"
+                            />
                         </div>
 
                         {/* Status */}
-                        {isConnected ? (
-                            <div className="bg-green-50 border border-green-200 rounded-xl p-4">
-                                <p className="text-green-700 font-medium flex items-center justify-center gap-2">
-                                    <CheckCircle2 className="w-4 h-4" />
-                                    {t('ready') || 'Ready'}
-                                </p>
-                                <p className="text-sm text-success/80">
-                                    {t('waiting')}
-                                </p>
-                            </div>
-                        ) : connectionState === 'disconnected' ? (
-                            <div className="bg-red-50 border border-red-200 rounded-xl p-4">
-                                <p className="text-red-700 font-medium">{t('connectionLost') || 'Connection lost'}</p>
-                                <p className="text-sm text-red-600/80">
-                                    {t('reconnecting') || 'Trying to reconnect...'}
-                                </p>
-                            </div>
-                        ) : (
-                            <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4">
-                                <p className="text-yellow-700 font-medium">{t('connecting') || 'Connecting...'}</p>
-                            </div>
-                        )}
+                        <StateBanner
+                            tone={status.bannerTone}
+                            icon={
+                                isConnected ? (
+                                    <CheckCircle2 className="h-4 w-4" />
+                                ) : (
+                                    <status.Icon className={`h-4 w-4 ${status.iconClass}`} />
+                                )
+                            }
+                            title={isConnected ? (t('ready') || 'Ready') : status.text}
+                            description={status.description}
+                        />
 
                         <p className="text-sm text-muted-foreground">
                             {t('playingAs') || 'Playing as'} <span className="font-semibold text-foreground">{user?.username}</span>

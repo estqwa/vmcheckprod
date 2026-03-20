@@ -1,5 +1,7 @@
 import Link from 'next/link';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { StateBanner } from '@/components/ui/state-banner';
+import { SurfaceCard } from '@/components/ui/surface-card';
 
 const CONTENT = {
   ru: {
@@ -68,12 +70,12 @@ export default async function AccountDeletionPage({
 
   return (
     <main className='container mx-auto max-w-3xl px-4 py-10'>
-      <Card>
+      <SurfaceCard className='rounded-3xl'>
         <CardHeader>
           <CardTitle>{content.title}</CardTitle>
         </CardHeader>
         <CardContent className='space-y-6 text-sm leading-6 text-foreground'>
-          <p>{content.intro}</p>
+          <StateBanner tone='info' description={content.intro} />
 
           <section className='space-y-3'>
             <h2 className='text-base font-semibold'>{content.stepsTitle}</h2>
@@ -117,7 +119,7 @@ export default async function AccountDeletionPage({
             {content.legalLink}
           </Link>
         </CardContent>
-      </Card>
+      </SurfaceCard>
     </main>
   );
 }

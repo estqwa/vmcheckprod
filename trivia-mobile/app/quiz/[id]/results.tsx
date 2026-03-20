@@ -8,6 +8,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../../src/providers/AuthProvider';
 import { getMyQuizResult, getQuizResults } from '../../../src/api/quizzes';
 import { BrandHeader } from '../../../src/components/ui/BrandHeader';
+import { EmptyState } from '../../../src/components/ui/EmptyState';
+import { StatTile } from '../../../src/components/ui/StatTile';
+import { StatusBadge } from '../../../src/components/ui/StatusBadge';
 import { palette, radii, shadow, spacing, typography } from '../../../src/theme/tokens';
 import { formatCurrency } from '../../../src/utils/format';
 import { maybeRequestReview } from '../../../src/services/reviewPrompt';
@@ -77,44 +80,63 @@ export default function ResultsScreen() {
             <View style={styles.myResultHeader}>
               <Text style={styles.myResultTitle}>{t('quiz.myResult')}</Text>
               {myResult.is_winner ? (
-                <View style={styles.badgeRow}>
-                  <Ionicons name="trophy" size={12} color="#92400e" />
-                  <Text style={styles.winnerBadge}>{t('quiz.winner')}</Text>
-                </View>
+                <StatusBadge
+                  tone="success"
+                  label={t('quiz.winner')}
+                  icon={<Ionicons name="trophy" size={12} color="#92400e" />}
+                  style={styles.statusBadge}
+                  textStyle={styles.statusBadgeText}
+                />
               ) : null}
               {myResult.is_eliminated ? (
-                <View style={styles.badgeRow}>
-                  <Ionicons name="eye" size={12} color="#9a3412" />
-                  <Text style={styles.eliminatedBadge}>{t('quiz.eliminated')}</Text>
-                </View>
+                <StatusBadge
+                  tone="danger"
+                  label={t('quiz.eliminated')}
+                  icon={<Ionicons name="close-circle" size={12} color="#9a3412" />}
+                  style={styles.statusBadge}
+                  textStyle={styles.statusBadgeText}
+                />
               ) : null}
             </View>
 
             <View style={styles.statsGrid} accessibilityRole="summary">
-              <View style={styles.statTile} accessibilityLabel={`${t('leaderboard.rankLabel')}: #${myResult.rank}`}>
-                <Text style={styles.statValue}>#{myResult.rank}</Text>
-                <Text style={styles.statLabel}>{t('leaderboard.rankLabel')}</Text>
-              </View>
-              <View style={[styles.statTile, styles.primaryStatTile]} accessibilityLabel={`${t('quiz.scoreLabel')}: ${myResult.score}`}>
-                <Text style={[styles.statValue, styles.primaryValue]}>{myResult.score}</Text>
-                <Text style={styles.statLabel}>{t('quiz.scoreLabel')}</Text>
-              </View>
-              <View style={styles.statTile} accessibilityLabel={`${t('history.correct')}: ${myResult.correct_answers}/${myResult.total_questions}`}>
-                <Text style={styles.statValue}>{myResult.correct_answers}/{myResult.total_questions}</Text>
-                <Text style={styles.statLabel}>{t('history.correct')}</Text>
-              </View>
+              <StatTile
+                label={t('leaderboard.rankLabel')}
+                value={`#${myResult.rank}`}
+                size="compact"
+                style={styles.statTile}
+              />
+              <StatTile
+                label={t('quiz.scoreLabel')}
+                value={myResult.score}
+                tone="primary"
+                size="compact"
+                style={styles.statTile}
+              />
+              <StatTile
+                label={t('history.correct')}
+                value={`${myResult.correct_answers}/${myResult.total_questions}`}
+                size="compact"
+                style={styles.statTile}
+              />
               {myResult.prize_fund > 0 ? (
-                <View style={[styles.statTile, styles.successStatTile]}>
-                  <Text style={[styles.statValue, styles.successValue]}>{formatCurrency(myResult.prize_fund)}</Text>
-                  <Text style={styles.statLabel}>{t('leaderboard.prize')}</Text>
-                </View>
+                <StatTile
+                  label={t('leaderboard.prize')}
+                  value={formatCurrency(myResult.prize_fund)}
+                  tone="success"
+                  size="compact"
+                  style={styles.statTile}
+                />
               ) : null}
             </View>
           </View>
         ) : (
-          <View style={styles.emptyMyResultCard}>
-            <Text style={styles.emptyText}>{t('quiz.resultUnavailable')}</Text>
-          </View>
+          <EmptyState
+            title={t('quiz.resultUnavailable')}
+            description={t('quiz.resultsEmptyState', { defaultValue: t('common.noData') })}
+            icon={<Ionicons name="stats-chart" size={22} color={palette.textMuted} />}
+            style={styles.emptyMyResultCard}
+          />
         )}
 
         <View style={styles.listCard}>
@@ -124,7 +146,12 @@ export default function ResultsScreen() {
           </View>
 
           {rowsToRender.length === 0 ? (
-            <Text style={styles.emptyText}>{t('leaderboard.noPlayers')}</Text>
+            <EmptyState
+              title={t('leaderboard.noPlayers')}
+              description={t('quiz.resultsEmptyList', { defaultValue: t('quiz.waiting') })}
+              icon={<Ionicons name="people-outline" size={22} color={palette.textMuted} />}
+              style={styles.emptyResultsCard}
+            />
           ) : (
             rowsToRender.map((row) => {
               const highlight = row.user_id === user?.id;
@@ -235,35 +262,10 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     flexWrap: 'wrap',
   },
-  badgeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
   myResultTitle: {
     color: palette.text,
     fontWeight: '800',
     fontSize: 19,
-  },
-  winnerBadge: {
-    color: '#92400e',
-    backgroundColor: '#fef3c7',
-    borderRadius: radii.pill,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 4,
-    fontSize: 11,
-    fontWeight: '700',
-    overflow: 'hidden',
-  },
-  eliminatedBadge: {
-    color: '#9a3412',
-    backgroundColor: '#fed7aa',
-    borderRadius: radii.pill,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 4,
-    fontSize: 11,
-    fontWeight: '700',
-    overflow: 'hidden',
   },
   statsGrid: {
     flexDirection: 'row',
@@ -273,34 +275,13 @@ const styles = StyleSheet.create({
   statTile: {
     flexBasis: '48%',
     flexGrow: 1,
-    backgroundColor: '#f8fafc',
-    borderWidth: 1,
-    borderColor: palette.border,
-    borderRadius: radii.lg,
-    paddingVertical: spacing.md,
-    alignItems: 'center',
+    minHeight: 88,
   },
-  primaryStatTile: {
-    backgroundColor: '#fff1f2',
+  statusBadge: {
+    alignSelf: 'flex-start',
   },
-  successStatTile: {
-    backgroundColor: '#ecfdf5',
-  },
-  statValue: {
-    color: palette.text,
-    fontWeight: '800',
-    fontSize: 24,
-  },
-  primaryValue: {
-    color: palette.primary,
-  },
-  successValue: {
-    color: palette.prize,
-  },
-  statLabel: {
-    color: palette.textMuted,
-    fontSize: 12,
-    marginTop: 2,
+  statusBadgeText: {
+    fontSize: 11,
   },
   emptyMyResultCard: {
     borderWidth: 1,
@@ -308,6 +289,9 @@ const styles = StyleSheet.create({
     borderRadius: radii.lg,
     backgroundColor: palette.surface,
     padding: spacing.lg,
+  },
+  emptyResultsCard: {
+    marginTop: spacing.sm,
   },
   listCard: {
     borderWidth: 1,
@@ -328,11 +312,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 6,
     marginBottom: 4,
-  },
-  emptyText: {
-    color: palette.textMuted,
-    textAlign: 'center',
-    paddingVertical: spacing.md,
   },
   resultRow: {
     borderWidth: 1,

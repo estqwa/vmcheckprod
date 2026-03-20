@@ -1,8 +1,7 @@
 import { useMemo } from 'react';
-import { StyleSheet, Text } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import type { ConnectionState } from '../../hooks/useQuizWS';
-import { radii, spacing } from '../../theme/tokens';
+import { StatusBadge } from './StatusBadge';
 
 interface Props {
     connectionState: ConnectionState;
@@ -18,34 +17,19 @@ export function ConnectionStatusPill({ connectionState, isOffline }: Props) {
 
     const pill = useMemo(() => {
         if (isOffline) {
-            return { text: t('quiz.offline'), bg: '#fecaca', color: '#7f1d1d' };
+            return { text: t('quiz.offline'), tone: 'offline' as const };
         }
         switch (connectionState) {
             case 'connected':
-                return { text: t('quiz.connected'), bg: '#dcfce7', color: '#166534' };
+                return { text: t('quiz.connected'), tone: 'success' as const };
             case 'reconnecting':
-                return { text: t('quiz.reconnecting'), bg: '#ffedd5', color: '#9a3412' };
+                return { text: t('quiz.reconnecting'), tone: 'warning' as const };
             case 'connecting':
-                return { text: t('quiz.connecting'), bg: '#fef9c3', color: '#854d0e' };
+                return { text: t('quiz.connecting'), tone: 'info' as const };
             default:
-                return { text: t('quiz.disconnected'), bg: '#fee2e2', color: '#991b1b' };
+                return { text: t('quiz.disconnected'), tone: 'danger' as const };
         }
     }, [connectionState, isOffline, t]);
 
-    return (
-        <Text style={[styles.pill, { backgroundColor: pill.bg, color: pill.color }]}>
-            {pill.text}
-        </Text>
-    );
+    return <StatusBadge tone={pill.tone} label={pill.text} />;
 }
-
-const styles = StyleSheet.create({
-    pill: {
-        fontSize: 11,
-        fontWeight: '700',
-        borderRadius: radii.pill,
-        paddingHorizontal: spacing.sm,
-        paddingVertical: 5,
-        overflow: 'hidden',
-    },
-});

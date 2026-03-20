@@ -16,6 +16,9 @@ import { useTranslation } from 'react-i18next';
 import type { Quiz } from '@trivia/shared';
 import { getUpcomingQuizzes } from '../../src/api/quizzes';
 import { BrandHeader } from '../../src/components/ui/BrandHeader';
+import { EmptyState } from '../../src/components/ui/EmptyState';
+import { StatusBadge } from '../../src/components/ui/StatusBadge';
+import { SurfaceCard } from '../../src/components/ui/SurfaceCard';
 import { TimerBlock } from '../../src/components/ui/TimerBlock';
 import { palette, radii, shadow, spacing, typography } from '../../src/theme/tokens';
 import { getCountdown } from '../../src/utils/time';
@@ -29,33 +32,18 @@ function sortQuizzes(quizzes: Quiz[]): Quiz[] {
   );
 }
 
-function getQuizStatusStyles(status: string) {
+function getQuizStatusTone(status: string) {
   switch (status) {
     case 'in_progress':
-      return {
-        pill: styles.statusPillInProgress,
-        text: styles.statusPillInProgressText,
-      };
+      return 'success';
     case 'scheduled':
-      return {
-        pill: styles.statusPillScheduled,
-        text: styles.statusPillScheduledText,
-      };
+      return 'info';
     case 'completed':
-      return {
-        pill: styles.statusPillCompleted,
-        text: styles.statusPillCompletedText,
-      };
+      return 'neutral';
     case 'cancelled':
-      return {
-        pill: styles.statusPillCancelled,
-        text: styles.statusPillCancelledText,
-      };
+      return 'danger';
     default:
-      return {
-        pill: styles.statusPillDefault,
-        text: styles.statusPillDefaultText,
-      };
+      return 'neutral';
   }
 }
 
@@ -103,7 +91,7 @@ export default function HomeScreen() {
 
   const renderQuizCard = useCallback(
     ({ item }: ListRenderItemInfo<Quiz>) => {
-      const statusStyles = getQuizStatusStyles(item.status);
+      const statusTone = getQuizStatusTone(item.status);
 
       return (
         <TouchableOpacity style={styles.quizCard} onPress={() => router.push(`/quiz/${item.id}/lobby`)} accessibilityRole="button" accessibilityLabel={item.title}>
@@ -111,9 +99,7 @@ export default function HomeScreen() {
             <Text style={styles.quizCardTitle} numberOfLines={1}>
               {item.title}
             </Text>
-            <View style={[styles.statusPill, statusStyles.pill]}>
-              <Text style={[styles.statusPillText, statusStyles.text]}>{t(`quiz.status_${item.status}`, { defaultValue: item.status })}</Text>
-            </View>
+            <StatusBadge tone={statusTone} label={t(`quiz.status_${item.status}`, { defaultValue: item.status })} />
           </View>
 
           {item.description ? (
@@ -136,10 +122,7 @@ export default function HomeScreen() {
     () => (
       <View style={styles.headerWrap}>
         <View style={styles.heroBlock}>
-          <View style={styles.liveBadge}>
-            <View style={styles.liveDot} />
-            <Text style={styles.liveText}>{t('home.liveQuiz')}</Text>
-          </View>
+          <StatusBadge tone="success" label={t('home.liveQuiz')} icon={<View style={styles.liveDot} />} style={styles.liveBadge} />
 
           <Text style={styles.heroTitle}>{t('home.welcome')}</Text>
           <Text style={styles.heroSubtitle}>{t('home.description')}</Text>
@@ -149,14 +132,14 @@ export default function HomeScreen() {
               <Text style={styles.primaryCtaText}>{t('home.joinNow')}</Text>
             </TouchableOpacity>
           ) : (
-            <View style={styles.noQuizBox}>
-              <Text style={styles.noQuizIcon}>QZ</Text>
-              <Text style={styles.noQuizTitle}>{t('home.noQuizzes')}</Text>
-              <Text style={styles.noQuizSubtitle}>{t('home.waiting')}</Text>
-            </View>
+            <EmptyState
+              title={t('home.noQuizzes')}
+              description={t('home.waiting')}
+              style={styles.noQuizBox}
+            />
           )}
 
-          <View style={styles.howToBlock}>
+          <SurfaceCard tone="muted" compact style={styles.howToBlock}>
             <Text style={styles.howToTitle}>{t('home.howToPlay')}</Text>
             <View style={styles.howToRow}>
               <Text style={styles.howToNum}>1.</Text>
@@ -170,11 +153,11 @@ export default function HomeScreen() {
               <Text style={styles.howToNum}>3.</Text>
               <Text style={styles.howToText}>{t('home.step3')}</Text>
             </View>
-          </View>
+          </SurfaceCard>
         </View>
 
         {upcomingQuiz ? (
-          <View style={styles.nextQuizCard}>
+          <SurfaceCard style={styles.nextQuizCard}>
             <View style={styles.nextQuizHeader}>
               <View style={styles.nextQuizTitleWrap}>
                 <View style={styles.nextQuizIconBox}>
@@ -202,7 +185,7 @@ export default function HomeScreen() {
             <TouchableOpacity style={styles.secondaryCta} onPress={() => router.push(`/quiz/${upcomingQuiz.id}/lobby`)} accessibilityRole="button" accessibilityLabel={t('home.openLobby')}>
               <Text style={styles.secondaryCtaText}>{t('home.openLobby')}</Text>
             </TouchableOpacity>
-          </View>
+          </SurfaceCard>
         ) : null}
 
         <View style={styles.listSection}>
@@ -279,13 +262,6 @@ const styles = StyleSheet.create({
   },
   liveBadge: {
     alignSelf: 'center',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    backgroundColor: palette.accentSurface,
-    paddingHorizontal: spacing.md,
-    paddingVertical: 8,
-    borderRadius: radii.pill,
   },
   liveDot: {
     width: 8,
@@ -320,33 +296,9 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   noQuizBox: {
-    backgroundColor: palette.surface,
-    borderRadius: radii.xl,
-    borderWidth: 1,
-    borderColor: palette.border,
-    alignItems: 'center',
-    padding: spacing.xl,
-    gap: spacing.xs,
-    ...shadow.card,
-  },
-  noQuizIcon: {
-    fontSize: 42,
-  },
-  noQuizTitle: {
-    color: palette.text,
-    fontSize: 18,
-    fontWeight: '700',
-  },
-  noQuizSubtitle: {
-    color: palette.textMuted,
-    textAlign: 'center',
+    marginTop: spacing.xs,
   },
   howToBlock: {
-    backgroundColor: '#f8fafc',
-    borderWidth: 1,
-    borderColor: palette.border,
-    borderRadius: radii.lg,
-    padding: spacing.md,
     gap: spacing.xs,
   },
   howToTitle: {
@@ -371,13 +323,7 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   nextQuizCard: {
-    backgroundColor: palette.surface,
-    borderRadius: radii.xl,
-    borderWidth: 1,
-    borderColor: palette.border,
-    padding: spacing.lg,
     gap: spacing.md,
-    ...shadow.card,
   },
   nextQuizHeader: {
     flexDirection: 'row',
@@ -491,46 +437,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     flex: 1,
     fontSize: 16,
-  },
-  statusPill: {
-    borderRadius: radii.pill,
-    paddingVertical: 4,
-    paddingHorizontal: 10,
-  },
-  statusPillText: {
-    fontSize: 11,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-  },
-  statusPillInProgress: {
-    backgroundColor: '#dcfce7',
-  },
-  statusPillInProgressText: {
-    color: '#166534',
-  },
-  statusPillScheduled: {
-    backgroundColor: '#dbeafe',
-  },
-  statusPillScheduledText: {
-    color: '#1d4ed8',
-  },
-  statusPillCompleted: {
-    backgroundColor: '#f3f4f6',
-  },
-  statusPillCompletedText: {
-    color: '#374151',
-  },
-  statusPillCancelled: {
-    backgroundColor: '#fee2e2',
-  },
-  statusPillCancelledText: {
-    color: '#991b1b',
-  },
-  statusPillDefault: {
-    backgroundColor: '#f3f4f6',
-  },
-  statusPillDefaultText: {
-    color: '#374151',
   },
   quizCardDescription: {
     color: palette.textMuted,

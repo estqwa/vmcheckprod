@@ -7,22 +7,25 @@ import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
 import type { QuizResult } from '@trivia/shared';
 import { BrandHeader } from '../../src/components/ui/BrandHeader';
+import { EmptyState } from '../../src/components/ui/EmptyState';
+import { StatusBadge } from '../../src/components/ui/StatusBadge';
+import { SurfaceCard } from '../../src/components/ui/SurfaceCard';
 import { getQuizHistory } from '../../src/api/quizzes';
-import { palette, radii, shadow, spacing, typography } from '../../src/theme/tokens';
+import { palette, radii, spacing, typography } from '../../src/theme/tokens';
 import { formatCurrency, formatDateTime } from '../../src/utils/format';
 
 const PAGE_SIZE = 20;
 
 function renderStatus(result: QuizResult, t: (key: string, opts?: Record<string, unknown>) => string) {
   if (result.is_winner) {
-    return { label: t('history.winner'), color: '#92400e', bg: '#fef3c7', icon: 'trophy' as const };
+    return { label: t('history.winner'), tone: 'warning' as const, icon: 'trophy' as const, iconColor: '#b45309' };
   }
 
   if (result.is_eliminated) {
-    return { label: t('history.eliminated'), color: '#991b1b', bg: '#fee2e2', icon: 'close-circle' as const };
+    return { label: t('history.eliminated'), tone: 'danger' as const, icon: 'close-circle' as const, iconColor: '#b91c1c' };
   }
 
-  return { label: t('history.finished'), color: '#374151', bg: '#f3f4f6', icon: 'time' as const };
+  return { label: t('history.finished'), tone: 'neutral' as const, icon: 'time' as const, iconColor: palette.textMuted };
 }
 
 export default function HistoryScreen() {
@@ -60,12 +63,13 @@ export default function HistoryScreen() {
     const status = renderStatus(item, t);
     const hasValidQuizId = Number.isFinite(item.quiz_id) && item.quiz_id > 0;
     return (
-      <View style={styles.resultCard}>
+      <SurfaceCard style={styles.resultCard}>
         <View style={styles.resultHeader}>
-          <View style={[styles.statusBadgeWrap, { backgroundColor: status.bg }]}>
-            <Ionicons name={status.icon} size={12} color={status.color} />
-            <Text style={[styles.statusBadge, { color: status.color }]}>{status.label}</Text>
-          </View>
+          <StatusBadge
+            tone={status.tone}
+            label={status.label}
+            icon={<Ionicons name={status.icon} size={12} color={status.iconColor} />}
+          />
           <Text style={styles.dateText}>{formatDateTime(item.completed_at, i18n.language)}</Text>
         </View>
 
@@ -94,7 +98,7 @@ export default function HistoryScreen() {
         >
           <Text style={styles.viewResultButtonText}>{t('history.viewResults')}</Text>
         </TouchableOpacity>
-      </View>
+      </SurfaceCard>
     );
   }, [t, i18n.language, router]);
 
@@ -126,13 +130,15 @@ export default function HistoryScreen() {
           </View>
         }
         ListEmptyComponent={
-          <View style={styles.emptyCard}>
-            <Ionicons name="flag" size={42} color={palette.textMuted} />
-            <Text style={styles.emptyText}>{t('history.empty')}</Text>
-            <TouchableOpacity style={styles.playButton} onPress={() => router.replace('/(tabs)')} accessibilityRole="button">
-              <Text style={styles.playButtonText}>{t('history.playNow')}</Text>
-            </TouchableOpacity>
-          </View>
+          <EmptyState
+            icon={<Ionicons name="flag" size={42} color={palette.textMuted} />}
+            title={t('history.empty')}
+            action={
+              <TouchableOpacity style={styles.playButton} onPress={() => router.replace('/(tabs)')} accessibilityRole="button">
+                <Text style={styles.playButtonText}>{t('history.playNow')}</Text>
+              </TouchableOpacity>
+            }
+          />
         }
         ListFooterComponent={
           isFetchingNextPage ? (
@@ -177,20 +183,6 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
     marginBottom: spacing.sm,
   },
-  emptyCard: {
-    borderRadius: radii.xl,
-    borderWidth: 1,
-    borderColor: palette.border,
-    backgroundColor: palette.surface,
-    alignItems: 'center',
-    padding: spacing.xl,
-    gap: spacing.sm,
-    ...shadow.card,
-  },
-  emptyText: {
-    color: palette.textMuted,
-    textAlign: 'center',
-  },
   playButton: {
     marginTop: spacing.sm,
     borderRadius: radii.md,
@@ -205,31 +197,14 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   resultCard: {
-    borderRadius: radii.lg,
-    borderWidth: 1,
-    borderColor: palette.border,
-    backgroundColor: palette.surface,
     padding: spacing.md,
     gap: spacing.sm,
-    ...shadow.card,
   },
   resultHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     gap: spacing.sm,
-  },
-  statusBadgeWrap: {
-    borderRadius: radii.pill,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 5,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  statusBadge: {
-    fontSize: 12,
-    fontWeight: '700',
   },
   dateText: {
     color: palette.textMuted,
@@ -241,7 +216,7 @@ const styles = StyleSheet.create({
     gap: spacing.md,
   },
   metricText: {
-    color: '#475569',
+    color: palette.textMuted,
     fontSize: 13,
     fontWeight: '600',
   },
@@ -261,7 +236,7 @@ const styles = StyleSheet.create({
     borderColor: palette.border,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#f8fafc',
+    backgroundColor: palette.surfaceMuted,
   },
   viewResultButtonDisabled: {
     opacity: 0.5,

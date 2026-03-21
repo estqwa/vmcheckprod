@@ -40,6 +40,9 @@ export function StatTile({ label, value, tone = 'default', size = 'default', sty
       ]}
     >
       <Text
+        numberOfLines={1}
+        adjustsFontSizeToFit
+        minimumFontScale={size === 'compact' ? 0.65 : 0.8}
         style={[
           styles.value,
           size === 'compact' ? styles.compactValue : styles.defaultValue,
@@ -68,6 +71,7 @@ const styles = StyleSheet.create({
   compactTile: {
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.sm,
+    minWidth: 0,
     alignItems: 'flex-start',
     justifyContent: 'space-between',
     minHeight: 88,
@@ -84,6 +88,7 @@ const styles = StyleSheet.create({
     fontSize: 22,
     lineHeight: 28,
     textAlign: 'left',
+    width: '100%',
   },
   label: {
     ...typography.caption,

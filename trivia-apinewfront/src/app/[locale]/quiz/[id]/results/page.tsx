@@ -252,7 +252,9 @@ export default function QuizResultsPage() {
                                                     <StatusBadge tone="success">{formatCurrency(result.prize_fund, locale)}</StatusBadge>
                                                 )}
                                                 {result.is_eliminated && (
-                                                    <StatusBadge tone="danger">{t('eliminated')}</StatusBadge>
+                                                    <StatusBadge tone="danger">
+                                                        {result.user_id === user?.id ? t('eliminated') : tLeaderboard('eliminated')}
+                                                    </StatusBadge>
                                                 )}
                                             </div>
                                         </div>

@@ -32,7 +32,7 @@ const toneStyles: Record<StatTone, { backgroundColor: string; borderColor: strin
 
 const sizeClassName: Record<StatSize, string> = {
   default: 'min-h-28 items-center justify-center px-4 py-4 text-center',
-  compact: 'min-h-[88px] items-start justify-between px-4 py-3 text-left',
+  compact: 'min-h-[88px] min-w-0 items-start justify-between px-4 py-3 text-left',
 };
 
 export function StatTile({
@@ -58,14 +58,19 @@ export function StatTile({
     >
       <div
         className={cn(
-          'font-extrabold leading-none tracking-tight',
-          size === 'compact' ? 'text-2xl md:text-[1.75rem]' : 'text-3xl'
+          'w-full break-words font-extrabold tracking-tight',
+          size === 'compact' ? 'text-xl leading-tight sm:text-2xl md:text-[1.75rem]' : 'text-3xl leading-none'
         )}
         style={{ color: palette.valueColor }}
       >
         {value}
       </div>
-      <div className={cn('mt-2 text-xs font-medium text-muted-foreground', size === 'compact' ? 'uppercase tracking-wide' : null)}>
+      <div
+        className={cn(
+          'mt-2 w-full break-words whitespace-normal text-xs font-medium leading-4 text-muted-foreground',
+          size === 'compact' ? 'uppercase tracking-wide' : null
+        )}
+      >
         {label}
       </div>
     </div>

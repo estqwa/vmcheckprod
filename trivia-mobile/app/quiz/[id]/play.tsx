@@ -9,49 +9,15 @@ import {
   type ListRenderItemInfo,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useQueryClient } from '@tanstack/react-query';
+import { useRouter } from 'expo-router';
 import { hapticSelection, hapticSuccess, hapticWarning } from '../../../src/services/haptics';
 import { useTranslation } from 'react-i18next';
-import {
-  type AnswerResultEvent,
-  type QuizAnswerRevealEvent,
-  type QuizAdBreakEndEvent,
-  type QuizAdBreakEvent,
-  type QuizFinishEvent,
-  type QuizStateEvent,
-  WS_SERVER_EVENTS,
-  isAnswerResultEvent,
-  isEliminationEvent,
-  isQuizAnswerRevealEvent,
-  isQuizAdBreakEndEvent,
-  isQuizAdBreakEvent,
-  isQuizCancelledEvent,
-  isQuizFinishEvent,
-  isQuizQuestionEvent,
-  isQuizStateQuestionEvent,
-  isQuizStateEvent,
-  isQuizTimerEvent,
-  type QuestionOption,
-  type WSServerMessage,
-} from '@trivia/shared';
+import { type QuestionOption } from '@trivia/shared';
 import { BrandHeader } from '../../../src/components/ui/BrandHeader';
 import { AdBreakOverlay } from '../../../src/components/game/AdBreakOverlay';
 import { ConnectionStatusPill } from '../../../src/components/ui/ConnectionStatusPill';
-import { useAuth } from '../../../src/providers/AuthProvider';
-import { useQuizWS } from '../../../src/hooks/useQuizWS';
-import { leaderboardQueryKey, userQueryKey } from '../../../src/hooks/useUserQuery';
+import { useQuizSession } from '../../../src/providers/QuizSessionProvider';
 import { palette, radii, shadow, spacing } from '../../../src/theme/tokens';
-
-type QuestionState = {
-  id: number;
-  text: string;
-  textKK?: string;
-  options: QuestionOption[];
-  optionsKK?: QuestionOption[];
-  current: number;
-  total: number;
-};
 
 type LocalizableQuestionPayload = {
   text: string;
@@ -73,183 +39,24 @@ function getLocalizedQuestionData(question: LocalizableQuestionPayload, language
 export default function PlayScreen() {
   const { t, i18n } = useTranslation();
   const router = useRouter();
-  const queryClient = useQueryClient();
-  const { logout } = useAuth();
-  const { id } = useLocalSearchParams<{ id: string }>();
-  const quizId = Number(id);
-
-  const [question, setQuestion] = useState<QuestionState | null>(null);
-  const [selectedOption, setSelectedOption] = useState<number | null>(null);
-  const [timeLeft, setTimeLeft] = useState(0);
-  const [isEliminated, setIsEliminated] = useState(false);
-  const [score, setScore] = useState(0);
-  const [correctCount, setCorrectCount] = useState(0);
-  const [feedback, setFeedback] = useState<'correct' | 'incorrect' | null>(null);
-  const [revealedCorrectOption, setRevealedCorrectOption] = useState<number | null>(null);
-  const [adBreak, setAdBreak] = useState<QuizAdBreakEvent | null>(null);
-  const [showAdOverlay, setShowAdOverlay] = useState(false);
   const [isResyncDelayed, setIsResyncDelayed] = useState(false);
-
-  const hideAdOverlay = useCallback(() => {
-    setShowAdOverlay(false);
-    setAdBreak(null);
-  }, []);
-
-  const invalidateUserAndLeaderboard = useCallback(() => {
-    void Promise.all([
-      queryClient.invalidateQueries({ queryKey: userQueryKey }),
-      queryClient.invalidateQueries({ queryKey: leaderboardQueryKey }),
-    ]);
-  }, [queryClient]);
-
-  const handleSessionEnded = useCallback(async () => {
-    await logout();
-    router.replace('/(auth)/login');
-  }, [logout, router]);
-
-  const handleMessage = useCallback(
-    (msg: WSServerMessage) => {
-      if (msg.type === WS_SERVER_EVENTS.AD_BREAK && isQuizAdBreakEvent(msg.data)) {
-        const adData = msg.data as QuizAdBreakEvent;
-        if (adData.quiz_id === quizId) {
-          setAdBreak(adData);
-          setShowAdOverlay(true);
-        }
-        return;
-      }
-
-      if (msg.type === WS_SERVER_EVENTS.AD_BREAK_END && isQuizAdBreakEndEvent(msg.data)) {
-        const adEnd = msg.data as QuizAdBreakEndEvent;
-        if (adEnd.quiz_id === quizId) {
-          hideAdOverlay();
-        }
-        return;
-      }
-
-      if (msg.type === WS_SERVER_EVENTS.QUESTION && isQuizQuestionEvent(msg.data)) {
-        setQuestion({
-          id: msg.data.question_id,
-          text: msg.data.text,
-          textKK: msg.data.text_kk,
-          options: msg.data.options,
-          optionsKK: msg.data.options_kk,
-          current: msg.data.number,
-          total: msg.data.total_questions,
-        });
-        setSelectedOption(null);
-        setFeedback(null);
-        setRevealedCorrectOption(null);
-        setTimeLeft(msg.data.time_limit);
-        setIsResyncDelayed(false);
-        hideAdOverlay();
-        return;
-      }
-
-      if (msg.type === WS_SERVER_EVENTS.TIMER && isQuizTimerEvent(msg.data)) {
-        setTimeLeft(msg.data.remaining_seconds);
-        return;
-      }
-
-      if (msg.type === WS_SERVER_EVENTS.ANSWER_RESULT && isAnswerResultEvent(msg.data)) {
-        const answerData = msg.data as AnswerResultEvent;
-        setFeedback(answerData.is_correct ? 'correct' : 'incorrect');
-        setRevealedCorrectOption(answerData.correct_option);
-        setScore((prev) => prev + answerData.points_earned);
-        setCorrectCount((prev) => (answerData.is_correct ? prev + 1 : prev));
-        if (answerData.is_eliminated) {
-          setIsEliminated(true);
-        }
-        return;
-      }
-
-      if (msg.type === WS_SERVER_EVENTS.ANSWER_REVEAL && isQuizAnswerRevealEvent(msg.data)) {
-        const revealData = msg.data as QuizAnswerRevealEvent;
-        setRevealedCorrectOption(revealData.correct_option);
-        return;
-      }
-
-      if (msg.type === WS_SERVER_EVENTS.ELIMINATION && isEliminationEvent(msg.data)) {
-        setIsEliminated(true);
-        return;
-      }
-
-      if (msg.type === WS_SERVER_EVENTS.STATE && isQuizStateEvent(msg.data)) {
-        const stateData = msg.data as QuizStateEvent;
-        if (stateData.status === 'completed') {
-          hideAdOverlay();
-          invalidateUserAndLeaderboard();
-          router.replace(`/quiz/${quizId}/results`);
-          return;
-        }
-
-        if (typeof stateData.is_eliminated === 'boolean') {
-          setIsEliminated(stateData.is_eliminated);
-        }
-        if (typeof stateData.score === 'number') {
-          setScore(stateData.score);
-        }
-        if (typeof stateData.correct_count === 'number') {
-          setCorrectCount(stateData.correct_count);
-        }
-        if (typeof stateData.time_remaining === 'number') {
-          setTimeLeft(stateData.time_remaining);
-        }
-        if (stateData.current_question) {
-          const currentQuestion = stateData.current_question as unknown;
-          if (isQuizStateQuestionEvent(currentQuestion)) {
-            setQuestion({
-              id: currentQuestion.question_id,
-              text: currentQuestion.text,
-              textKK: currentQuestion.text_kk,
-              options: currentQuestion.options,
-              optionsKK: currentQuestion.options_kk,
-              current: currentQuestion.number,
-              total: currentQuestion.total_questions,
-            });
-            if (typeof stateData.time_remaining !== 'number') {
-              setTimeLeft(currentQuestion.time_limit);
-            }
-            setRevealedCorrectOption(null);
-            setIsResyncDelayed(false);
-            hideAdOverlay();
-          }
-        }
-        return;
-      }
-
-      if (msg.type === WS_SERVER_EVENTS.FINISH && isQuizFinishEvent(msg.data)) {
-        const finishData = msg.data as QuizFinishEvent;
-        if (finishData.quiz_id === quizId) {
-          hideAdOverlay();
-          invalidateUserAndLeaderboard();
-          router.replace(`/quiz/${quizId}/results`);
-        }
-        return;
-      }
-
-      if (msg.type === WS_SERVER_EVENTS.RESULTS_AVAILABLE) {
-        hideAdOverlay();
-        invalidateUserAndLeaderboard();
-        router.replace(`/quiz/${quizId}/results`);
-        return;
-      }
-
-      if (msg.type === WS_SERVER_EVENTS.CANCELLED && isQuizCancelledEvent(msg.data)) {
-        if (msg.data.quiz_id === quizId) {
-          hideAdOverlay();
-          router.replace('/(tabs)');
-        }
-      }
-    },
-    [hideAdOverlay, invalidateUserAndLeaderboard, quizId, router]
-  );
-
-  const { sendAnswer, reconnect, connectionState, isOffline } = useQuizWS({
-    quizId,
-    enabled: Number.isFinite(quizId) && quizId > 0,
-    onMessage: handleMessage,
-    onSessionEnded: handleSessionEnded,
-  });
+  const {
+    question,
+    selectedOption,
+    timeLeft,
+    isEliminated,
+    score,
+    correctCount,
+    feedback,
+    revealedCorrectOption,
+    adBreak,
+    showAdOverlay,
+    reconnect,
+    submitAnswer,
+    dismissAdBreak,
+    connectionState,
+    isOffline,
+  } = useQuizSession();
 
   useEffect(() => {
     if (question || isOffline || connectionState !== 'connected') {
@@ -276,22 +83,11 @@ export default function PlayScreen() {
 
   const handleAnswer = useCallback(
     (optionId: number) => {
-      if (
-        selectedOption !== null ||
-        revealedCorrectOption !== null ||
-        isEliminated ||
-        !question ||
-        isOffline ||
-        connectionState !== 'connected' ||
-        showAdOverlay
-      ) {
-        return;
+      if (submitAnswer(optionId)) {
+        hapticSelection();
       }
-      setSelectedOption(optionId);
-      hapticSelection();
-      sendAnswer(question.id, optionId);
     },
-    [connectionState, isEliminated, isOffline, question, revealedCorrectOption, selectedOption, sendAnswer, showAdOverlay]
+    [submitAnswer]
   );
 
   const timerTone = useMemo(() => {
@@ -300,8 +96,6 @@ export default function PlayScreen() {
     }
     return { badge: styles.timerBadgeNormal, text: styles.timerTextNormal };
   }, [timeLeft]);
-
-
 
   const displayedQuestion = useMemo(() => {
     if (!question) {
@@ -321,6 +115,10 @@ export default function PlayScreen() {
 
   const getOptionStyle = useCallback(
     (optionId: number) => {
+      if (isEliminated && revealedCorrectOption === null) {
+        return [styles.optionButton, styles.optionDisabled];
+      }
+
       if (revealedCorrectOption !== null) {
         if (optionId === revealedCorrectOption) {
           return [styles.optionButton, styles.optionCorrect];
@@ -339,7 +137,7 @@ export default function PlayScreen() {
       }
       return [styles.optionButton, styles.optionIdle];
     },
-    [feedback, revealedCorrectOption, selectedOption]
+    [feedback, isEliminated, revealedCorrectOption, selectedOption]
   );
 
   const renderOption = useCallback(
@@ -375,7 +173,7 @@ export default function PlayScreen() {
     <AdBreakOverlay
       adData={adBreak}
       isVisible={showAdOverlay}
-      onAdEnd={hideAdOverlay}
+      onAdEnd={dismissAdBreak}
     />
   );
 
@@ -473,6 +271,7 @@ export default function PlayScreen() {
                 data={displayedQuestion.options}
                 renderItem={renderOption}
                 keyExtractor={(option) => String(option.id)}
+                extraData={[selectedOption, revealedCorrectOption, isEliminated, isOffline, connectionState, showAdOverlay, feedback]}
                 scrollEnabled={false}
                 contentContainerStyle={styles.optionsList}
               />
@@ -679,6 +478,11 @@ const styles = StyleSheet.create({
     borderColor: palette.border,
     backgroundColor: '#f8fafc',
   },
+  optionDisabled: {
+    borderColor: '#e5e7eb',
+    backgroundColor: '#f3f4f6',
+    opacity: 0.72,
+  },
   optionSelected: {
     borderColor: '#fda4af',
     backgroundColor: '#fff1f2',
@@ -738,6 +542,4 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
 });
-
-
 

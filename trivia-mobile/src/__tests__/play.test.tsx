@@ -3,10 +3,8 @@ import renderer, { act } from 'react-test-renderer';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { waitFor } from '@testing-library/react-native';
 import * as ExpoRouter from 'expo-router';
-import { WS_SERVER_EVENTS } from '@trivia/shared';
 import PlayScreen from '../../app/quiz/[id]/play';
-import { useAuth } from '../providers/AuthProvider';
-import { useQuizWS } from '../hooks/useQuizWS';
+import { useQuizSession } from '../providers/QuizSessionProvider';
 
 const i18nState = { language: 'ru' };
 
@@ -24,22 +22,81 @@ jest.mock('react-i18next', () => ({
   }),
 }));
 
-jest.mock('../hooks/useQuizWS', () => ({
-  useQuizWS: jest.fn(),
-}));
-
-jest.mock('../providers/AuthProvider', () => ({
-  useAuth: jest.fn(),
+jest.mock('../providers/QuizSessionProvider', () => ({
+  useQuizSession: jest.fn(),
 }));
 
 jest.mock('../components/game/AdBreakOverlay', () => ({
   AdBreakOverlay: () => null,
 }));
 
+type MockQuestion = {
+  id: number;
+  text: string;
+  textKK?: string;
+  options: Array<{ id: number; text: string }>;
+  optionsKK?: Array<{ id: number; text: string }>;
+  current: number;
+  total: number;
+  timeLimit: number;
+};
+
+type MockSessionState = {
+  question: MockQuestion | null;
+  selectedOption: number | null;
+  timeLeft: number;
+  isEliminated: boolean;
+  score: number;
+  correctCount: number;
+  feedback: 'correct' | 'incorrect' | null;
+  revealedCorrectOption: number | null;
+  adBreak: null;
+  showAdOverlay: boolean;
+  reconnect: jest.Mock;
+  submitAnswer: jest.Mock;
+  dismissAdBreak: jest.Mock;
+  connectionState: 'connected' | 'connecting' | 'disconnected' | 'reconnecting' | 'offline';
+  isOffline: boolean;
+};
+
+function buildQuestion(overrides: Partial<MockQuestion> = {}): MockQuestion {
+  return {
+    id: 101,
+    text: 'Question text',
+    options: [
+      { id: 1, text: 'Option A' },
+      { id: 2, text: 'Option B' },
+    ],
+    current: 1,
+    total: 5,
+    timeLimit: 20,
+    ...overrides,
+  };
+}
+
+function buildSessionState(overrides: Partial<MockSessionState> = {}): MockSessionState {
+  return {
+    question: null,
+    selectedOption: null,
+    timeLeft: 0,
+    isEliminated: false,
+    score: 0,
+    correctCount: 0,
+    feedback: null,
+    revealedCorrectOption: null,
+    adBreak: null,
+    showAdOverlay: false,
+    reconnect: jest.fn(),
+    submitAnswer: jest.fn((_: number) => false),
+    dismissAdBreak: jest.fn(),
+    connectionState: 'connected',
+    isOffline: false,
+    ...overrides,
+  };
+}
+
 describe('PlayScreen realtime flow', () => {
-  let onMessageHandler: ((msg: { type: string; data: Record<string, unknown> }) => void) | null = null;
-  const sendAnswer = jest.fn();
-  const reconnect = jest.fn();
+  let sessionState: MockSessionState;
   let queryClient: QueryClient;
   const router = {
     push: jest.fn(),
@@ -49,32 +106,23 @@ describe('PlayScreen realtime flow', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    onMessageHandler = null;
     i18nState.language = 'ru';
-    reconnect.mockReset();
     queryClient = new QueryClient();
-    (useAuth as jest.Mock).mockReturnValue({
-      logout: jest.fn().mockResolvedValue(undefined),
-    });
-
-    (ExpoRouter.useLocalSearchParams as jest.Mock).mockReturnValue({ id: '1' });
+    sessionState = buildSessionState();
     (ExpoRouter.useRouter as jest.Mock).mockReturnValue(router);
-
-    (useQuizWS as jest.Mock).mockImplementation(
-      ({ onMessage }: { onMessage?: (msg: { type: string; data: Record<string, unknown> }) => void }) => {
-        onMessageHandler = onMessage ?? null;
-        return {
-          sendAnswer,
-          reconnect,
-          connectionState: 'connected',
-          isOffline: false,
-        };
-      },
-    );
+    (useQuizSession as jest.Mock).mockImplementation(() => sessionState);
   });
 
   function renderPlayScreen() {
     return renderer.create(
+      <QueryClientProvider client={queryClient}>
+        <PlayScreen />
+      </QueryClientProvider>,
+    );
+  }
+
+  function rerender(tree: ReturnType<typeof renderer.create>) {
+    tree.update(
       <QueryClientProvider client={queryClient}>
         <PlayScreen />
       </QueryClientProvider>,
@@ -112,7 +160,7 @@ describe('PlayScreen realtime flow', () => {
     target.props.onPress?.();
   }
 
-  it('moves from waiting to question, sends answer, and shows positive feedback', async () => {
+  it('moves from waiting to question, submits answer, and shows positive feedback', async () => {
     let tree: ReturnType<typeof renderer.create> | undefined;
     await act(async () => {
       tree = renderPlayScreen();
@@ -121,26 +169,14 @@ describe('PlayScreen realtime flow', () => {
     const root = mountedTree.root;
 
     expect(hasText(root, 'quiz.waiting')).toBe(true);
-    expect(onMessageHandler).toBeTruthy();
 
-    act(() => {
-      onMessageHandler?.({
-        type: WS_SERVER_EVENTS.QUESTION,
-        data: {
-          question_id: 101,
-          quiz_id: 1,
-          number: 1,
-          text: 'Question text',
-          options: [
-            { id: 1, text: 'Option A' },
-            { id: 2, text: 'Option B' },
-          ],
-          time_limit: 20,
-          total_questions: 5,
-          start_time: Date.now(),
-          server_timestamp: Date.now(),
-        },
+    await act(async () => {
+      sessionState = buildSessionState({
+        question: buildQuestion(),
+        timeLeft: 20,
+        submitAnswer: jest.fn((_: number) => true),
       });
+      rerender(mountedTree);
     });
 
     await waitFor(() => expect(hasText(root, 'Question text')).toBe(true), { timeout: 1500 });
@@ -148,21 +184,18 @@ describe('PlayScreen realtime flow', () => {
     act(() => {
       pressTouchableByText(root, 'Option A');
     });
-    expect(sendAnswer).toHaveBeenCalledWith(101, 1);
+    expect(sessionState.submitAnswer).toHaveBeenCalledWith(1);
 
-    act(() => {
-      onMessageHandler?.({
-        type: WS_SERVER_EVENTS.ANSWER_RESULT,
-        data: {
-          question_id: 101,
-          correct_option: 1,
-          your_answer: 1,
-          is_correct: true,
-          points_earned: 10,
-          time_taken_ms: 1200,
-          is_eliminated: false,
-        },
-      });
+    await act(async () => {
+      sessionState = {
+        ...sessionState,
+        score: 10,
+        correctCount: 1,
+        selectedOption: 1,
+        feedback: 'correct',
+        revealedCorrectOption: 1,
+      };
+      rerender(mountedTree);
     });
 
     await waitFor(() => expect(hasText(root, 'quiz.correct')).toBe(true), { timeout: 1500 });
@@ -172,165 +205,223 @@ describe('PlayScreen realtime flow', () => {
     });
   });
 
+  it('renders the first shared question immediately when play mounts', async () => {
+    sessionState = buildSessionState({
+      question: buildQuestion({
+        id: 501,
+        text: 'Shared Question',
+        options: [
+          { id: 1, text: 'Shared A' },
+          { id: 2, text: 'Shared B' },
+        ],
+      }),
+      timeLeft: 20,
+    });
+
+    let tree: ReturnType<typeof renderer.create> | undefined;
+    await act(async () => {
+      tree = renderPlayScreen();
+    });
+
+    const root = tree!.root;
+    expect(hasText(root, 'Shared Question')).toBe(true);
+    expect(hasText(root, 'Shared A')).toBe(true);
+
+    await act(async () => {
+      tree?.unmount();
+    });
+  });
+
   it('keeps showing incoming questions after elimination and blocks answers in spectator mode', async () => {
+    sessionState = buildSessionState({
+      question: buildQuestion({
+        text: 'Question 1',
+        options: [
+          { id: 1, text: 'Option A' },
+          { id: 2, text: 'Option B' },
+        ],
+      }),
+      timeLeft: 20,
+      submitAnswer: jest.fn((_: number) => true),
+    });
+
     let tree: ReturnType<typeof renderer.create> | undefined;
     await act(async () => {
       tree = renderPlayScreen();
     });
     const mountedTree = tree!;
     const root = mountedTree.root;
-
-    act(() => {
-      onMessageHandler?.({
-        type: WS_SERVER_EVENTS.QUESTION,
-        data: {
-          question_id: 101,
-          quiz_id: 1,
-          number: 1,
-          text: 'Question 1',
-          options: [
-            { id: 1, text: 'Option A' },
-            { id: 2, text: 'Option B' },
-          ],
-          time_limit: 20,
-          total_questions: 5,
-          start_time: Date.now(),
-          server_timestamp: Date.now(),
-        },
-      });
-    });
 
     await waitFor(() => expect(hasText(root, 'Question 1')).toBe(true), { timeout: 1500 });
 
     act(() => {
       pressTouchableByText(root, 'Option A');
     });
-    expect(sendAnswer).toHaveBeenCalledWith(101, 1);
+    expect(sessionState.submitAnswer).toHaveBeenCalledWith(1);
 
-    act(() => {
-      onMessageHandler?.({
-        type: WS_SERVER_EVENTS.ANSWER_RESULT,
-        data: {
-          question_id: 101,
-          correct_option: 2,
-          your_answer: 1,
-          is_correct: false,
-          points_earned: 0,
-          time_taken_ms: 1400,
-          is_eliminated: true,
-        },
-      });
+    await act(async () => {
+      sessionState = {
+        ...sessionState,
+        isEliminated: true,
+        selectedOption: 1,
+        feedback: 'incorrect',
+        revealedCorrectOption: 2,
+      };
+      rerender(mountedTree);
     });
 
     await waitFor(() => expect(hasText(root, 'quiz.spectatorHint')).toBe(true), { timeout: 1500 });
     expect(hasText(root, 'quiz.eliminated')).toBe(true);
 
-    act(() => {
-      onMessageHandler?.({
-        type: WS_SERVER_EVENTS.QUESTION,
-        data: {
-          question_id: 102,
-          quiz_id: 1,
-          number: 2,
+    const blockedSubmitAnswer = jest.fn((_: number) => false);
+    await act(async () => {
+      sessionState = {
+        ...sessionState,
+        question: buildQuestion({
+          id: 102,
           text: 'Question 2',
           options: [
             { id: 1, text: 'Option C' },
             { id: 2, text: 'Option D' },
           ],
-          time_limit: 20,
-          total_questions: 5,
-          start_time: Date.now(),
-          server_timestamp: Date.now(),
-        },
-      });
+          current: 2,
+        }),
+        selectedOption: null,
+        feedback: null,
+        revealedCorrectOption: null,
+        submitAnswer: blockedSubmitAnswer,
+      };
+      rerender(mountedTree);
     });
 
     await waitFor(() => expect(hasText(root, 'Question 2')).toBe(true), { timeout: 1500 });
 
-    sendAnswer.mockClear();
-    act(() => {
-      pressTouchableByText(root, 'Option C');
-    });
-    expect(sendAnswer).not.toHaveBeenCalled();
+    const optionCButton = root.findAll(
+      (node: any) =>
+        typeof node.props?.onPress === 'function' &&
+        node.props?.accessibilityLabel === 'Option C',
+    )[0];
+    expect(optionCButton.props.disabled).toBe(true);
+    expect(optionCButton.props.accessibilityState).toMatchObject({ disabled: true });
 
     await act(async () => {
       mountedTree.unmount();
     });
   });
 
-  it('renders spectator mode from STATE resync and keeps answers blocked', async () => {
+  it('renders spectator mode from shared session state and keeps answers blocked', async () => {
+    const blockedSubmitAnswer = jest.fn((_: number) => false);
+    sessionState = buildSessionState({
+      question: buildQuestion({
+        id: 303,
+        text: 'Resync Question',
+        options: [
+          { id: 1, text: 'One' },
+          { id: 2, text: 'Two' },
+        ],
+        current: 3,
+      }),
+      timeLeft: 18,
+      isEliminated: true,
+      score: 15,
+      correctCount: 1,
+      submitAnswer: blockedSubmitAnswer,
+    });
+
     let tree: ReturnType<typeof renderer.create> | undefined;
     await act(async () => {
       tree = renderPlayScreen();
     });
     const mountedTree = tree!;
     const root = mountedTree.root;
-
-    act(() => {
-      onMessageHandler?.({
-        type: WS_SERVER_EVENTS.STATE,
-        data: {
-          status: 'in_progress',
-          time_remaining: 18,
-          is_eliminated: true,
-          score: 15,
-          correct_count: 1,
-          current_question: {
-            question_id: 303,
-            number: 3,
-            total_questions: 5,
-            text: 'Resync Question',
-            options: [
-              { id: 1, text: 'One' },
-              { id: 2, text: 'Two' },
-            ],
-            time_limit: 20,
-          },
-        },
-      });
-    });
 
     await waitFor(() => expect(hasText(root, 'Resync Question')).toBe(true), { timeout: 1500 });
     expect(hasText(root, 'quiz.eliminated')).toBe(true);
     expect(hasText(root, 'quiz.spectatorHint')).toBe(true);
 
-    sendAnswer.mockClear();
-    act(() => {
-      pressTouchableByText(root, 'One');
-    });
-    expect(sendAnswer).not.toHaveBeenCalled();
+    const optionOneButton = root.findAll(
+      (node: any) =>
+        typeof node.props?.onPress === 'function' &&
+        node.props?.accessibilityLabel === 'One',
+    )[0];
+    expect(optionOneButton.props.disabled).toBe(true);
+    expect(optionOneButton.props.accessibilityState).toMatchObject({ disabled: true });
 
     await act(async () => {
       mountedTree.unmount();
     });
   });
 
-  it('redirects to results on FINISH message', async () => {
+  it('applies disabled visual style after elimination before answer reveal', async () => {
+    sessionState = buildSessionState({
+      question: buildQuestion({
+        text: 'Question 1',
+        options: [
+          { id: 1, text: 'Option A' },
+          { id: 2, text: 'Option B' },
+        ],
+      }),
+      timeLeft: 20,
+    });
+
     let tree: ReturnType<typeof renderer.create> | undefined;
     await act(async () => {
       tree = renderPlayScreen();
     });
     const mountedTree = tree!;
     const root = mountedTree.root;
-    expect(hasText(root, 'quiz.waiting')).toBe(true);
 
-    act(() => {
-      onMessageHandler?.({
-        type: WS_SERVER_EVENTS.FINISH,
-        data: {
-          quiz_id: 1,
-          status: 'completed',
-        },
-      });
+    await waitFor(() => expect(hasText(root, 'Question 1')).toBe(true), { timeout: 1500 });
+
+    const optionAButtonBeforeElimination = root.findAll(
+      (node: any) =>
+        typeof node.props?.onPress === 'function' &&
+        node.props?.accessibilityLabel === 'Option A',
+    )[0];
+    const idleStyleSnapshot = JSON.stringify(optionAButtonBeforeElimination.props.style);
+
+    await act(async () => {
+      sessionState = {
+        ...sessionState,
+        isEliminated: true,
+      };
+      rerender(mountedTree);
     });
 
-    await waitFor(() => expect(router.replace).toHaveBeenCalledWith('/quiz/1/results'), { timeout: 1500 });
+    await waitFor(() => {
+      const optionAButton = root.findAll(
+        (node: any) =>
+          typeof node.props?.onPress === 'function' &&
+          node.props?.accessibilityLabel === 'Option A',
+      )[0];
+
+      expect(JSON.stringify(optionAButton.props.style)).not.toBe(idleStyleSnapshot);
+    }, { timeout: 1500 });
+
     await act(async () => {
       mountedTree.unmount();
     });
   });
 
   it('switches localized question text and options when language changes', async () => {
+    sessionState = buildSessionState({
+      question: buildQuestion({
+        id: 202,
+        text: 'Question RU',
+        textKK: 'Question KK',
+        options: [
+          { id: 1, text: 'RU option' },
+          { id: 2, text: 'RU option 2' },
+        ],
+        optionsKK: [
+          { id: 1, text: 'KK option' },
+          { id: 2, text: 'KK option 2' },
+        ],
+        current: 2,
+      }),
+      timeLeft: 30,
+    });
+
     let tree: ReturnType<typeof renderer.create> | undefined;
     await act(async () => {
       tree = renderPlayScreen();
@@ -338,59 +429,20 @@ describe('PlayScreen realtime flow', () => {
     const mountedTree = tree!;
     const root = mountedTree.root;
 
-    act(() => {
-      onMessageHandler?.({
-        type: WS_SERVER_EVENTS.QUESTION,
-        data: {
-          question_id: 202,
-          quiz_id: 1,
-          number: 2,
-          text: 'Question RU',
-          text_kk: 'Question KK',
-          options: [
-            { id: 1, text: 'RU option' },
-            { id: 2, text: 'RU option 2' },
-          ],
-          options_kk: [
-            { id: 1, text: 'KK option' },
-            { id: 2, text: 'KK option 2' },
-          ],
-          time_limit: 30,
-          total_questions: 5,
-          start_time: Date.now(),
-          server_timestamp: Date.now(),
-        },
-      });
-    });
-
     await waitFor(() => expect(hasText(root, 'Question RU')).toBe(true), { timeout: 1500 });
     expect(hasText(root, 'RU option')).toBe(true);
 
     i18nState.language = 'kk';
-    act(() => {
-      onMessageHandler?.({
-        type: WS_SERVER_EVENTS.TIMER,
-        data: {
-          question_id: 202,
-          remaining_seconds: 29,
-          server_timestamp: Date.now(),
-        },
-      });
+    await act(async () => {
+      rerender(mountedTree);
     });
 
     await waitFor(() => expect(hasText(root, 'Question KK')).toBe(true), { timeout: 1500 });
     expect(hasText(root, 'KK option')).toBe(true);
 
     i18nState.language = 'ru';
-    act(() => {
-      onMessageHandler?.({
-        type: WS_SERVER_EVENTS.TIMER,
-        data: {
-          question_id: 202,
-          remaining_seconds: 28,
-          server_timestamp: Date.now(),
-        },
-      });
+    await act(async () => {
+      rerender(mountedTree);
     });
 
     await waitFor(() => expect(hasText(root, 'Question RU')).toBe(true), { timeout: 1500 });
@@ -406,6 +458,11 @@ describe('PlayScreen realtime flow', () => {
     let tree: ReturnType<typeof renderer.create> | undefined;
 
     try {
+      const reconnect = jest.fn();
+      sessionState = buildSessionState({
+        reconnect,
+      });
+
       await act(async () => {
         tree = renderPlayScreen();
       });

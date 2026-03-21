@@ -1,62 +1,34 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter, type Href } from 'expo-router';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
-import {
-  WS_SERVER_EVENTS,
-  isQuizCancelledEvent,
-  isQuizFinishEvent,
-  isQuizStateQuestionEvent,
-  isQuizStateEvent,
-  type QuizStateEvent,
-  type WSServerMessage,
-} from '@trivia/shared';
 import { getQuiz } from '../../../src/api/quizzes';
 import { BrandHeader } from '../../../src/components/ui/BrandHeader';
 import { CountdownTile } from '../../../src/components/ui/CountdownTile';
 import { StateBanner } from '../../../src/components/ui/StateBanner';
 import { StatTile } from '../../../src/components/ui/StatTile';
-import { useAuth } from '../../../src/providers/AuthProvider';
-import { useQuizWS } from '../../../src/hooks/useQuizWS';
 import { ConnectionStatusPill } from '../../../src/components/ui/ConnectionStatusPill';
-import { leaderboardQueryKey, userQueryKey } from '../../../src/hooks/useUserQuery';
+import { useQuizSession } from '../../../src/providers/QuizSessionProvider';
 import { palette, radii, shadow, spacing, typography } from '../../../src/theme/tokens';
 import { getCountdown } from '../../../src/utils/time';
 import { formatCurrency } from '../../../src/utils/format';
 
-
-
 export default function LobbyScreen() {
   const { t } = useTranslation();
   const router = useRouter();
-  const queryClient = useQueryClient();
-  const { logout } = useAuth();
   const { id } = useLocalSearchParams<{ id: string }>();
   const quizId = Number(id);
-
-  const [playerCount, setPlayerCount] = useState(0);
   const [countdown, setCountdown] = useState({ days: '00', hours: '00', minutes: '00', seconds: '00' });
+  const { connectionState, isConnected, isOffline, playerCount, question } = useQuizSession();
 
   const { data: quiz, isLoading } = useQuery({
     queryKey: ['quiz', quizId],
     queryFn: () => getQuiz(quizId),
     enabled: Number.isFinite(quizId) && quizId > 0,
   });
-
-  const invalidateUserAndLeaderboard = useCallback(() => {
-    void Promise.all([
-      queryClient.invalidateQueries({ queryKey: userQueryKey }),
-      queryClient.invalidateQueries({ queryKey: leaderboardQueryKey }),
-    ]);
-  }, [queryClient]);
-
-  const handleSessionEnded = useCallback(async () => {
-    await logout();
-    router.replace('/(auth)/login');
-  }, [logout, router]);
 
   useEffect(() => {
     if (!quiz?.scheduled_time) {
@@ -71,72 +43,13 @@ export default function LobbyScreen() {
     return () => clearInterval(timer);
   }, [quiz?.scheduled_time]);
 
-  const handleMessage = useCallback(
-    (msg: WSServerMessage) => {
-      if (msg.type === WS_SERVER_EVENTS.PLAYER_COUNT || msg.type === WS_SERVER_EVENTS.USER_READY) {
-        const count = Number(msg.data.player_count);
-        if (Number.isFinite(count)) {
-          setPlayerCount(count);
-        }
-      }
+  useEffect(() => {
+    if (!question) {
+      return;
+    }
 
-      if (msg.type === WS_SERVER_EVENTS.STATE && isQuizStateEvent(msg.data)) {
-        const state = msg.data as QuizStateEvent;
-        if (typeof state.player_count === 'number') {
-          setPlayerCount(state.player_count);
-        }
-
-        if (state.current_question && isQuizStateQuestionEvent(state.current_question)) {
-          router.replace(`/quiz/${quizId}/play`);
-          return;
-        }
-
-        if (state.status === 'in_progress') {
-          router.replace(`/quiz/${quizId}/play`);
-          return;
-        }
-
-        if (state.status === 'completed') {
-          invalidateUserAndLeaderboard();
-          router.replace(`/quiz/${quizId}/results`);
-          return;
-        }
-      }
-
-      if (msg.type === WS_SERVER_EVENTS.FINISH && isQuizFinishEvent(msg.data)) {
-        invalidateUserAndLeaderboard();
-        router.replace(`/quiz/${quizId}/results`);
-        return;
-      }
-
-      if (msg.type === WS_SERVER_EVENTS.RESULTS_AVAILABLE) {
-        invalidateUserAndLeaderboard();
-        router.replace(`/quiz/${quizId}/results`);
-        return;
-      }
-
-      if (msg.type === WS_SERVER_EVENTS.CANCELLED && isQuizCancelledEvent(msg.data)) {
-        if (msg.data.quiz_id === quizId) {
-          router.replace('/(tabs)');
-        }
-        return;
-      }
-
-      if (msg.type === WS_SERVER_EVENTS.QUESTION || msg.type === WS_SERVER_EVENTS.START) {
-        router.replace(`/quiz/${quizId}/play`);
-      }
-    },
-    [invalidateUserAndLeaderboard, quizId, router]
-  );
-
-  const { connectionState, isConnected, isOffline } = useQuizWS({
-    quizId,
-    enabled: Number.isFinite(quizId) && quizId > 0,
-    onMessage: handleMessage,
-    onSessionEnded: handleSessionEnded,
-  });
-
-
+    router.replace(`/quiz/${quizId}/play`);
+  }, [question, quizId, router]);
 
   if (isLoading) {
     return (

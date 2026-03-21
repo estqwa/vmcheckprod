@@ -1,4 +1,4 @@
-import { Slot, useLocalSearchParams, usePathname } from 'expo-router';
+import { Stack, useLocalSearchParams, usePathname } from 'expo-router';
 import { QuizSessionProvider } from '../../../src/providers/QuizSessionProvider';
 
 export default function QuizFlowLayout() {
@@ -12,7 +12,11 @@ export default function QuizFlowLayout() {
 
   return (
     <QuizSessionProvider quizId={quizId} enabled={enabled}>
-      <Slot />
+      <Stack screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="lobby" />
+        <Stack.Screen name="play" options={{ gestureEnabled: false }} />
+        <Stack.Screen name="results" />
+      </Stack>
     </QuizSessionProvider>
   );
 }

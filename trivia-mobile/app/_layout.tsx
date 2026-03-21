@@ -53,9 +53,7 @@ function AppContent() {
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="(auth)" />
         <Stack.Screen name="(tabs)" />
-        <Stack.Screen name="quiz/[id]/lobby" />
-        <Stack.Screen name="quiz/[id]/play" options={{ gestureEnabled: false }} />
-        <Stack.Screen name="quiz/[id]/results" />
+        <Stack.Screen name="quiz/[id]" />
         <Stack.Screen name="profile/history" />
         <Stack.Screen name="profile/sessions" />
         <Stack.Screen name="profile/delete-account" />

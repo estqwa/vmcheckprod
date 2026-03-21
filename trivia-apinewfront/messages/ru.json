@@ -167,6 +167,7 @@
         "player": "Игрок",
         "wins": "Победы",
         "prize": "приз"
+        ,"eliminated": "\u0412\u044b\u0431\u044b\u043b"
     },
     "history": {
         "title": "История игр",

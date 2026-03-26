@@ -1,6 +1,6 @@
 ﻿'use client';
 
-import { createContext, useContext, useState, useCallback, ReactNode, useEffect } from 'react';
+import { createContext, useContext, useState, useCallback, ReactNode, useEffect, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import {
     RegisterData,
@@ -54,6 +54,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
     const queryClient = useQueryClient();
+    const csrfSyncedUserIdRef = useRef<number | null>(null);
 
     // РСЃРїРѕР»СЊР·СѓРµРј TanStack Query РґР»СЏ РґР°РЅРЅС‹С… РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ
     const { data: user, isLoading: isQueryLoading, refetch } = useUserQuery();
@@ -70,14 +71,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const isAuthenticated = !!user;
     const csrfToken = getCsrfToken();
 
-    // Keep the CSRF hash warm, but do not refetch it when we already have one.
     useEffect(() => {
-        if (user && !csrfToken) {
-            fetchCsrfToken().catch(() => {
+        if (!user?.id) {
+            csrfSyncedUserIdRef.current = null;
+            return;
+        }
+
+        if (csrfSyncedUserIdRef.current === user.id && csrfToken) {
+            return;
+        }
+
+        fetchCsrfToken()
+            .then(() => {
+                csrfSyncedUserIdRef.current = user.id;
+            })
+            .catch(() => {
                 // Ignore CSRF fetch errors
             });
-        }
-    }, [user, csrfToken]);
+    }, [user?.id, csrfToken]);
 
     const login = useCallback(async (email: string, password: string) => {
         setIsAuthAction(true);

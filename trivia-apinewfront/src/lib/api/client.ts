@@ -44,11 +44,11 @@ export function setCsrfToken(token: string | null) {
 }
 
 export function getCsrfToken(): string | null {
-    if (csrfToken) return csrfToken;
-
-    const storedToken = readStoredCsrfToken();
-    if (storedToken) {
-        csrfToken = storedToken;
+    if (typeof window !== 'undefined') {
+        const storedToken = readStoredCsrfToken();
+        if (storedToken !== csrfToken) {
+            csrfToken = storedToken;
+        }
     }
 
     return csrfToken;

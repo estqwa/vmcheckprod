@@ -1,6 +1,7 @@
 import { ApiError } from './types';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+const CSRF_STORAGE_KEY = 'trivia.web.csrf-token';
 
 type HttpMethod = 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH';
 
@@ -9,14 +10,47 @@ interface RequestOptions {
     query?: Record<string, string>;
 }
 
-// CSRF token storage (in-memory, not localStorage for security)
+// CSRF token hash storage: in-memory first, with localStorage fallback so refresh can survive tab reloads.
 let csrfToken: string | null = null;
+let refreshPromise: Promise<boolean> | null = null;
+
+function readStoredCsrfToken(): string | null {
+    if (typeof window === 'undefined') return null;
+
+    try {
+        return window.localStorage.getItem(CSRF_STORAGE_KEY);
+    } catch {
+        return null;
+    }
+}
+
+function writeStoredCsrfToken(token: string | null) {
+    if (typeof window === 'undefined') return;
+
+    try {
+        if (token) {
+            window.localStorage.setItem(CSRF_STORAGE_KEY, token);
+        } else {
+            window.localStorage.removeItem(CSRF_STORAGE_KEY);
+        }
+    } catch {
+        // Ignore storage failures and keep the in-memory token.
+    }
+}
 
 export function setCsrfToken(token: string | null) {
     csrfToken = token;
+    writeStoredCsrfToken(token);
 }
 
 export function getCsrfToken(): string | null {
+    if (csrfToken) return csrfToken;
+
+    const storedToken = readStoredCsrfToken();
+    if (storedToken) {
+        csrfToken = storedToken;
+    }
+
     return csrfToken;
 }
 
@@ -30,6 +64,7 @@ export async function request<T, B = unknown>(
     options: RequestOptions = {}
 ): Promise<T> {
     let url = `${API_URL}${endpoint}`;
+    const currentCsrfToken = getCsrfToken();
 
     // Build headers
     const headers: Record<string, string> = {
@@ -38,8 +73,8 @@ export async function request<T, B = unknown>(
     };
 
     // Add CSRF token for mutating requests
-    if (['POST', 'PUT', 'DELETE', 'PATCH'].includes(method) && csrfToken) {
-        headers['X-CSRF-Token'] = csrfToken;
+    if (['POST', 'PUT', 'DELETE', 'PATCH'].includes(method) && currentCsrfToken) {
+        headers['X-CSRF-Token'] = currentCsrfToken;
     }
 
     const config: RequestInit = {
@@ -72,14 +107,19 @@ export async function request<T, B = unknown>(
 
         // Handle 401 with token_expired - trigger refresh
         if (response.status === 401) {
-            const errorData = await response.json();
-            if (errorData.error_type === 'token_expired') {
+            const errorData = await response.json().catch(() => ({ error: response.statusText }));
+            const shouldTryRefresh =
+                endpoint !== '/api/auth/refresh' &&
+                ['token_expired', 'token_missing', 'token_invalid'].includes(errorData.error_type);
+
+            if (shouldTryRefresh) {
                 // Try to refresh token
                 const refreshed = await refreshTokens();
                 if (refreshed) {
                     // Retry the original request
-                    if (csrfToken) {
-                        headers['X-CSRF-Token'] = csrfToken;
+                    const refreshedCsrfToken = getCsrfToken();
+                    if (refreshedCsrfToken) {
+                        headers['X-CSRF-Token'] = refreshedCsrfToken;
                     }
                     const retryResponse = await fetch(url, { ...config, headers });
                     if (retryResponse.ok) {
@@ -122,27 +162,46 @@ export async function request<T, B = unknown>(
  * Refresh access token using refresh cookie
  */
 async function refreshTokens(): Promise<boolean> {
-    if (!csrfToken) return false;
+    const currentCsrfToken = getCsrfToken();
+    if (!currentCsrfToken) return false;
+    if (refreshPromise) return refreshPromise;
 
-    try {
-        const response = await fetch(`${API_URL}/api/auth/refresh`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRF-Token': csrfToken,
-            },
-            credentials: 'include',
-        });
+    refreshPromise = (async () => {
+        try {
+            const response = await fetch(`${API_URL}/api/auth/refresh`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-Token': currentCsrfToken,
+                },
+                credentials: 'include',
+            });
 
-        if (response.ok) {
-            const data = await response.json();
-            setCsrfToken(data.csrfToken);
-            return true;
+            if (response.ok) {
+                const data = await response.json();
+                setCsrfToken(data.csrfToken);
+                return true;
+            }
+
+            const errorData = await response.json().catch(() => ({}));
+            if (
+                response.status === 401 ||
+                (response.status === 403 &&
+                    typeof errorData.error_type === 'string' &&
+                    errorData.error_type.startsWith('csrf_'))
+            ) {
+                setCsrfToken(null);
+            }
+
+            return false;
+        } catch {
+            return false;
+        } finally {
+            refreshPromise = null;
         }
-        return false;
-    } catch {
-        return false;
-    }
+    })();
+
+    return refreshPromise;
 }
 
 // Convenience methods

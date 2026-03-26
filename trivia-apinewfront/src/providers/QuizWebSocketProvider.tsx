@@ -15,6 +15,7 @@ import { useAuth } from './AuthProvider';
 import { useRouter, usePathname } from 'next/navigation';
 import { toast } from 'sonner';
 import { userQueryKey, leaderboardQueryKey } from '@/lib/hooks/useUserQuery';
+import { refreshTokens as refreshSessionTokens } from '@/lib/api/auth';
 
 // ============================================================================
 // Types
@@ -28,6 +29,12 @@ export interface WSMessage {
 export type ConnectionState = 'disconnected' | 'connecting' | 'connected' | 'reconnecting';
 
 export type QuizPage = 'lobby' | 'play' | 'results' | null;
+
+interface PendingAnswer {
+    questionId: number;
+    selectedOption: number;
+    timestamp: number;
+}
 
 interface QuizWebSocketContextType {
     // Connection state
@@ -92,6 +99,9 @@ export function QuizWebSocketProvider({ children }: { children: ReactNode }) {
     const messageHandlersRef = useRef<Set<(msg: WSMessage) => void>>(new Set());
     const isIntentionalDisconnectRef = useRef(false);
     const currentQuizIdRef = useRef<number | null>(null);
+    const pendingAnswerRef = useRef<PendingAnswer | null>(null);
+    const pendingAnswerInFlightRef = useRef(false);
+    const pendingAnswerToastShownRef = useRef(false);
 
     // State
     const [connectionState, setConnectionState] = useState<ConnectionState>('disconnected');
@@ -142,6 +152,58 @@ export function QuizWebSocketProvider({ children }: { children: ReactNode }) {
         });
     }, []);
 
+    const getLoginPath = useCallback(() => {
+        if (!pathname) return '/login';
+
+        const [, locale] = pathname.split('/');
+        return locale ? `/${locale}/login` : '/login';
+    }, [pathname]);
+
+    const clearPendingAnswer = useCallback(() => {
+        pendingAnswerRef.current = null;
+        pendingAnswerInFlightRef.current = false;
+        pendingAnswerToastShownRef.current = false;
+    }, []);
+
+    const flushPendingAnswer = useCallback((socket?: WebSocket) => {
+        const pendingAnswer = pendingAnswerRef.current;
+        const targetSocket = socket ?? wsRef.current;
+
+        if (!pendingAnswer || pendingAnswerInFlightRef.current || targetSocket?.readyState !== WebSocket.OPEN) {
+            return false;
+        }
+
+        targetSocket.send(JSON.stringify({
+            type: 'user:answer',
+            data: {
+                question_id: pendingAnswer.questionId,
+                selected_option: pendingAnswer.selectedOption,
+                timestamp: pendingAnswer.timestamp,
+            },
+        }));
+        pendingAnswerInFlightRef.current = true;
+
+        return true;
+    }, []);
+
+    const requestResync = useCallback((socket?: WebSocket) => {
+        const targetSocket = socket ?? wsRef.current;
+        if (targetSocket?.readyState !== WebSocket.OPEN || currentQuizIdRef.current === null) {
+            return;
+        }
+
+        targetSocket.send(JSON.stringify({
+            type: 'user:resync',
+            data: { quiz_id: currentQuizIdRef.current },
+        }));
+    }, []);
+
+    const handleSessionEnded = useCallback(async (message: string) => {
+        toast.error(message);
+        await logout();
+        router.push(getLoginPath());
+    }, [getLoginPath, logout, router]);
+
     // ========================================================================
     // Core WebSocket Logic
     // ========================================================================
@@ -189,12 +251,9 @@ export function QuizWebSocketProvider({ children }: { children: ReactNode }) {
                     data: { quiz_id: targetQuizId }
                 }));
 
-                // Request current state (resync) for reconnects
                 if (isReconnect) {
-                    ws.send(JSON.stringify({
-                        type: 'user:resync',
-                        data: { quiz_id: targetQuizId }
-                    }));
+                    flushPendingAnswer(ws);
+                    requestResync(ws);
                 }
 
                 // Start heartbeat
@@ -212,33 +271,77 @@ export function QuizWebSocketProvider({ children }: { children: ReactNode }) {
                     // Handle system events internally
                     switch (msg.type) {
                         case 'TOKEN_EXPIRE_SOON':
-                            console.log('[QuizWS] Token expiring soon');
-                            break;
+                            void refreshSessionTokens().catch(() => {
+                                // Ignore background refresh errors here.
+                            });
+                            return;
 
                         case 'TOKEN_EXPIRED':
-                            toast.error('Session expired. Please login again.');
-                            logout();
-                            router.push('/login');
+                            void (async () => {
+                                try {
+                                    await refreshSessionTokens();
+
+                                    if (wsRef.current?.readyState === WebSocket.OPEN || wsRef.current?.readyState === WebSocket.CONNECTING) {
+                                        wsRef.current?.close(4001, 'token refreshed');
+                                    } else if (currentQuizIdRef.current !== null) {
+                                        void doConnectRef.current?.(currentQuizIdRef.current, true);
+                                    }
+                                } catch {
+                                    await handleSessionEnded('Session expired. Please login again.');
+                                }
+                            })();
                             return;
 
                         case 'session_revoked':
                         case 'logout_all_devices':
-                            toast.error('Your session was ended.');
-                            logout();
-                            router.push('/login');
+                            void handleSessionEnded('Your session was ended.');
                             return;
 
                         case 'server:heartbeat':
                             // Heartbeat acknowledged
-                            break;
+                            return;
 
-                        case 'server:error':
+                        case 'quiz:answer_result': {
+                            const answeredQuestionId = typeof msg.data.question_id === 'number'
+                                ? msg.data.question_id
+                                : Number(msg.data.question_id);
+
+                            if (pendingAnswerRef.current?.questionId === answeredQuestionId) {
+                                clearPendingAnswer();
+                            }
+
+                            notifyHandlers(msg);
+                            return;
+                        }
+
+                        case 'server:error': {
+                            const errorCode = typeof msg.data.code === 'string' ? msg.data.code : '';
+                            const errorMessage = typeof msg.data.message === 'string' ? msg.data.message : 'Server error';
+
+                            if (errorCode === 'answer_error' && pendingAnswerRef.current) {
+                                if (
+                                    errorMessage.includes('already answered') ||
+                                    errorMessage.includes('received answer for non-current question') ||
+                                    errorMessage.includes('active quiz state not found') ||
+                                    errorMessage.includes('user is eliminated')
+                                ) {
+                                    clearPendingAnswer();
+                                }
+
+                                if (errorMessage.includes('already answered')) {
+                                    console.warn('[QuizWS] Pending answer was already accepted earlier');
+                                    return;
+                                }
+                            }
+
                             console.error('[QuizWS] Server error:', msg.data);
-                            toast.error((msg.data.message as string) || 'Server error');
+                            toast.error(errorMessage);
                             break;
+                        }
 
                         case 'quiz:finish':
                         case 'quiz:results_available':
+                            clearPendingAnswer();
                             // Инвалидируем данные пользователя и лидерборда после викторины
                             // Это обновит games_played, wins_count, total_score, total_prize_won
                             console.log('[QuizWS] Quiz finished/results available - invalidating user and leaderboard cache');
@@ -265,6 +368,9 @@ export function QuizWebSocketProvider({ children }: { children: ReactNode }) {
             ws.onclose = (event) => {
                 console.log('[QuizWS] Closed:', event.code, event.reason);
                 isConnectingRef.current = false; // Reset lock on close
+                if (pendingAnswerRef.current) {
+                    pendingAnswerInFlightRef.current = false;
+                }
                 setConnectionState('disconnected');
                 clearTimers();
 
@@ -303,9 +409,27 @@ export function QuizWebSocketProvider({ children }: { children: ReactNode }) {
             console.error('[QuizWS] Failed to connect:', error);
             isConnectingRef.current = false; // Reset lock on error
             setConnectionState('disconnected');
+            const authError = error as { status?: number; error_type?: string };
+            if (
+                authError?.status === 401 &&
+                ['token_missing', 'token_invalid', 'unauthorized'].includes(authError.error_type ?? '')
+            ) {
+                void handleSessionEnded('Session expired. Please login again.');
+                return;
+            }
+
             toast.error('Failed to connect to game server');
         }
-    }, [getWsTicket, logout, router, clearTimers, notifyHandlers, queryClient]);
+    }, [
+        clearPendingAnswer,
+        clearTimers,
+        flushPendingAnswer,
+        getWsTicket,
+        handleSessionEnded,
+        notifyHandlers,
+        queryClient,
+        requestResync,
+    ]);
 
     // Обновляем ref при каждом изменении doConnect
     useEffect(() => {
@@ -323,6 +447,7 @@ export function QuizWebSocketProvider({ children }: { children: ReactNode }) {
     const disconnect = useCallback(() => {
         isIntentionalDisconnectRef.current = true;
         clearTimers();
+        clearPendingAnswer();
         reconnectAttemptsRef.current = MAX_RECONNECT_ATTEMPTS; // Prevent auto-reconnect
 
         if (wsRef.current) {
@@ -333,7 +458,7 @@ export function QuizWebSocketProvider({ children }: { children: ReactNode }) {
         currentQuizIdRef.current = null;
         setQuizId(null);
         setConnectionState('disconnected');
-    }, [clearTimers]);
+    }, [clearPendingAnswer, clearTimers]);
 
     const send = useCallback((type: string, data: Record<string, unknown> = {}) => {
         if (wsRef.current?.readyState === WebSocket.OPEN) {
@@ -344,12 +469,36 @@ export function QuizWebSocketProvider({ children }: { children: ReactNode }) {
     }, []);
 
     const sendAnswer = useCallback((questionId: number, selectedOption: number) => {
-        send('user:answer', {
-            question_id: questionId,
-            selected_option: selectedOption,
-            timestamp: Date.now(),
-        });
-    }, [send]);
+        const timestamp = Date.now();
+
+        if (wsRef.current?.readyState === WebSocket.OPEN) {
+            wsRef.current.send(JSON.stringify({
+                type: 'user:answer',
+                data: {
+                    question_id: questionId,
+                    selected_option: selectedOption,
+                    timestamp,
+                },
+            }));
+            return;
+        }
+
+        pendingAnswerRef.current = {
+            questionId,
+            selectedOption,
+            timestamp,
+        };
+        pendingAnswerInFlightRef.current = false;
+
+        if (!pendingAnswerToastShownRef.current) {
+            pendingAnswerToastShownRef.current = true;
+            toast.info('Connection is recovering. Your answer will be sent automatically.');
+        }
+
+        if (currentQuizIdRef.current !== null && !isConnectingRef.current) {
+            void doConnectRef.current?.(currentQuizIdRef.current, true);
+        }
+    }, []);
 
     const subscribe = useCallback((handler: (msg: WSMessage) => void) => {
         messageHandlersRef.current.add(handler);
@@ -357,6 +506,44 @@ export function QuizWebSocketProvider({ children }: { children: ReactNode }) {
             messageHandlersRef.current.delete(handler);
         };
     }, []);
+
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+
+        const resumeRealtime = () => {
+            if (currentQuizIdRef.current === null || isIntentionalDisconnectRef.current) {
+                return;
+            }
+
+            if (wsRef.current?.readyState === WebSocket.OPEN) {
+                flushPendingAnswer();
+                requestResync();
+                return;
+            }
+
+            if (!isConnectingRef.current) {
+                void doConnectRef.current?.(currentQuizIdRef.current, true);
+            }
+        };
+
+        const handleOnline = () => {
+            resumeRealtime();
+        };
+
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === 'visible') {
+                resumeRealtime();
+            }
+        };
+
+        window.addEventListener('online', handleOnline);
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+
+        return () => {
+            window.removeEventListener('online', handleOnline);
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
+        };
+    }, [flushPendingAnswer, requestResync]);
 
     // ========================================================================
     // Cleanup

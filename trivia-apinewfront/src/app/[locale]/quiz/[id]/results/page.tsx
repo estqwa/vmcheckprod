@@ -129,7 +129,7 @@ export default function QuizResultsPage() {
                                 ) : (
                                     <BarChart3 className="w-6 h-6 text-primary" />
                                 )}
-                                {t('score').replace(': {score}', '')}
+                                {t('scoreTitle')}
                                 {myResult.is_winner ? (
                                     <StatusBadge tone="warning" icon={<Trophy className="h-3 w-3" />}>
                                         {t('winner')}
@@ -150,7 +150,7 @@ export default function QuizResultsPage() {
                                     size="compact"
                                 />
                                 <StatTile
-                                    label={t('score').replace(': {score}', '')}
+                                    label={t('scoreLabel')}
                                     value={myResult.score}
                                     tone="primary"
                                     size="compact"

@@ -48,6 +48,7 @@ type MockSessionState = {
   isEliminated: boolean;
   score: number;
   correctCount: number;
+  playerCount: number;
   feedback: 'correct' | 'incorrect' | null;
   revealedCorrectOption: number | null;
   adBreak: null;
@@ -82,6 +83,7 @@ function buildSessionState(overrides: Partial<MockSessionState> = {}): MockSessi
     isEliminated: false,
     score: 0,
     correctCount: 0,
+    playerCount: 0,
     feedback: null,
     revealedCorrectOption: null,
     adBreak: null,
@@ -226,6 +228,28 @@ describe('PlayScreen realtime flow', () => {
     const root = tree!.root;
     expect(hasText(root, 'Shared Question')).toBe(true);
     expect(hasText(root, 'Shared A')).toBe(true);
+
+    await act(async () => {
+      tree?.unmount();
+    });
+  });
+
+  it('shows online players in the scoreboard instead of question progress', async () => {
+    sessionState = buildSessionState({
+      question: buildQuestion(),
+      timeLeft: 20,
+      playerCount: 7,
+    });
+
+    let tree: ReturnType<typeof renderer.create> | undefined;
+    await act(async () => {
+      tree = renderPlayScreen();
+    });
+
+    const root = tree!.root;
+    expect(hasText(root, 'quiz.online')).toBe(true);
+    expect(hasText(root, '7')).toBe(true);
+    expect(hasText(root, 'quiz.questionShort')).toBe(false);
 
     await act(async () => {
       tree?.unmount();

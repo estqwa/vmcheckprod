@@ -13,9 +13,8 @@ import { CountdownTile } from '@/components/ui/countdown-tile';
 import { Skeleton } from '@/components/ui/skeleton';
 import { StateBanner } from '@/components/ui/state-banner';
 import { StatTile } from '@/components/ui/stat-tile';
-import { StatusBadge } from '@/components/ui/status-badge';
 import { toast } from 'sonner';
-import { LanguageSwitcher } from '@/components/LanguageSwitcher';
+import { QuizFlowHeader } from '@/components/quiz/QuizFlowHeader';
 import { ArrowLeft, CheckCircle2, Gamepad2, Loader2, Wifi, WifiOff, Zap } from 'lucide-react';
 
 export default function QuizLobbyPage() {
@@ -116,11 +115,11 @@ export default function QuizLobbyPage() {
         return (
             <div className="min-h-app">
                 <header className="border-b border-border/50 bg-white/80 backdrop-blur-sm">
-                    <div className="container max-w-6xl mx-auto px-4 h-16 flex items-center">
+                    <div className="container mx-auto flex h-16 max-w-6xl items-center px-4">
                         <Skeleton className="h-8 w-32" />
                     </div>
                 </header>
-                <main className="container max-w-md mx-auto px-4 py-12">
+                <main className="container mx-auto max-w-md px-4 py-8 sm:py-12">
                     <Skeleton className="h-96 w-full rounded-2xl" />
                 </main>
             </div>
@@ -174,28 +173,15 @@ export default function QuizLobbyPage() {
 
     return (
         <div className="min-h-app">
-            {/* Header */}
-            <header className="border-b border-border/50 bg-white/80 backdrop-blur-sm">
-                <div className="container max-w-6xl mx-auto px-4 py-2 min-h-16 flex flex-wrap items-center justify-between gap-2">
-                    <Link href="/" className="flex items-center gap-2 shrink-0">
-                        <div className="w-9 h-9 rounded-lg bg-primary flex items-center justify-center">
-                            <span className="text-white font-bold text-lg">Q</span>
-                        </div>
-                        <span className="font-bold text-xl text-foreground">QazaQuiz</span>
-                    </Link>
-                    <div className="ml-auto sm:ml-0 flex items-center gap-2">
-                        <LanguageSwitcher />
-                        <StatusBadge
-                            tone={status.badgeTone}
-                            icon={<status.Icon className={`h-3.5 w-3.5 ${status.iconClass}`} />}
-                        >
-                            {status.text}
-                        </StatusBadge>
-                    </div>
-                </div>
-            </header>
+            <QuizFlowHeader
+                status={{
+                    tone: status.badgeTone,
+                    icon: <status.Icon className={`h-3.5 w-3.5 ${status.iconClass}`} />,
+                    text: status.text,
+                }}
+            />
 
-            <main className="container max-w-md mx-auto px-4 py-12">
+            <main className="container mx-auto max-w-md px-4 py-8 sm:py-12">
                 <Card className="card-elevated border-0 rounded-2xl overflow-hidden">
                     <CardHeader className="text-center bg-gradient-to-b from-primary/5 to-transparent pb-6">
                         <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-4">
@@ -225,11 +211,13 @@ export default function QuizLobbyPage() {
                                 value={playerCount}
                                 tone="success"
                                 size="compact"
+                                className="items-center text-center"
                             />
                             <StatTile
                                 label={t('questions') || 'Questions'}
                                 value={quiz.question_count}
                                 size="compact"
+                                className="items-center text-center"
                             />
                         </div>
 

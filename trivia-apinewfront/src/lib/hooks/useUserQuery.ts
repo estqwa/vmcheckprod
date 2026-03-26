@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { getCurrentUser } from '@/lib/api/auth'
-import { User } from '@/lib/api/types'
+import { ApiError, User } from '@/lib/api/types'
 
 /**
  * Query key для данных текущего пользователя.
@@ -14,23 +14,43 @@ export const userQueryKey = ['user', 'me'] as const
  */
 export const leaderboardQueryKey = ['leaderboard'] as const
 
+type UserQueryError = ApiError | Error
+
+function isAuthError(error: unknown): error is ApiError {
+    if (!error || typeof error !== 'object') return false
+
+    const apiError = error as ApiError
+    if (apiError.status === 401) return true
+
+    return [
+        'token_missing',
+        'token_invalid',
+        'token_expired',
+        'unauthorized',
+    ].includes(apiError.error_type ?? '')
+}
+
 /**
  * Хук для получения данных текущего пользователя.
  * Использует TanStack Query для кеширования и автоматической ревалидации.
  */
 export function useUserQuery(enabled: boolean = true) {
-    return useQuery<User | null, Error>({
+    return useQuery<User | null, UserQueryError>({
         queryKey: userQueryKey,
         queryFn: async () => {
             try {
                 return await getCurrentUser()
-            } catch {
-                // Если пользователь не авторизован, возвращаем null вместо ошибки
+            } catch (error) {
+                if (!isAuthError(error)) {
+                    throw error instanceof Error ? error : new Error('Failed to fetch current user')
+                }
+
+                // Только реальные auth-ошибки считаем состоянием "не авторизован".
                 return null
             }
         },
         enabled,
-        retry: false, // не ретраить на 401
+        retry: (failureCount, error) => !isAuthError(error) && failureCount < 1,
         staleTime: 30 * 1000, // 30 секунд
         gcTime: 5 * 60 * 1000, // 5 минут
     })

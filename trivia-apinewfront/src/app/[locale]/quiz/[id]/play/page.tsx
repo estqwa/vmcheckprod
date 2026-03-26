@@ -2,18 +2,19 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import Link from 'next/link';
 import { useTranslations } from 'next-intl';
 import { useAuth } from '@/providers/AuthProvider';
 import { useQuizWebSocket, WSMessage } from '@/providers/QuizWebSocketProvider';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { StatusBadge } from '@/components/ui/status-badge';
 import { toast } from 'sonner';
 import { QuizQuestionEvent, AnswerResultEvent, QuizFinishEvent, QuestionOption } from '@/lib/api/types';
 import { AdBreakOverlay } from '@/components/game/AdBreakOverlay';
-import { useLocale, LanguageSwitcher } from '@/components/LanguageSwitcher';
-import { CheckCircle2, Eye, Loader2, Trophy, XCircle } from 'lucide-react';
+import { useLocale } from '@/components/LanguageSwitcher';
+import { QuizFlowHeader } from '@/components/quiz/QuizFlowHeader';
+import { CheckCircle2, Eye, Loader2, Trophy, Wifi, WifiOff, XCircle, Zap } from 'lucide-react';
 
 interface QuizState {
     status: 'waiting' | 'question' | 'result' | 'eliminated' | 'finished';
@@ -268,6 +269,37 @@ export default function QuizPlayPage() {
         return `${base} border-border hover:border-primary/50 hover:bg-primary/5`;
     };
 
+    const getConnectionStatus = () => {
+        switch (connectionState) {
+            case 'connected':
+                return {
+                    icon: <Wifi className="h-3.5 w-3.5 text-success" />,
+                    text: t('connected'),
+                    tone: 'success' as const,
+                };
+            case 'connecting':
+                return {
+                    icon: <Loader2 className="h-3.5 w-3.5 animate-spin text-warning" />,
+                    text: t('connecting'),
+                    tone: 'info' as const,
+                };
+            case 'reconnecting':
+                return {
+                    icon: <Zap className="h-3.5 w-3.5 text-orange-600" />,
+                    text: t('reconnecting'),
+                    tone: 'warning' as const,
+                };
+            default:
+                return {
+                    icon: <WifiOff className="h-3.5 w-3.5 text-red-600" />,
+                    text: t('disconnected'),
+                    tone: 'offline' as const,
+                };
+        }
+    };
+
+    const connectionStatus = getConnectionStatus();
+
     return (
         <>
             <AdBreakOverlay
@@ -280,49 +312,22 @@ export default function QuizPlayPage() {
             />
 
             <div className="min-h-app">
-                {/* Header */}
-                <header className="sticky top-0 z-40 border-b border-border/50 bg-white/80 backdrop-blur-sm">
-                    <div className="container mx-auto max-w-6xl px-4 py-3">
-                        <div className="flex flex-col gap-3">
-                            <div className="flex items-center justify-between gap-3">
-                                <Link href="/" className="flex shrink-0 items-center gap-2">
-                                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
-                                        <span className="font-bold text-white">Q</span>
-                                    </div>
-                                    <span className="hidden text-lg font-bold text-foreground sm:inline">QazaQuiz</span>
-                                </Link>
-
-                                <div className="flex flex-wrap items-center justify-end gap-2">
-                                    <LanguageSwitcher />
-                                    {connectionState === 'disconnected' ? (
-                                        <Badge variant="destructive">{t('disconnected')}</Badge>
-                                    ) : null}
-                                    {connectionState === 'reconnecting' ? (
-                                        <Badge variant="secondary">{t('connecting')}</Badge>
-                                    ) : null}
-                                    {isEliminated ? (
-                                        <Badge className="border-orange-200 bg-orange-100 text-orange-700">{t('eliminated')}</Badge>
-                                    ) : null}
-                                </div>
-                            </div>
-
-                            <div className="grid grid-cols-3 gap-2 rounded-2xl border border-border/60 bg-secondary/30 p-2">
-                                <div className="rounded-xl bg-white/80 px-3 py-2 text-center">
-                                    <p className="text-lg font-bold">{score}</p>
-                                    <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{t('score').replace('{score}', '')}</p>
-                                </div>
-                                <div className="rounded-xl bg-white/80 px-3 py-2 text-center">
-                                    <p className="text-lg font-bold text-success">{correctCount}</p>
-                                    <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{t('correct')}</p>
-                                </div>
-                                <div className="rounded-xl bg-white/80 px-3 py-2 text-center">
-                                    <p className="text-lg font-bold text-primary">{playerCount}</p>
-                                    <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{t('online')}</p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </header>
+                <QuizFlowHeader
+                    sticky
+                    status={connectionStatus}
+                    alerts={
+                        isEliminated ? (
+                            <StatusBadge tone="danger" icon={<Eye className="h-3.5 w-3.5" />}>
+                                {t('eliminated')}
+                            </StatusBadge>
+                        ) : null
+                    }
+                    stats={[
+                        { label: t('scoreLabel'), value: score },
+                        { label: t('correct'), value: correctCount, valueClassName: 'text-success' },
+                        { label: t('online'), value: playerCount, valueClassName: 'text-primary' },
+                    ]}
+                />
 
                 <main className="container max-w-xl mx-auto px-4 py-6">
                     {/* Player info */}
@@ -347,7 +352,7 @@ export default function QuizPlayPage() {
                     {(status === 'question' || status === 'result') && currentQuestion && (
                         <Card className="card-elevated border-0 rounded-2xl overflow-hidden">
                             <CardHeader className="bg-gradient-to-b from-primary/5 to-transparent">
-                                <div className="flex items-center justify-between mb-4">
+                                <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
                                     <Badge variant="outline" className="text-sm">
                                         {t('question').replace('{current}', String(currentQuestion.number)).replace('{total}', String(currentQuestion.total_questions))}
                                     </Badge>
@@ -372,7 +377,7 @@ export default function QuizPlayPage() {
                                         <span className="w-8 h-8 rounded-lg bg-secondary flex items-center justify-center font-bold mr-3 flex-shrink-0">
                                             {String.fromCharCode(65 + option.id)}
                                         </span>
-                                        <span className="flex-1">{option.text}</span>
+                                        <span className="min-w-0 flex-1 break-words">{option.text}</span>
                                     </Button>
                                 ))}
 
@@ -415,7 +420,7 @@ export default function QuizPlayPage() {
                                 <div className="flex justify-center gap-8 mb-6">
                                     <div>
                                         <p className="text-3xl font-bold text-primary">{score}</p>
-                                        <p className="text-muted-foreground">{t('score').replace('{score}', '')}</p>
+                                        <p className="text-muted-foreground">{t('scoreLabel')}</p>
                                     </div>
                                     <div>
                                         <p className="text-3xl font-bold text-success">{correctCount}</p>

@@ -70,14 +70,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const isAuthenticated = !!user;
     const csrfToken = getCsrfToken();
 
-    // Fetch CSRF token РїСЂРё РЅР°Р»РёС‡РёРё РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ
+    // Keep the CSRF hash warm, but do not refetch it when we already have one.
     useEffect(() => {
-        if (user) {
+        if (user && !csrfToken) {
             fetchCsrfToken().catch(() => {
                 // Ignore CSRF fetch errors
             });
         }
-    }, [user]);
+    }, [user, csrfToken]);
 
     const login = useCallback(async (email: string, password: string) => {
         setIsAuthAction(true);
@@ -186,11 +186,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }, []);
 
     const getWsTicket = useCallback(async (): Promise<string> => {
-        if (!isAuthenticated) {
-            throw new Error('Not authenticated');
-        }
         return apiGetWsTicket();
-    }, [isAuthenticated]);
+    }, []);
 
     const updateProfile = useCallback(async (data: { username?: string; profile_picture?: string }) => {
         await apiUpdateProfile(data);

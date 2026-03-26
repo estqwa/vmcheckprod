@@ -47,6 +47,7 @@ export default function PlayScreen() {
     isEliminated,
     score,
     correctCount,
+    playerCount,
     feedback,
     revealedCorrectOption,
     adBreak,
@@ -249,9 +250,9 @@ export default function PlayScreen() {
                 <Text style={[styles.scoreValue, styles.scoreValueSuccess]}>{correctCount}</Text>
                 <Text style={styles.scoreLabel}>{t('quiz.correct')}</Text>
               </View>
-              <View style={styles.scoreItem} accessibilityLabel={`${t('quiz.questionShort')}: ${question.current}/${question.total}`}>
-                <Text style={styles.scoreValue}>{question.current}/{question.total}</Text>
-                <Text style={styles.scoreLabel}>{t('quiz.questionShort')}</Text>
+              <View style={styles.scoreItem} accessibilityLabel={`${t('quiz.online')}: ${playerCount}`}>
+                <Text style={styles.scoreValue}>{playerCount}</Text>
+                <Text style={styles.scoreLabel}>{t('quiz.online')}</Text>
               </View>
             </View>
 

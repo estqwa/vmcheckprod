@@ -31,6 +31,8 @@
         "winner": "Вы победитель!",
         "gameOver": "Игра окончена",
         "score": "Ваш счёт: {score}",
+        "scoreTitle": "Ваш счёт",
+        "scoreLabel": "Счёт",
         "noActiveQuiz": "Нет активной викторины",
         "nextQuiz": "Следующая викторина: {date}",
         "prizeFund": "Призовой фонд",

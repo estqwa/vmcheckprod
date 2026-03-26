@@ -31,6 +31,8 @@
         "winner": "Сіз жеңімпаз!",
         "gameOver": "Ойын аяқталды",
         "score": "Сіздің ұпайыңыз: {score}",
+        "scoreTitle": "Сіздің ұпайыңыз",
+        "scoreLabel": "Ұпай",
         "noActiveQuiz": "Белсенді викторина жоқ",
         "nextQuiz": "Келесі викторина: {date}",
         "prizeFund": "Жүлде қоры",

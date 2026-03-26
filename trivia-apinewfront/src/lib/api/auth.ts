@@ -15,6 +15,7 @@ import {
 
 // Lock to prevent multiple simultaneous CSRF fetch requests
 let csrfFetchPromise: Promise<string> | null = null;
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
 
 
 
@@ -80,7 +81,7 @@ export async function logoutAll(): Promise<void> {
 export async function refreshTokens(): Promise<{ csrfToken: string }> {
     const csrfToken = getCsrfToken();
 
-    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/refresh`, {
+    const response = await fetch(`${API_URL}/api/auth/refresh`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',

@@ -504,8 +504,9 @@ func (m *TokenManager) SetAccessTokenCookie(w http.ResponseWriter, accessToken s
 // SetCSRFSecretCookie устанавливает CSRF-секрет в HttpOnly куку
 // Добавлено: Новая функция для установки куки секрета
 func (m *TokenManager) SetCSRFSecretCookie(w http.ResponseWriter, csrfSecret string) {
-	// Время жизни куки секрета должно совпадать со временем жизни access токена
-	maxAge := int(m.accessTokenExpiry.Seconds())
+	// CSRF secret is required for the refresh flow, so it must live at least as
+	// long as the refresh token cookie instead of expiring with the access token.
+	maxAge := int(m.refreshTokenExpiry.Seconds())
 
 	// Используем __Host- префикс только если cookieSecure=true (т.е. в production)
 	cookieName := CSRFSecretCookie
